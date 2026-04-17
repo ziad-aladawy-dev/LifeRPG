@@ -72,8 +72,16 @@ export class SkillsPanel {
 			cls: "life-rpg-skill-level",
 		});
 
+		const actions = cardHeader.createDiv({ cls: "life-rpg-skill-actions", attr: { style: "display: flex; gap: 4px;" } });
+
+		// Edit button
+		const editBtn = actions.createEl("button", {
+			text: "✏️",
+			cls: "life-rpg-btn-icon",
+		});
+		
 		// Delete button
-		const deleteBtn = cardHeader.createEl("button", {
+		const deleteBtn = actions.createEl("button", {
 			text: "✕",
 			cls: "life-rpg-btn-icon life-rpg-btn-danger-subtle",
 		});
@@ -97,6 +105,75 @@ export class SkillsPanel {
 			text: `${formatNumber(skill.xp)} / ${formatNumber(skill.xpToNextLevel)} XP`,
 			cls: "life-rpg-skill-xp-text",
 		});
+
+		editBtn.addEventListener("click", () => {
+			this.showEditSkillInput(skill, card, cardHeader, barSection);
+		});
+	}
+
+	private showEditSkillInput(skill: Skill, card: HTMLElement, header: HTMLElement, bar: HTMLElement): void {
+		header.style.display = "none";
+		bar.style.display = "none";
+
+		const form = card.createDiv({ cls: "life-rpg-add-skill-form" });
+
+		const nameInput = form.createEl("input", {
+			type: "text",
+			value: skill.name,
+			placeholder: "Skill name",
+			cls: "life-rpg-input",
+		});
+
+		const iconInput = form.createEl("input", {
+			type: "text",
+			value: skill.icon,
+			cls: "life-rpg-input life-rpg-input-small",
+		});
+		iconInput.style.width = "120px";
+
+		// Attribute Selector
+		const attrSelect = form.createEl("select", { cls: "life-rpg-input life-rpg-input-small" });
+		attrSelect.style.width = "100px";
+		const attrs = [
+			{text: "🦾 Strength", value: Attribute.STR},
+			{text: "🧠 Intelligence", value: Attribute.INT},
+			{text: "🫀 Constitution", value: Attribute.CON},
+			{text: "👑 Charisma", value: Attribute.CHA}
+		];
+		for (const a of attrs) {
+			const option = attrSelect.createEl("option", { text: a.text, value: a.value });
+			if (a.value === skill.attribute) option.selected = true;
+		}
+
+		const btnGroup = form.createDiv({ cls: "life-rpg-btn-group" });
+		const saveBtn = btnGroup.createEl("button", {
+			text: "Save",
+			cls: "life-rpg-btn life-rpg-btn-primary",
+		});
+		const cancelBtn = btnGroup.createEl("button", {
+			text: "Cancel",
+			cls: "life-rpg-btn",
+		});
+
+		saveBtn.addEventListener("click", () => {
+			const name = nameInput.value.trim();
+			if (name) {
+				const icon = iconInput.value.trim() || "star";
+				this.stateManager.updateSkill(skill.id, {
+					name,
+					icon,
+					attribute: attrSelect.value as Attribute,
+				});
+			}
+		});
+
+		cancelBtn.addEventListener("click", () => {
+			form.remove();
+			header.style.display = "flex";
+			bar.style.display = "flex";
+		});
+
+		nameInput.focus();
 	}
 
 	private showAddSkillInput(): void {

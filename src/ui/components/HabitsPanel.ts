@@ -186,6 +186,15 @@ export class HabitsPanel {
 			}
 		}
 
+		// Edit button
+		const editBtn = actions.createEl("button", {
+			text: "✏️",
+			cls: "life-rpg-btn-icon",
+		});
+		editBtn.addEventListener("click", () => {
+			this.showEditHabitForm(habit, card, cardContent, actions);
+		});
+
 		// Delete button
 		const deleteBtn = actions.createEl("button", {
 			text: "✕",
@@ -268,6 +277,80 @@ export class HabitsPanel {
 				this.stateManager.addLogEntry(entry);
 			}
 		}
+	}
+
+	private showEditHabitForm(habit: Habit, card: HTMLElement, cardContent: HTMLElement, actions: HTMLElement): void {
+		cardContent.style.display = "none";
+		actions.style.display = "none";
+
+		const form = card.createDiv({ cls: "life-rpg-add-habit-form life-rpg-form" });
+
+		// Name
+		const nameInput = form.createEl("input", {
+			type: "text",
+			value: habit.name,
+			placeholder: "Habit name",
+			cls: "life-rpg-input",
+		});
+
+		// Icon
+		const iconInput = form.createEl("input", {
+			type: "text",
+			value: habit.icon,
+			cls: "life-rpg-input life-rpg-input-small",
+		});
+		iconInput.style.width = "120px";
+
+		// Type
+		const typeRow = form.createDiv({ cls: "life-rpg-form-row" });
+		typeRow.createEl("label", { text: "Type:" });
+		const typeSelect = typeRow.createEl("select", { cls: "life-rpg-select" });
+		const optGood = typeSelect.createEl("option", { value: "good", text: "✅ Good Habit (+XP/GP)" });
+		const optBad = typeSelect.createEl("option", { value: "bad", text: "⛔ Bad Habit (-HP)" });
+		if (habit.type === "good") optGood.selected = true;
+		else optBad.selected = true;
+
+		// Difficulty
+		const diffRow = form.createDiv({ cls: "life-rpg-form-row" });
+		diffRow.createEl("label", { text: "Difficulty:" });
+		const diffSelect = diffRow.createEl("select", { cls: "life-rpg-select" });
+		const optE = diffSelect.createEl("option", { value: "1", text: "⭐ Easy" });
+		const optM = diffSelect.createEl("option", { value: "2", text: "⭐⭐ Medium" });
+		const optH = diffSelect.createEl("option", { value: "3", text: "⭐⭐⭐ Hard" });
+		if (habit.difficulty === 1) optE.selected = true;
+		if (habit.difficulty === 2) optM.selected = true;
+		if (habit.difficulty === 3) optH.selected = true;
+
+		// Buttons
+		const btnGroup = form.createDiv({ cls: "life-rpg-btn-group" });
+		const saveBtn = btnGroup.createEl("button", {
+			text: "Save",
+			cls: "life-rpg-btn life-rpg-btn-primary",
+		});
+		const cancelBtn = btnGroup.createEl("button", {
+			text: "Cancel",
+			cls: "life-rpg-btn",
+		});
+
+		saveBtn.addEventListener("click", () => {
+			const name = nameInput.value.trim();
+			if (!name) return;
+
+			this.stateManager.updateHabit(habit.id, {
+				name,
+				icon: iconInput.value.trim() || (typeSelect.value === "good" ? "check" : "x"),
+				type: typeSelect.value as "good" | "bad",
+				difficulty: parseInt(diffSelect.value, 10) as Difficulty,
+			});
+		});
+
+		cancelBtn.addEventListener("click", () => {
+			form.remove();
+			cardContent.style.display = "";
+			actions.style.display = "";
+		});
+
+		nameInput.focus();
 	}
 
 	private showAddHabitForm(skills: Skill[]): void {
