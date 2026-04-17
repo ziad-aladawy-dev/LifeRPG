@@ -3,6 +3,7 @@
 // Chronological, color-coded event log with filtering.
 // ============================================================================
 
+import { setIcon } from "obsidian";
 import { type EventLogEntry, EventType } from "../../types";
 import { type StateManager } from "../../state/StateManager";
 import { formatRelativeTime } from "../../utils/formatter";
@@ -39,20 +40,24 @@ export class ActivityLogPanel {
 
 		// Filters
 		const filters = el.createDiv({ cls: "life-rpg-log-filters" });
-		const filterOptions: { label: string; value: EventType | "all" }[] = [
+		const filterOptions: { label: string; icon?: string; value: EventType | "all" }[] = [
 			{ label: "All", value: "all" },
-			{ label: "✅ Tasks", value: EventType.TaskComplete },
-			{ label: "🔄 Habits", value: EventType.HabitGood },
-			{ label: "⚔️ Boss", value: EventType.BossDamageDealt },
-			{ label: "🛒 Rewards", value: EventType.RewardPurchase },
-			{ label: "⬆️ Level Up", value: EventType.LevelUp },
+			{ label: "Tasks", icon: "check-circle", value: EventType.TaskComplete },
+			{ label: "Habits", icon: "refresh-cw", value: EventType.HabitGood },
+			{ label: "Boss", icon: "swords", value: EventType.BossDamageDealt },
+			{ label: "Rewards", icon: "shopping-cart", value: EventType.RewardPurchase },
+			{ label: "Level Up", icon: "arrow-up-circle", value: EventType.LevelUp },
 		];
 
 		for (const opt of filterOptions) {
 			const btn = filters.createEl("button", {
-				text: opt.label,
 				cls: `life-rpg-filter-btn ${this.activeFilter === opt.value ? "life-rpg-filter-active" : ""}`,
 			});
+			if (opt.icon) {
+				const iconEl = btn.createEl("span", { cls: "life-rpg-filter-icon" });
+				setIcon(iconEl, opt.icon);
+			}
+			btn.createEl("span", { text: opt.label });
 			btn.addEventListener("click", () => {
 				this.activeFilter = opt.value;
 				this.render(this.stateManager.getEventLog());

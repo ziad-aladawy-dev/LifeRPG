@@ -3,6 +3,7 @@
 // Displays the reward store where users spend GP on custom rewards.
 // ============================================================================
 
+import { setIcon } from "obsidian";
 import { type Reward } from "../../types";
 import { type StateManager } from "../../state/StateManager";
 import { processGpSpend } from "../../engine/GameEngine";
@@ -63,10 +64,14 @@ export class RewardsPanel {
 		});
 
 		// Icon
-		card.createEl("div", {
-			text: reward.icon,
+		const iconEl = card.createEl("div", {
 			cls: "life-rpg-reward-icon",
 		});
+		if (/^[a-z0-9-]+$/.test(reward.icon)) {
+			setIcon(iconEl, reward.icon);
+		} else {
+			iconEl.setText(reward.icon);
+		}
 
 		// Name
 		card.createEl("div", {
@@ -165,10 +170,11 @@ export class RewardsPanel {
 
 		const iconInput = row.createEl("input", {
 			type: "text",
-			placeholder: "Emoji (e.g., 🎮)",
+			placeholder: "Icon (e.g., 'gamepad-2' or 🎮)",
 			cls: "life-rpg-input life-rpg-input-small",
 		});
-		iconInput.style.width = "80px";
+		iconInput.style.width = "120px";
+		iconInput.title = "Can be an emoji or a Lucide icon name like 'gamepad-2', 'coffee', 'tv'";
 
 		const costInput = row.createEl("input", {
 			type: "number",
@@ -197,7 +203,7 @@ export class RewardsPanel {
 				name,
 				description: descInput.value.trim(),
 				cost,
-				icon: iconInput.value.trim() || "🎁",
+				icon: iconInput.value.trim() || "gift",
 				purchaseCount: 0,
 			});
 			form.remove();

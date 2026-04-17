@@ -3,7 +3,7 @@
 // Main sidebar ItemView with tabbed navigation across all panels.
 // ============================================================================
 
-import { ItemView, WorkspaceLeaf } from "obsidian";
+import { ItemView, WorkspaceLeaf, setIcon } from "obsidian";
 import { VIEW_TYPE_CHARACTER_SHEET } from "../constants";
 import { type StateManager } from "../state/StateManager";
 import { type GameState } from "../types";
@@ -24,13 +24,13 @@ interface TabDefinition {
 }
 
 const TABS: TabDefinition[] = [
-	{ id: "stats", label: "Stats", icon: "⚔️" },
-	{ id: "quests", label: "Quests", icon: "📜" },
-	{ id: "skills", label: "Skills", icon: "📊" },
-	{ id: "habits", label: "Habits", icon: "🔄" },
-	{ id: "rewards", label: "Store", icon: "🏪" },
-	{ id: "boss", label: "Boss", icon: "🐉" },
-	{ id: "log", label: "Log", icon: "📜" },
+	{ id: "stats", label: "Stats", icon: "sword" },
+	{ id: "quests", label: "Quests", icon: "scroll" },
+	{ id: "skills", label: "Skills", icon: "bar-chart" },
+	{ id: "habits", label: "Habits", icon: "refresh-cw" },
+	{ id: "rewards", label: "Store", icon: "shopping-cart" },
+	{ id: "boss", label: "Boss", icon: "skull" },
+	{ id: "log", label: "Log", icon: "list" },
 ];
 
 export class CharacterSheetView extends ItemView {
@@ -110,7 +110,10 @@ export class CharacterSheetView extends ItemView {
 				cls: `life-rpg-tab-btn ${this.activeTab === tab.id ? "life-rpg-tab-active" : ""}`,
 			});
 			tabBtn.setAttribute("data-tab", tab.id);
-			tabBtn.createEl("span", { text: tab.icon, cls: "life-rpg-tab-icon" });
+
+			const iconEl = tabBtn.createEl("span", { cls: "life-rpg-tab-icon" });
+			setIcon(iconEl, tab.icon);
+
 			tabBtn.createEl("span", { text: tab.label, cls: "life-rpg-tab-label" });
 
 			tabBtn.addEventListener("click", () => {
@@ -224,18 +227,16 @@ export class CharacterSheetView extends ItemView {
 		const el = ribbon as HTMLElement;
 
 		const items = [
-			{ icon: "🏅", text: `Lv.${char.level}` },
-			{ icon: "❤️", text: `${char.hp}/${char.maxHp}` },
-			{ icon: "✨", text: `${char.xp}/${char.xpToNextLevel}` },
-			{ icon: "💰", text: `${char.gp}` },
+			{ icon: "medal", text: `Lv.${char.level}` },
+			{ icon: "heart", text: `${char.hp}/${char.maxHp}` },
+			{ icon: "sparkles", text: `${char.xp}/${char.xpToNextLevel}` },
+			{ icon: "coins", text: `${char.gp}` },
 		];
 
 		for (const item of items) {
 			const span = el.createEl("span", { cls: "life-rpg-ribbon-item" });
-			span.createEl("span", {
-				text: item.icon,
-				cls: "life-rpg-ribbon-icon",
-			});
+			const iconEl = span.createEl("span", { cls: "life-rpg-ribbon-icon" });
+			setIcon(iconEl, item.icon);
 			span.createEl("span", {
 				text: item.text,
 				cls: "life-rpg-ribbon-value",

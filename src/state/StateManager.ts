@@ -86,6 +86,10 @@ export class StateManager {
 		if (!this.state.character.attributes) {
 			this.state.character.attributes = JSON.parse(JSON.stringify(DEFAULT_ATTRIBUTES));
 		}
+		// Migrate missing character profile info
+		if (!this.state.character.name) this.state.character.name = "Hero";
+		if (!this.state.character.className) this.state.character.className = "Adventurer";
+		if (!this.state.character.avatarUrl) this.state.character.avatarUrl = "⚔️";
 	}
 
 	/** Save state + settings to data.json (debounced) */

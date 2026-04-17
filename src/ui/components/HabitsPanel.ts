@@ -3,6 +3,7 @@
 // Renders good and bad habits with log buttons and streak tracking.
 // ============================================================================
 
+import { setIcon } from "obsidian";
 import { type Habit, type Skill, Difficulty } from "../../types";
 import { type StateManager } from "../../state/StateManager";
 import { logGoodHabit, logBadHabit, resolveOutstandingHabit, undoHabit } from "../../engine/HabitManager";
@@ -77,10 +78,16 @@ export class HabitsPanel {
 
 		// Icon + Name
 		const nameRow = cardContent.createDiv({ cls: "life-rpg-habit-name-row" });
-		nameRow.createEl("span", {
-			text: habit.icon,
+		const iconEl = nameRow.createEl("span", {
 			cls: "life-rpg-habit-icon",
 		});
+		// Check if it's an obsidian icon (doesn't contain emoji/special char)
+		if (/^[a-z0-9-]+$/.test(habit.icon)) {
+			setIcon(iconEl, habit.icon);
+		} else {
+			iconEl.setText(habit.icon);
+		}
+
 		nameRow.createEl("span", {
 			text: habit.name,
 			cls: "life-rpg-habit-name",
@@ -95,7 +102,7 @@ export class HabitsPanel {
 		if (habit.type === "good") {
 			if (habit.streak > 0) {
 				infoRow.createEl("span", {
-					text: `🔥 ${habit.streak} day streak`,
+				text: `🔥 ${habit.streak} streak`,
 					cls: "life-rpg-habit-streak",
 				});
 			}
@@ -105,14 +112,29 @@ export class HabitsPanel {
 			const gpGain = Math.round(baseReward.gp * bonus);
 			
 			infoRow.createEl("span", {
-				text: `✨ +${xpGain} XP, +${gpGain} GP`,
+				text: `+${xpGain} XP, +${gpGain} GP`,
 				cls: "life-rpg-habit-reward",
 			});
 		} else {
 			infoRow.createEl("span", {
-				text: `💔 -${baseReward.hpDamage} HP`,
+				text: `-${baseReward.hpDamage} HP`,
 				cls: "life-rpg-habit-penalty",
 			});
+		}
+
+		// Add last completed date if available
+		const dateContainer = infoRow.createEl("span", {
+			cls: "life-rpg-habit-date",
+		});
+		if (habit.lastCompleted) {
+			const completedToday = new Date(habit.lastCompleted).toDateString() === new Date().toDateString();
+			const dateStr = completedToday ? "Today" : new Date(habit.lastCompleted).toLocaleDateString(undefined, {
+				month: "short",
+				day: "numeric",
+			});
+			dateContainer.setText(`🗓️ ${dateStr}`);
+		} else {
+			dateContainer.setText(`🗓️ Never`);
 		}
 
 		// Action buttons
@@ -264,10 +286,11 @@ export class HabitsPanel {
 		// Icon
 		const iconInput = form.createEl("input", {
 			type: "text",
-			placeholder: "Emoji (e.g., 🧘)",
+			placeholder: "Icon (e.g., 'check' or 🧘)",
 			cls: "life-rpg-input life-rpg-input-small",
 		});
-		iconInput.style.width = "80px";
+		iconInput.style.width = "120px";
+		iconInput.title = "Can be an emoji or a Lucide icon name like 'check', 'x', 'heart'";
 
 		// Type
 		const typeRow = form.createDiv({ cls: "life-rpg-form-row" });
@@ -302,7 +325,7 @@ export class HabitsPanel {
 			const habit: Habit = {
 				id: generateId(),
 				name,
-				icon: iconInput.value.trim() || (typeSelect.value === "good" ? "✅" : "⛔"),
+				icon: iconInput.value.trim() || (typeSelect.value === "good" ? "check" : "x"),
 				type: typeSelect.value as "good" | "bad",
 				difficulty: parseInt(diffSelect.value, 10) as Difficulty,
 				skillId: null,

@@ -104,13 +104,13 @@ export class QuestsPanel {
 				badgesRow.createEl("span", { text: diffText, cls: `life-rpg-quest-badge ${diffClass}` });
 				
 				if (metadata.skillId) {
-					badgesRow.createEl("span", { text: `✨ ${metadata.skillId}`, cls: `life-rpg-quest-badge life-rpg-badge-skill` });
+					badgesRow.createEl("span", { text: `★ ${metadata.skillId}`, cls: `life-rpg-quest-badge life-rpg-badge-skill` });
 				}
 				
 				// Reward Preview
 				const reward = calculateTaskReward(metadata.difficulty, settings, character.attributes, task.isSubtask);
-				badgesRow.createEl("span", { text: `✨ +${reward.xp} XP`, cls: `life-rpg-quest-badge life-rpg-habit-reward` });
-				badgesRow.createEl("span", { text: `🪙 +${reward.gp} GP`, cls: `life-rpg-quest-badge life-rpg-habit-reward` });
+				badgesRow.createEl("span", { text: `+${reward.xp} XP`, cls: `life-rpg-quest-badge life-rpg-habit-reward` });
+				badgesRow.createEl("span", { text: `+${reward.gp} GP`, cls: `life-rpg-quest-badge life-rpg-habit-reward` });
 
 				if (metadata.deadline) {
 					const dlDateObj = new Date(metadata.deadline);

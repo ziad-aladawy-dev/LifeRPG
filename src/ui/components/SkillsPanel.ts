@@ -3,6 +3,7 @@
 // Renders skill list with individual XP progress bars.
 // ============================================================================
 
+import { setIcon } from "obsidian";
 import { type Skill, Attribute } from "../../types";
 import { formatNumber, percentage } from "../../utils/formatter";
 import { generateId, xpThresholdForSkillLevel } from "../../constants";
@@ -50,10 +51,16 @@ export class SkillsPanel {
 
 		const cardHeader = card.createDiv({ cls: "life-rpg-skill-header" });
 		const info = cardHeader.createDiv({ cls: "life-rpg-skill-info" });
-		info.createEl("span", {
-			text: `${skill.icon} ${skill.name}`,
+		const nameSpan = info.createEl("span", {
 			cls: "life-rpg-skill-name",
 		});
+		const iconEl = nameSpan.createEl("span", { cls: "life-rpg-skill-icon" });
+		if (/^[a-z0-9-]+$/.test(skill.icon)) {
+			setIcon(iconEl, skill.icon);
+		} else {
+			iconEl.setText(skill.icon);
+		}
+		nameSpan.createEl("span", { text: ` ${skill.name}` });
 		
 		const attrDisplayMap: Record<string, string> = {
 			str: '🦾', int: '🧠', con: '🫀', cha: '👑'
@@ -108,10 +115,11 @@ export class SkillsPanel {
 
 		const iconInput = form.createEl("input", {
 			type: "text",
-			placeholder: "Emoji icon (e.g., 💻)",
+			placeholder: "Icon (e.g., 'code' or 💻)",
 			cls: "life-rpg-input life-rpg-input-small",
 		});
-		iconInput.style.width = "80px";
+		iconInput.style.width = "120px";
+		iconInput.title = "Can be an emoji or a Lucide icon name like 'code', 'book', 'dumbbell'";
 
 		// Attribute Selector
 		const attrSelect = form.createEl("select", { cls: "life-rpg-input life-rpg-input-small" });
@@ -134,7 +142,7 @@ export class SkillsPanel {
 		saveBtn.addEventListener("click", () => {
 			const name = nameInput.value.trim();
 			if (name) {
-				const icon = iconInput.value.trim() || "⭐";
+				const icon = iconInput.value.trim() || "star";
 				this.stateManager.addSkill({
 					id: generateId(),
 					name,

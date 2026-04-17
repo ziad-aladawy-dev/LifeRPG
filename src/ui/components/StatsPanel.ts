@@ -3,6 +3,7 @@
 // Renders the character's HP bar, XP bar, GP balance, and level.
 // ============================================================================
 
+import { setIcon } from "obsidian";
 import { type CharacterState, type AttributeState } from "../../types";
 import { formatNumber, percentage } from "../../utils/formatter";
 
@@ -19,17 +20,24 @@ export class StatsPanel {
 
 		// Character Header
 		const header = el.createDiv({ cls: "life-rpg-char-header" });
-		header.createEl("div", {
-			cls: "life-rpg-char-avatar",
-			text: "⚔️",
-		});
+		const avatarContainer = header.createDiv({ cls: "life-rpg-char-avatar" });
+
+		if (character.avatarUrl && character.avatarUrl.startsWith("http")) {
+			avatarContainer.createEl("img", {
+				attr: { src: character.avatarUrl, alt: "Avatar" },
+				cls: "life-rpg-char-avatar-img"
+			});
+		} else {
+			avatarContainer.setText(character.avatarUrl || "⚔️");
+		}
+
 		const headerInfo = header.createDiv({ cls: "life-rpg-char-info" });
 		headerInfo.createEl("h3", {
-			text: `Level ${character.level} Hero`,
+			text: `Level ${character.level} ${character.name}`,
 			cls: "life-rpg-char-title",
 		});
 		headerInfo.createEl("span", {
-			text: `Adventurer`,
+			text: character.className,
 			cls: "life-rpg-char-class",
 		});
 
@@ -71,20 +79,21 @@ export class StatsPanel {
 
 		// GP Display
 		const gpSection = el.createDiv({ cls: "life-rpg-gp-section" });
-		gpSection.createEl("span", { text: "💰", cls: "life-rpg-gp-icon" });
+		const gpIcon = gpSection.createEl("span", { cls: "life-rpg-gp-icon" });
+		setIcon(gpIcon, "coins");
 		gpSection.createEl("span", {
 			text: `${formatNumber(character.gp)} Gold`,
 			cls: "life-rpg-gp-value",
 		});
 
 		const statsGrid = el.createDiv({ cls: "life-rpg-quick-stats" });
-		this.createQuickStat(statsGrid, "Level", character.level.toString(), "🏅");
-		this.createQuickStat(statsGrid, "Max HP", character.maxHp.toString(), "🛡️");
+		this.createQuickStat(statsGrid, "Level", character.level.toString(), "medal");
+		this.createQuickStat(statsGrid, "Max HP", character.maxHp.toString(), "shield");
 		this.createQuickStat(
 			statsGrid,
 			"Next Lv",
 			`${formatNumber(character.xpToNextLevel - character.xp)} XP`,
-			"⬆️"
+			"arrow-up-circle"
 		);
 
 		// Core Attributes Grid
@@ -93,10 +102,10 @@ export class StatsPanel {
 		
 		const attrGrid = attrSection.createDiv({ cls: "life-rpg-attributes-grid" });
 		
-		this.createAttributeCard(attrGrid, "Strength", "STR", "🦾", character.attributes.str);
-		this.createAttributeCard(attrGrid, "Intelligence", "INT", "🧠", character.attributes.int);
-		this.createAttributeCard(attrGrid, "Constitution", "CON", "🫀", character.attributes.con);
-		this.createAttributeCard(attrGrid, "Charisma", "CHA", "👑", character.attributes.cha);
+		this.createAttributeCard(attrGrid, "Strength", "STR", "sword", character.attributes.str);
+		this.createAttributeCard(attrGrid, "Intelligence", "INT", "brain", character.attributes.int);
+		this.createAttributeCard(attrGrid, "Constitution", "CON", "heart-pulse", character.attributes.con);
+		this.createAttributeCard(attrGrid, "Charisma", "CHA", "crown", character.attributes.cha);
 	}
 
 	private createAttributeCard(parent: HTMLElement, name: string, shortName: string, icon: string, attr: AttributeState): void {
@@ -104,7 +113,8 @@ export class StatsPanel {
 		
 		const header = card.createDiv({ cls: "life-rpg-attr-header" });
 		const title = header.createDiv({ cls: "life-rpg-attr-title" });
-		title.createEl("span", { text: icon, cls: "life-rpg-attr-icon" });
+		const iconEl = title.createEl("span", { cls: "life-rpg-attr-icon" });
+		setIcon(iconEl, icon);
 		title.createEl("span", { text: name, cls: "life-rpg-attr-name" });
 		
 		header.createEl("span", { text: `Lv.${attr.level}`, cls: "life-rpg-attr-level" });
@@ -121,7 +131,8 @@ export class StatsPanel {
 		icon: string
 	): void {
 		const stat = parent.createDiv({ cls: "life-rpg-quick-stat" });
-		stat.createEl("span", { text: icon, cls: "life-rpg-quick-stat-icon" });
+		const iconEl = stat.createEl("span", { cls: "life-rpg-quick-stat-icon" });
+		setIcon(iconEl, icon);
 		stat.createEl("span", { text: value, cls: "life-rpg-quick-stat-value" });
 		stat.createEl("span", { text: label, cls: "life-rpg-quick-stat-label" });
 	}

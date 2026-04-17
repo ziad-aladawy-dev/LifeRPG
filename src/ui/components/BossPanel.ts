@@ -3,6 +3,7 @@
 // Displays active boss fights, dungeon progress, and boss selection.
 // ============================================================================
 
+import { setIcon } from "obsidian";
 import { type Boss, type Dungeon } from "../../types";
 import { type StateManager } from "../../state/StateManager";
 import { formatNumber, percentage } from "../../utils/formatter";
@@ -69,10 +70,15 @@ export class BossPanel {
 
 		// Boss header
 		const bossHeader = bossCard.createDiv({ cls: "life-rpg-boss-header" });
-		bossHeader.createEl("span", {
-			text: boss.icon,
+		const iconEl = bossHeader.createEl("span", {
 			cls: "life-rpg-boss-icon",
 		});
+		if (/^[a-z0-9-]+$/.test(boss.icon)) {
+			setIcon(iconEl, boss.icon);
+		} else {
+			iconEl.setText(boss.icon);
+		}
+
 		const bossInfo = bossHeader.createDiv({ cls: "life-rpg-boss-info" });
 		bossInfo.createEl("h4", { text: boss.name, cls: "life-rpg-boss-name" });
 		bossInfo.createEl("p", {
@@ -128,10 +134,14 @@ export class BossPanel {
 		for (const template of BOSS_TEMPLATES) {
 			const card = grid.createDiv({ cls: "life-rpg-boss-select-card" });
 
-			card.createEl("div", {
-				text: template.icon,
+			const iconEl = card.createEl("div", {
 				cls: "life-rpg-boss-select-icon",
 			});
+			if (/^[a-z0-9-]+$/.test(template.icon)) {
+				setIcon(iconEl, template.icon);
+			} else {
+				iconEl.setText(template.icon);
+			}
 
 			const info = card.createDiv({ cls: "life-rpg-select-card-info" });
 			info.createEl("div", {
@@ -158,7 +168,13 @@ export class BossPanel {
 		const section = parent.createDiv({ cls: "life-rpg-active-dungeon" });
 
 		const header = section.createDiv({ cls: "life-rpg-dungeon-header" });
-		header.createEl("span", { text: dungeon.icon, cls: "life-rpg-dungeon-icon" });
+		const iconEl = header.createEl("span", { cls: "life-rpg-dungeon-icon" });
+		if (/^[a-z0-9-]+$/.test(dungeon.icon)) {
+			setIcon(iconEl, dungeon.icon);
+		} else {
+			iconEl.setText(dungeon.icon);
+		}
+
 		header.createEl("h4", { text: dungeon.name, cls: "life-rpg-dungeon-name" });
 
 		// Overall progress bar
@@ -212,10 +228,14 @@ export class BossPanel {
 		for (const template of DUNGEON_TEMPLATES) {
 			const card = grid.createDiv({ cls: "life-rpg-dungeon-select-card" });
 
-			card.createEl("div", {
-				text: template.icon,
+			const iconEl = card.createEl("div", {
 				cls: "life-rpg-dungeon-select-icon",
 			});
+			if (/^[a-z0-9-]+$/.test(template.icon)) {
+				setIcon(iconEl, template.icon);
+			} else {
+				iconEl.setText(template.icon);
+			}
 
 			const info = card.createDiv({ cls: "life-rpg-select-card-info" });
 			info.createEl("div", {

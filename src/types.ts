@@ -59,6 +59,9 @@ export interface CharacterAttributes {
 
 /** The player's core character statistics */
 export interface CharacterState {
+	name: string;
+	className: string;
+	avatarUrl: string; // Used to load picture, defaults to emoji
 	level: number;
 	hp: number;
 	maxHp: number;

@@ -55,6 +55,9 @@ export const DEFAULT_ATTRIBUTES: CharacterAttributes = {
 };
 
 export const DEFAULT_CHARACTER: CharacterState = {
+	name: "Hero",
+	className: "Adventurer",
+	avatarUrl: "⚔️",
 	level: 1,
 	hp: 100,
 	maxHp: 100,

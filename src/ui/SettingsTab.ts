@@ -29,6 +29,50 @@ export class LifeRpgSettingsTab extends PluginSettingTab {
 		});
 
 		// ---------------------------------------------------------------
+		// Character Profile
+		// ---------------------------------------------------------------
+		containerEl.createEl("h2", { text: "Character Profile" });
+
+		new Setting(containerEl)
+			.setName("Character Name")
+			.setDesc("What is your hero's name?")
+			.addText((text) =>
+				text
+					.setPlaceholder("Hero")
+					.setValue(this.plugin.stateManager.getCharacter().name)
+					.onChange((value) => {
+						const name = value.trim() || "Hero";
+						this.plugin.stateManager.updateCharacter({ name });
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Character Class")
+			.setDesc("Choose your class (e.g., Mage, Warrior, Rogue, Scholar).")
+			.addText((text) =>
+				text
+					.setPlaceholder("Adventurer")
+					.setValue(this.plugin.stateManager.getCharacter().className)
+					.onChange((value) => {
+						const className = value.trim() || "Adventurer";
+						this.plugin.stateManager.updateCharacter({ className });
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Character Avatar")
+			.setDesc("An emoji or an image URL (http...) for your character.")
+			.addText((text) =>
+				text
+					.setPlaceholder("⚔️ or https://...")
+					.setValue(this.plugin.stateManager.getCharacter().avatarUrl)
+					.onChange((value) => {
+						const avatarUrl = value.trim() || "⚔️";
+						this.plugin.stateManager.updateCharacter({ avatarUrl });
+					})
+			);
+
+		// ---------------------------------------------------------------
 		// XP & GP Base Values
 		// ---------------------------------------------------------------
 		containerEl.createEl("h2", { text: "Experience & Gold" });
