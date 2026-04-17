@@ -1,0 +1,118 @@
+--- src/engine/GameEngine.ts
++++ src/engine/GameEngine.ts
+@@ -201,6 +201,7 @@
+	while (char.xp < 0 && char.level > 1) {
+		char.level--;
+		char.maxHp = Math.max(10, char.maxHp - hpPerLevel);
++		// Note: when reverting XP gain, maxHp is correctly decreased here.
+		if (char.hp > char.maxHp) char.hp = char.maxHp;
+		char.xpToNextLevel = xpThresholdForLevel(char.level);
+		char.xp += char.xpToNextLevel;
+@@ -355,7 +356,8 @@
+  */
+ export function processHpDamage(
+	character: CharacterState,
+-	amount: number
++	amount: number,
++	actualHpGain: number = 10
+ ): { character: CharacterState; logEntries: EventLogEntry[]; died: boolean } {
+	const logEntries: EventLogEntry[] = [];
+	let c = { ...character };
+@@ -367,6 +369,7 @@
+		c.gp = 0;
+		if (c.level > 1) {
+			c.level--;
++			c.maxHp = Math.max(10, c.maxHp - actualHpGain);
+			c.xpToNextLevel = xpThresholdForLevel(c.level);
+		}
+
+--- src/engine/HabitManager.ts
++++ src/engine/HabitManager.ts
+@@ -87,7 +88,9 @@
+	currentChar = processGpGain(currentChar, gpGain);
+
+	// Process character XP
+-	const xpResult = processXpGain(currentChar, xpGain, settings.hpPerLevel);
++	const conBonus = 10;
++	const actualHpGain = settings.hpPerLevel + (currentChar.attributes.con.level * conBonus);
++	const xpResult = processXpGain(currentChar, xpGain, actualHpGain);
+	currentChar = xpResult.character;
+	logEntries.push(...xpResult.logEntries);
+
+@@ -176,7 +179,15 @@
+	updatedHabit.hpPenalty = damage;
+
+	// Apply damage
+-	const hpResult = processHpDamage(currentChar, damage);
++	const conBonus = 10;
++	const actualHpGain = settings.hpPerLevel + (currentChar.attributes.con.level * conBonus);
++	const wasLevelGreaterThanOne = currentChar.level > 1;
++	const hpResult = processHpDamage(currentChar, damage, actualHpGain);
++	if (hpResult.died && wasLevelGreaterThanOne) {
++		updatedHabit.causedDeathLevelDown = true;
++	} else {
++		updatedHabit.causedDeathLevelDown = false;
++	}
+	currentChar = hpResult.character;
+	logEntries.push(...hpResult.logEntries);
+
+@@ -281,7 +292,9 @@
+		const gpGain = Math.round(baseReward.gp * bonus);
+
+		c = processGpGain(c, gpGain);
+-		const xpResult = processXpGain(c, xpGain, settings.hpPerLevel);
++		const conBonus = 10;
++		const actualHpGain = settings.hpPerLevel + (c.attributes.con.level * conBonus);
++		const xpResult = processXpGain(c, xpGain, actualHpGain);
+		c = xpResult.character;
+		logEntries.push(...xpResult.logEntries);
+
+@@ -313,7 +326,9 @@
+		const reward = calculateHabitReward("bad", h.difficulty, settings);
+
+		// Apply damage
+-		const hpResult = processHpDamage(c, reward.hpDamage);
++		const conBonus = 10;
++		const actualHpGain = settings.hpPerLevel + (c.attributes.con.level * conBonus);
++		const hpResult = processHpDamage(c, reward.hpDamage, actualHpGain);
+		c = hpResult.character;
+		if (hpResult.died) logEntries.push(...hpResult.logEntries);
+
+@@ -403,6 +418,14 @@
+		// Reverse Bad Habit (Heal the damage)
+		const hpToRestore = h.hpPenalty || 0;
+		const oldHp = c.hp;
++
++		if (h.causedDeathLevelDown) {
++			c.level++;
++			const conBonus = 10;
++			const actualHpGain = settings.hpPerLevel + (c.attributes.con.level * conBonus);
++			c.maxHp += actualHpGain;
++			c.xpToNextLevel = xpThresholdForLevel(c.level);
++		}
+		c.hp = Math.min(c.maxHp, c.hp + hpToRestore);
+
+		// Bad habit streaks for us were just counters, so we reduce it
+--- src/watchers/TaskWatcher.ts
++++ src/watchers/TaskWatcher.ts
+@@ -169,7 +169,9 @@
+		}
+
+		if (overdueCount > 0) {
+-			const hpResult = processHpDamage(char, damageDealt);
++			const conBonus = 10;
++			const actualHpGain = settings.hpPerLevel + (char.attributes.con.level * conBonus);
++			const hpResult = processHpDamage(char, damageDealt, actualHpGain);
+			char = hpResult.character;
+			died = hpResult.died;
+
+--- src/types.ts
++++ src/types.ts
+@@ -93,6 +93,7 @@
+	xpReward: number;
+	gpReward: number;
+	hpPenalty: number;
++	causedDeathLevelDown?: boolean;
+	outstandingDays: number;
+	lastEvaluatedDate: string | null; // ISO date string without time
+ }

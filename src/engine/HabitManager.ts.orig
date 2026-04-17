@@ -11,7 +11,7 @@ import {
 	type PluginSettings,
 	EventType,
 } from "../types";
-import { generateId, xpThresholdForLevel } from "../constants";
+import { generateId } from "../constants";
 import { getTodayStr, isSameDay } from "../utils/dateUtils";
 import {
 	calculateHabitReward,
@@ -61,12 +61,12 @@ export function logGoodHabit(
 			// Already completed today. Return early!
 			return { habit: updatedHabit, character: currentChar, skills: updatedSkills, logEntries };
 		}
-		
+
 		if ((updatedHabit.outstandingDays || 0) > 0) {
 			// Cannot log today's instance until backlogs are resolved
 			return { habit: updatedHabit, character: currentChar, skills: updatedSkills, logEntries };
 		}
-		
+
 		updatedHabit.streak++;
 	} else {
 		updatedHabit.streak = 1; // Reset streak
@@ -87,9 +87,7 @@ export function logGoodHabit(
 	currentChar = processGpGain(currentChar, gpGain);
 
 	// Process character XP
-	const conBonus = 10;
-	const actualHpGain = settings.hpPerLevel + (currentChar.attributes.con.level * conBonus);
-	const xpResult = processXpGain(currentChar, xpGain, actualHpGain);
+	const xpResult = processXpGain(currentChar, xpGain, settings.hpPerLevel);
 	currentChar = xpResult.character;
 	logEntries.push(...xpResult.logEntries);
 
@@ -152,7 +150,7 @@ export function logBadHabit(
 	let currentChar = { ...character };
 
 	const todayStr = new Date().toISOString().split("T")[0];
-	
+
 	// Check if already logged today
 	if (
 		updatedHabit.lastCompleted &&
@@ -175,15 +173,7 @@ export function logBadHabit(
 	updatedHabit.hpPenalty = damage;
 
 	// Apply damage
-	const conBonus = 10;
-	const actualHpGain = settings.hpPerLevel + (currentChar.attributes.con.level * conBonus);
-	const wasLevelGreaterThanOne = currentChar.level > 1;
-	const hpResult = processHpDamage(currentChar, damage, actualHpGain);
-	if (hpResult.died && wasLevelGreaterThanOne) {
-		updatedHabit.causedDeathLevelDown = true;
-	} else {
-		updatedHabit.causedDeathLevelDown = false;
-	}
+	const hpResult = processHpDamage(currentChar, damage);
 	currentChar = hpResult.character;
 	logEntries.push(...hpResult.logEntries);
 
@@ -219,7 +209,7 @@ export function evaluateDailyHabits(habits: Habit[]): Habit[] {
 
 	return habits.map((habit) => {
 		const h = { ...habit };
-		
+
 		if (!h.lastEvaluatedDate) {
 			h.lastEvaluatedDate = todayStr;
 			h.outstandingDays = 0;
@@ -238,15 +228,15 @@ export function evaluateDailyHabits(habits: Habit[]): Habit[] {
 			// If it's a good habit and it wasn't completed on exactly its lastEvaluatedDate
 			// Note: If lastCompleted === h.lastEvaluatedDate, they DID complete it that day,
 			// so they don't get penalized for the first day, but only for diffDays - 1.
-			
-			// Actually, a simpler robust way: You owe a completion for every day strictly between 
+
+			// Actually, a simpler robust way: You owe a completion for every day strictly between
 			// lastCompleted (or creation) and today.
-			
+
 			// If it's a "good" habit, they accumulate debt.
 			if (h.type === "good") {
 				// Base missed instance is every day passed
 				let missed = diffDays;
-				
+
 				// Did they complete it on the actual lastEvaluatedDate? Then that day is safe.
 				const lastCompStr = h.lastCompleted ? new Date(h.lastCompleted).toISOString().split("T")[0] : null;
 				if (lastCompStr === h.lastEvaluatedDate) {
@@ -291,9 +281,7 @@ export function resolveOutstandingHabit(
 		const gpGain = Math.round(baseReward.gp * bonus);
 
 		c = processGpGain(c, gpGain);
-		const conBonus = 10;
-		const actualHpGain = settings.hpPerLevel + (c.attributes.con.level * conBonus);
-		const xpResult = processXpGain(c, xpGain, actualHpGain);
+		const xpResult = processXpGain(c, xpGain, settings.hpPerLevel);
 		c = xpResult.character;
 		logEntries.push(...xpResult.logEntries);
 
@@ -315,16 +303,14 @@ export function resolveOutstandingHabit(
 			gpDelta: gpGain,
 			hpDelta: 0,
 		});
-		
+
 		h.streak++; // Retain and increment streak
 	} else {
 		// They failed it. Take damage, break streak entirely.
 		const reward = calculateHabitReward("bad", h.difficulty, settings);
-		
+
 		// Apply damage
-		const conBonus = 10;
-		const actualHpGain = settings.hpPerLevel + (c.attributes.con.level * conBonus);
-		const hpResult = processHpDamage(c, reward.hpDamage, actualHpGain);
+		const hpResult = processHpDamage(c, reward.hpDamage);
 		c = hpResult.character;
 		if (hpResult.died) logEntries.push(...hpResult.logEntries);
 
@@ -337,7 +323,7 @@ export function resolveOutstandingHabit(
 			gpDelta: 0,
 			hpDelta: -reward.hpDamage,
 		});
-		
+
 		h.streak = 0; // Streak totally wiped out
 	}
 
@@ -402,7 +388,7 @@ export function undoHabit(
 
 		// Decrement streak
 		h.streak = Math.max(0, h.streak - 1);
-		
+
 		logEntries.push({
 			id: generateId(),
 			timestamp: new Date().toISOString(),
@@ -416,16 +402,8 @@ export function undoHabit(
 		// Reverse Bad Habit (Heal the damage)
 		const hpToRestore = h.hpPenalty || 0;
 		const oldHp = c.hp;
-
-		if (h.causedDeathLevelDown) {
-			c.level++;
-			const conBonus = 10;
-			const actualHpGain = settings.hpPerLevel + (c.attributes.con.level * conBonus);
-			c.maxHp += actualHpGain;
-			c.xpToNextLevel = xpThresholdForLevel(c.level);
-		}
 		c.hp = Math.min(c.maxHp, c.hp + hpToRestore);
-		
+
 		// Bad habit streaks for us were just counters, so we reduce it
 		h.streak = Math.max(0, h.streak - 1);
 

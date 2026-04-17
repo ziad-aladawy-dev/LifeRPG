@@ -92,7 +92,6 @@ export interface Habit {
 	xpReward: number;
 	gpReward: number;
 	hpPenalty: number;
-	causedDeathLevelDown?: boolean;
 	outstandingDays: number;
 	lastEvaluatedDate: string | null; // ISO date string without time
 }

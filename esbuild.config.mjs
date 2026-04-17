@@ -15,7 +15,11 @@ function copyToTestVault() {
 		const src = path.resolve(file);
 		const dest = path.join(TEST_VAULT_PLUGIN_DIR, file);
 		if (fs.existsSync(src)) {
-			fs.copyFileSync(src, dest);
+			try {
+				fs.copyFileSync(src, dest);
+			} catch (e) {
+				// ignore error if destination directory doesn't exist
+			}
 			console.log(`  → Copied ${file} to test vault`);
 		}
 	}

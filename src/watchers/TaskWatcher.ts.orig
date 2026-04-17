@@ -149,7 +149,7 @@ export class TaskWatcher {
 		let char = this.stateManager.getCharacter();
 		const boss = this.stateManager.getActiveBoss();
 		const activeTasks = this.getActiveTasks();
-		
+
 		let damageDealt = 0;
 		let overdueCount = 0;
 		const logEntries: any[] = [];
@@ -166,9 +166,7 @@ export class TaskWatcher {
 		}
 
 		if (overdueCount > 0) {
-			const conBonus = 10;
-			const actualHpGain = settings.hpPerLevel + (char.attributes.con.level * conBonus);
-			const hpResult = processHpDamage(char, damageDealt, actualHpGain);
+			const hpResult = processHpDamage(char, damageDealt);
 			char = hpResult.character;
 			died = hpResult.died;
 
@@ -332,7 +330,7 @@ export class TaskWatcher {
 
 			// Always update the cache
 			this.taskCache.set(file.path, currentTasks);
-			// Trigger a fake state bump if Quests tab is active so it re-renders 
+			// Trigger a fake state bump if Quests tab is active so it re-renders
 			// (StateManager normally only fires when internal state changes)
 			this.stateManager.forceNotify();
 		} catch (error) {

@@ -1,0 +1,11 @@
+--- src/engine/HabitManager.ts
++++ src/engine/HabitManager.ts
+@@ -11,7 +11,7 @@
+	type PluginSettings,
+	EventType,
+ } from "../types";
+-import { generateId } from "../constants";
++import { generateId, xpThresholdForLevel } from "../constants";
+ import { getTodayStr, isSameDay } from "../utils/dateUtils";
+ import {
+	calculateHabitReward,

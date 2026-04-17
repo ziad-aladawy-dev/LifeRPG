@@ -37,7 +37,7 @@ export function calculateTaskReward(
 	isSubtask?: boolean
 ): { xp: number; gp: number } {
 	const multiplier = settings.difficultyMultipliers[difficulty] ?? 1;
-	
+
 	// Base calculations
 	let xp = settings.baseXp * multiplier;
 	let gp = settings.baseGp * multiplier;
@@ -202,7 +202,6 @@ export function revertXpGain(
 	while (char.xp < 0 && char.level > 1) {
 		char.level--;
 		char.maxHp = Math.max(10, char.maxHp - hpPerLevel);
-		// Note: when reverting XP gain, maxHp is correctly decreased here.
 		if (char.hp > char.maxHp) char.hp = char.maxHp;
 		char.xpToNextLevel = xpThresholdForLevel(char.level);
 		char.xp += char.xpToNextLevel;
@@ -357,8 +356,7 @@ export function revertAttributeXpGain(
  */
 export function processHpDamage(
 	character: CharacterState,
-	amount: number,
-	actualHpGain: number = 10
+	amount: number
 ): { character: CharacterState; logEntries: EventLogEntry[]; died: boolean } {
 	const logEntries: EventLogEntry[] = [];
 	let c = { ...character };
@@ -372,10 +370,9 @@ export function processHpDamage(
 		c.gp = 0;
 		if (c.level > 1) {
 			c.level--;
-			c.maxHp = Math.max(10, c.maxHp - actualHpGain);
 			c.xpToNextLevel = xpThresholdForLevel(c.level);
 		}
-		
+
 		logEntries.push({
 			id: generateId(),
 			timestamp: new Date().toISOString(),
@@ -465,9 +462,9 @@ export function processTaskCompletion(
 
 	// 2. Process character XP (may trigger level-up)
 	// CON applies to HP per level
-	const conBonus = 10; // Extra HP 
+	const conBonus = 10; // Extra HP
 	const actualHpGain = settings.hpPerLevel + (currentChar.attributes.con.level * conBonus);
-	
+
 	const xpResult = processXpGain(currentChar, reward.xp, actualHpGain);
 	currentChar = xpResult.character;
 	logEntries.push(...xpResult.logEntries);
@@ -577,7 +574,7 @@ export function processTaskUncompletion(
 	// 2. Process character XP revert
 	const conBonus = 10;
 	const actualHpGain = settings.hpPerLevel + (currentChar.attributes.con.level * conBonus);
-	
+
 	const xpResult = revertXpGain(currentChar, reward.xp, actualHpGain);
 	currentChar = xpResult.character;
 	logEntries.push(...xpResult.logEntries);
