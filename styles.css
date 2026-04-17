@@ -158,17 +158,20 @@
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	gap: 8px; /* Bigger gap */
-	padding: 20px 14px; /* Much bigger padding for a larger hit area */
+	gap: 8px;
+	padding: 16px 14px; /* Slightly reduced padding so it fits well but still large */
 	border: none;
-	border-bottom: 3px solid transparent; /* slightly thicker bottom border indicator */
+	border-radius: 0; /* Reset Obsidian button border-radius */
+	border-bottom: 3px solid transparent; /* Bottom indicator */
 	background: transparent;
 	color: var(--rpg-text-secondary);
 	cursor: pointer;
 	transition: all var(--rpg-transition);
-	min-width: 90px; /* Wider tabs */
-	font-size: 14px; /* Larger text */
+	min-width: 80px; /* Wider tabs */
+	font-size: 13px; /* Slightly adjusted text */
 	font-weight: 700;
+	height: auto; /* Reset Obsidian button height */
+	box-shadow: none; /* Reset Obsidian shadow */
 }
 
 .life-rpg-tab-btn:hover {
