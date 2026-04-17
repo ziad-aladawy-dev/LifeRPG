@@ -100,8 +100,8 @@
    --------------------------------------------------------------------------- */
 .life-rpg-ribbon {
 	display: flex;
-	gap: 6px; /* increased from 2px */
-	padding: 12px 16px; /* increased from 8px 12px */
+	gap: 2px;
+	padding: 8px 12px;
 	background: var(--rpg-bg-secondary);
 	border-bottom: 1px solid var(--rpg-border);
 	flex-wrap: wrap;
@@ -110,24 +110,24 @@
 .life-rpg-ribbon-item {
 	display: flex;
 	align-items: center;
-	gap: 6px; /* increased from 3px */
-	padding: 6px 12px; /* increased from 3px 8px */
-	border-radius: var(--rpg-radius-md); /* updated radius */
+	gap: 3px;
+	padding: 3px 8px;
+	border-radius: var(--rpg-radius-sm);
 	background: var(--rpg-card-bg);
-	font-size: 14px; /* increased from 11px */
-	font-weight: 700;
+	font-size: 11px;
+	font-weight: 600;
 	white-space: nowrap;
 }
 
 .life-rpg-ribbon-icon {
-	font-size: 16px; /* increased from 12px */
+	font-size: 12px;
 	display: flex;
 	align-items: center;
 }
 
 .life-rpg-ribbon-icon svg {
-	width: 16px; /* increased from 12px */
-	height: 16px; /* increased from 12px */
+	width: 12px;
+	height: 12px;
 }
 
 .life-rpg-ribbon-value {
@@ -144,8 +144,9 @@
 	border-bottom: 2px solid var(--rpg-border);
 	background: var(--rpg-bg-secondary);
 	overflow-x: auto;
-	/* Removed overflow-y: hidden to prevent any random clipping */
+	overflow-y: hidden;
 	scrollbar-width: none;
+	flex-wrap: wrap;
 }
 
 .life-rpg-tab-nav::-webkit-scrollbar {
@@ -153,25 +154,21 @@
 }
 
 .life-rpg-tab-btn {
-	flex: 1 0 auto;
+	flex: 1;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	justify-content: center;
-	gap: 8px;
-	padding: 16px 14px; /* Slightly reduced padding so it fits well but still large */
+	gap: 4px;
+	padding: 10px 8px 8px;
 	border: none;
-	border-radius: 0; /* Reset Obsidian button border-radius */
-	border-bottom: 3px solid transparent; /* Bottom indicator */
+	border-bottom: 2px solid transparent;
 	background: transparent;
 	color: var(--rpg-text-secondary);
 	cursor: pointer;
 	transition: all var(--rpg-transition);
-	min-width: 80px; /* Wider tabs */
-	font-size: 13px; /* Slightly adjusted text */
-	font-weight: 700;
-	height: auto; /* Reset Obsidian button height */
-	box-shadow: none; /* Reset Obsidian shadow */
+	min-width: 65px;
+	font-size: 11px;
+	margin-bottom: -2px;
 }
 
 .life-rpg-tab-btn:hover {
@@ -182,19 +179,19 @@
 .life-rpg-tab-btn.life-rpg-tab-active {
 	color: var(--rpg-accent);
 	border-bottom-color: var(--rpg-accent);
-	background: rgba(139, 92, 246, 0.08); /* slightly deeper active bg */
+	background: rgba(139, 92, 246, 0.05);
 }
 
 .life-rpg-tab-icon {
-	font-size: 24px; /* Much larger icons */
+	font-size: 16px;
 	line-height: 1;
 	display: flex;
 	align-items: center;
 }
 
 .life-rpg-tab-icon svg {
-	width: 24px;
-	height: 24px;
+	width: 16px;
+	height: 16px;
 }
 
 .life-rpg-tab-label {
@@ -1728,75 +1725,4 @@
 .life-rpg-suggest-desc {
 	font-size: 11px;
 	color: var(--rpg-text-secondary);
-}
-
-/* ---------------------------------------------------------------------------
-   RESPONSIVE (Mobile & Narrow Panes)
-   --------------------------------------------------------------------------- */
-@media (max-width: 500px) {
-	/* Tab Navigation */
-	.life-rpg-tab-btn {
-		padding: 10px 8px;
-		min-width: 60px;
-		gap: 4px;
-	}
-	.life-rpg-tab-icon {
-		font-size: 20px;
-	}
-	.life-rpg-tab-icon svg {
-		width: 20px;
-		height: 20px;
-	}
-	.life-rpg-tab-label {
-		font-size: 10px;
-	}
-
-	/* Stats Panel Grids */
-	.life-rpg-attributes-grid {
-		grid-template-columns: 1fr;
-		gap: 8px;
-	}
-	.life-rpg-quick-stats {
-		grid-template-columns: 1fr;
-		gap: 8px;
-	}
-
-	/* Habits & Quests Grids */
-	.life-rpg-habits-list,
-	.life-rpg-skills-list,
-	.life-rpg-rewards-grid {
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
-	}
-
-	/* Character Header Adjustments */
-	.life-rpg-char-header {
-		flex-direction: column;
-		text-align: center;
-		padding: 12px;
-	}
-	.life-rpg-char-title-row {
-		flex-direction: column;
-		gap: 8px;
-	}
-	.life-rpg-char-avatar {
-		width: 64px;
-		height: 64px;
-		font-size: 36px;
-	}
-	.life-rpg-char-title {
-		font-size: 18px;
-	}
-
-	/* Ribbon Scaling */
-	.life-rpg-ribbon {
-		padding: 8px;
-		gap: 4px;
-		justify-content: center;
-	}
-	.life-rpg-ribbon-item {
-		padding: 4px 8px;
-		font-size: 12px;
-	}
 }

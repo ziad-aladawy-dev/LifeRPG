@@ -60,7 +60,8 @@ export interface CharacterAttributes {
 /** The player's core character statistics */
 export interface CharacterState {
 	name: string;
-	className: string;
+	classId: string; // references CHARACTER_CLASSES dict key
+	className: string; // Kept for backwards compatibility, but not actively used for ranks
 	avatarUrl: string; // Used to load picture, defaults to emoji
 	level: number;
 	hp: number;

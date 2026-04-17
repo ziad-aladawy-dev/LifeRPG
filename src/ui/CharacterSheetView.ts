@@ -157,7 +157,7 @@ export class CharacterSheetView extends ItemView {
 
 		switch (this.activeTab) {
 			case "stats":
-				this.statsPanel = new StatsPanel(this.tabContentEl, this.stateManager);
+				this.statsPanel = new StatsPanel(this.tabContentEl);
 				this.statsPanel.render(state.character);
 				break;
 

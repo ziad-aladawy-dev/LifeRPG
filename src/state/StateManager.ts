@@ -88,7 +88,16 @@ export class StateManager {
 		}
 		// Migrate missing character profile info
 		if (!this.state.character.name) this.state.character.name = "Hero";
-		if (!this.state.character.className) this.state.character.className = "Adventurer";
+		if (!this.state.character.classId) {
+			// backwards compat logic
+			if (this.state.character.className) {
+				const lower = this.state.character.className.toLowerCase();
+				this.state.character.classId = ["mage", "warrior", "rogue"].includes(lower) ? lower : "adventurer";
+			} else {
+				this.state.character.classId = "adventurer";
+			}
+			this.state.character.className = "Adventurer"; // Deprecated basically
+		}
 		if (!this.state.character.avatarUrl) this.state.character.avatarUrl = "⚔️";
 	}
 

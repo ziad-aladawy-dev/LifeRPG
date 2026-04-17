@@ -21,6 +21,7 @@ import {
 	xpThresholdForSkillLevel,
 	generateId,
 } from "../constants";
+import { getRankUpTitle } from "./ClassSystem";
 
 // ---------------------------------------------------------------------------
 // Task Reward Calculation
@@ -135,11 +136,17 @@ export function processXpGain(
 		char.xpToNextLevel = xpThresholdForLevel(char.level);
 		leveledUp = true;
 
+		const rankTitle = getRankUpTitle(char.level, char.classId);
+		let message = `🎉 LEVEL UP! You are now Level ${char.level}! Max HP increased to ${char.maxHp}.`;
+		if (rankTitle) {
+			message = `🎉 LEVEL UP! You reached Level ${char.level} and earned the rank of **${rankTitle}**!`;
+		}
+
 		logEntries.push({
 			id: generateId(),
 			timestamp: new Date().toISOString(),
 			type: EventType.LevelUp,
-			message: `🎉 LEVEL UP! You are now Level ${char.level}! Max HP increased to ${char.maxHp}.`,
+			message,
 			xpDelta: 0,
 			gpDelta: 0,
 			hpDelta: char.maxHp - character.maxHp,

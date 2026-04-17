@@ -6,16 +6,13 @@
 import { setIcon } from "obsidian";
 import { type CharacterState, type AttributeState } from "../../types";
 import { formatNumber, percentage } from "../../utils/formatter";
-
-import { type StateManager } from "../../state/StateManager";
+import { getCharacterRank } from "../../engine/ClassSystem";
 
 export class StatsPanel {
 	private containerEl: HTMLElement;
-	private stateManager: StateManager;
 
-	constructor(parentEl: HTMLElement, stateManager: StateManager) {
+	constructor(parentEl: HTMLElement) {
 		this.containerEl = parentEl.createDiv({ cls: "life-rpg-stats-panel" });
-		this.stateManager = stateManager;
 	}
 
 	render(character: CharacterState): void {
@@ -36,24 +33,13 @@ export class StatsPanel {
 		}
 
 		const headerInfo = header.createDiv({ cls: "life-rpg-char-info" });
-		const titleRow = headerInfo.createDiv({ cls: "life-rpg-char-title-row", attr: { style: "display: flex; align-items: center; justify-content: space-between;" } });
-		
-		titleRow.createEl("h3", {
+		headerInfo.createEl("h3", {
 			text: `Level ${character.level} ${character.name}`,
 			cls: "life-rpg-char-title",
 		});
-		
-		const editBtn = titleRow.createEl("button", {
-			text: "✏️ Edit Profile",
-			cls: "life-rpg-btn life-rpg-btn-small",
-		});
-
-		editBtn.addEventListener("click", () => {
-			this.showEditProfileForm(character, header);
-		});
-
+		const rankTitle = getCharacterRank(character.level, character.classId);
 		headerInfo.createEl("span", {
-			text: character.className,
+			text: rankTitle,
 			cls: "life-rpg-char-class",
 		});
 
@@ -151,65 +137,6 @@ export class StatsPanel {
 		setIcon(iconEl, icon);
 		stat.createEl("span", { text: value, cls: "life-rpg-quick-stat-value" });
 		stat.createEl("span", { text: label, cls: "life-rpg-quick-stat-label" });
-	}
-
-	private showEditProfileForm(character: CharacterState, headerBlock: HTMLElement): void {
-		const children = Array.from(headerBlock.children);
-		children.forEach(c => ((c as HTMLElement).style.display = "none"));
-
-		const form = headerBlock.createDiv({ cls: "life-rpg-edit-profile-form life-rpg-form", attr: { style: "width: 100%;" } });
-
-		const nameInput = form.createEl("input", {
-			type: "text",
-			value: character.name,
-			placeholder: "Character Name",
-			cls: "life-rpg-input",
-		});
-
-		const classInput = form.createEl("input", {
-			type: "text",
-			value: character.className,
-			placeholder: "Class (e.g., Mage)",
-			cls: "life-rpg-input",
-		});
-
-		const avatarRow = form.createDiv({ cls: "life-rpg-form-row" });
-		avatarRow.createEl("label", { text: "Avatar (Emoji or URL):" });
-		const avatarInput = avatarRow.createEl("input", {
-			type: "text",
-			value: character.avatarUrl,
-			placeholder: "⚔️",
-			cls: "life-rpg-input",
-		});
-
-		const btnGroup = form.createDiv({ cls: "life-rpg-btn-group" });
-		const saveBtn = btnGroup.createEl("button", {
-			text: "Save",
-			cls: "life-rpg-btn life-rpg-btn-primary",
-		});
-		const cancelBtn = btnGroup.createEl("button", {
-			text: "Cancel",
-			cls: "life-rpg-btn",
-		});
-
-		saveBtn.addEventListener("click", () => {
-			const name = nameInput.value.trim() || "Hero";
-			const className = classInput.value.trim() || "Adventurer";
-			const avatarUrl = avatarInput.value.trim() || "⚔️";
-
-			this.stateManager.updateCharacter({
-				name,
-				className,
-				avatarUrl
-			});
-		});
-
-		cancelBtn.addEventListener("click", () => {
-			form.remove();
-			children.forEach(c => ((c as HTMLElement).style.display = ""));
-		});
-
-		nameInput.focus();
 	}
 
 	destroy(): void {

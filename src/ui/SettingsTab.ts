@@ -48,16 +48,19 @@ export class LifeRpgSettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Character Class")
-			.setDesc("Choose your class (e.g., Mage, Warrior, Rogue, Scholar).")
-			.addText((text) =>
-				text
-					.setPlaceholder("Adventurer")
-					.setValue(this.plugin.stateManager.getCharacter().className)
-					.onChange((value) => {
-						const className = value.trim() || "Adventurer";
-						this.plugin.stateManager.updateCharacter({ className });
-					})
-			);
+			.setDesc("Choose your RPG class archetype. This determines your title and rank progression.")
+			.addDropdown((dropdown) => {
+				dropdown.addOption("adventurer", "Adventurer (Generalist)");
+				dropdown.addOption("warrior", "Warrior (Strength & Constitution)");
+				dropdown.addOption("mage", "Mage (Intelligence)");
+				dropdown.addOption("rogue", "Rogue (Dexterity/Charisma)");
+
+				dropdown.setValue(this.plugin.stateManager.getCharacter().classId || "adventurer");
+
+				dropdown.onChange((value) => {
+					this.plugin.stateManager.updateCharacter({ classId: value });
+				});
+			});
 
 		new Setting(containerEl)
 			.setName("Character Avatar")
