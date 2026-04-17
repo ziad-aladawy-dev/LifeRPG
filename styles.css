@@ -144,7 +144,7 @@
 	border-bottom: 2px solid var(--rpg-border);
 	background: var(--rpg-bg-secondary);
 	overflow-x: auto;
-	overflow-y: hidden;
+	/* Removed overflow-y: hidden to prevent any random clipping */
 	scrollbar-width: none;
 }
 
@@ -158,16 +158,17 @@
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	gap: 6px;
-	padding: 12px 10px;
+	gap: 8px; /* Bigger gap */
+	padding: 20px 14px; /* Much bigger padding for a larger hit area */
 	border: none;
-	border-bottom: 2px solid transparent;
+	border-bottom: 3px solid transparent; /* slightly thicker bottom border indicator */
 	background: transparent;
 	color: var(--rpg-text-secondary);
 	cursor: pointer;
 	transition: all var(--rpg-transition);
-	min-width: 75px;
-	font-size: 12px;
+	min-width: 90px; /* Wider tabs */
+	font-size: 14px; /* Larger text */
+	font-weight: 700;
 }
 
 .life-rpg-tab-btn:hover {
@@ -178,19 +179,19 @@
 .life-rpg-tab-btn.life-rpg-tab-active {
 	color: var(--rpg-accent);
 	border-bottom-color: var(--rpg-accent);
-	background: rgba(139, 92, 246, 0.05);
+	background: rgba(139, 92, 246, 0.08); /* slightly deeper active bg */
 }
 
 .life-rpg-tab-icon {
-	font-size: 18px;
+	font-size: 24px; /* Much larger icons */
 	line-height: 1;
 	display: flex;
 	align-items: center;
 }
 
 .life-rpg-tab-icon svg {
-	width: 18px;
-	height: 18px;
+	width: 24px;
+	height: 24px;
 }
 
 .life-rpg-tab-label {
