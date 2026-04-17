@@ -1,0 +1,9 @@
+{
+  "id": "life-rpg",
+  "name": "Life RPG",
+  "version": "1.0.0",
+  "minAppVersion": "0.15.0",
+  "description": "Turn your productivity into an RPG. Gain XP, level up skills, fight bosses, and earn rewards.",
+  "author": "CredZu",
+  "isDesktopOnly": false
+}
