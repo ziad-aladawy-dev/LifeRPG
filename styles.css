@@ -139,14 +139,14 @@
    --------------------------------------------------------------------------- */
 .life-rpg-tab-nav {
 	display: flex;
-	gap: 0;
-	padding: 0;
+	gap: 2px;
+	padding: 4px 4px 0 4px;
 	border-bottom: 2px solid var(--rpg-border);
 	background: var(--rpg-bg-secondary);
 	overflow-x: auto;
 	overflow-y: hidden;
 	scrollbar-width: none;
-	flex-wrap: wrap;
+	-ms-overflow-style: none; /* IE and Edge */
 }
 
 .life-rpg-tab-nav::-webkit-scrollbar {
@@ -154,21 +154,22 @@
 }
 
 .life-rpg-tab-btn {
-	flex: 1;
+	flex: 0 0 auto; /* Prevent shrinking so they scroll instead of wrapping */
 	display: flex;
 	flex-direction: column;
 	align-items: center;
+	justify-content: center;
 	gap: 4px;
-	padding: 10px 8px 8px;
+	padding: 10px 12px 8px 12px;
 	border: none;
 	border-bottom: 2px solid transparent;
 	background: transparent;
 	color: var(--rpg-text-secondary);
 	cursor: pointer;
 	transition: all var(--rpg-transition);
-	min-width: 65px;
+	min-width: 60px;
 	font-size: 11px;
-	margin-bottom: -2px;
+	margin-bottom: -2px; /* Pull down to overlap the container's bottom border */
 }
 
 .life-rpg-tab-btn:hover {
@@ -1725,4 +1726,128 @@
 .life-rpg-suggest-desc {
 	font-size: 11px;
 	color: var(--rpg-text-secondary);
+}
+
+/* ---------------------------------------------------------------------------
+   PROFILE PANEL & RANKS
+   --------------------------------------------------------------------------- */
+.life-rpg-profile-panel .life-rpg-form {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding: 14px;
+	background: var(--rpg-card-bg);
+	border: 1px solid var(--rpg-card-border);
+	border-radius: var(--rpg-radius-lg);
+	margin-bottom: 20px;
+}
+
+.life-rpg-profile-panel .life-rpg-form-row label {
+	width: 60px;
+	flex-shrink: 0;
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--rpg-text-secondary);
+}
+
+.life-rpg-ranks-section {
+	margin-top: 20px;
+}
+
+.life-rpg-ranks-section h4 {
+	font-size: 16px;
+	font-weight: 800;
+	margin: 0 0 16px;
+	color: var(--rpg-text-primary);
+}
+
+.life-rpg-ranks-list {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.life-rpg-rank-item {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 10px 14px;
+	border-radius: var(--rpg-radius-md);
+	background: var(--rpg-bg-tertiary);
+	border: 1px solid var(--rpg-card-border);
+	transition: all var(--rpg-transition);
+}
+
+.life-rpg-rank-achieved {
+	background: var(--rpg-card-bg);
+	border-color: rgba(5, 150, 105, 0.2);
+}
+
+.life-rpg-rank-current {
+	background: linear-gradient(135deg, rgba(245, 158, 11, 0.05), rgba(245, 158, 11, 0.02));
+	border: 1px solid rgba(245, 158, 11, 0.3);
+	box-shadow: 0 0 12px rgba(245, 158, 11, 0.1);
+	transform: translateX(4px);
+}
+
+.life-rpg-rank-locked {
+	opacity: 0.6;
+}
+
+.life-rpg-rank-icon-container {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+
+.life-rpg-rank-achieved .life-rpg-rank-icon-container {
+	background: rgba(5, 150, 105, 0.1);
+	color: var(--life-rpg-success);
+}
+
+.life-rpg-rank-current .life-rpg-rank-icon-container {
+	background: rgba(245, 158, 11, 0.15);
+	color: var(--rpg-gold);
+}
+
+.life-rpg-rank-locked .life-rpg-rank-icon-container {
+	background: var(--rpg-bg-secondary);
+	color: var(--rpg-text-secondary);
+}
+
+.life-rpg-rank-content {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.life-rpg-rank-level {
+	font-size: 11px;
+	font-weight: 700;
+	color: var(--rpg-text-secondary);
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.life-rpg-rank-title {
+	font-size: 14px;
+	font-weight: 600;
+	color: var(--rpg-text-primary);
+}
+
+.life-rpg-rank-current .life-rpg-rank-title {
+	font-weight: 800;
+	color: var(--rpg-gold);
+}
+
+.life-rpg-class-desc {
+	font-size: 13px;
+	color: var(--rpg-text-secondary);
+	margin-bottom: 16px;
+	font-style: italic;
+	line-height: 1.4;
 }

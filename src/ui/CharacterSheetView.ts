@@ -14,8 +14,9 @@ import { HabitsPanel } from "./components/HabitsPanel";
 import { RewardsPanel } from "./components/RewardsPanel";
 import { BossPanel } from "./components/BossPanel";
 import { ActivityLogPanel } from "./components/ActivityLogPanel";
+import { ProfilePanel } from "./components/ProfilePanel";
 
-type TabId = "stats" | "quests" | "skills" | "habits" | "rewards" | "boss" | "log";
+type TabId = "stats" | "profile" | "quests" | "skills" | "habits" | "rewards" | "boss" | "log";
 
 interface TabDefinition {
 	id: TabId;
@@ -25,6 +26,7 @@ interface TabDefinition {
 
 const TABS: TabDefinition[] = [
 	{ id: "stats", label: "Stats", icon: "sword" },
+	{ id: "profile", label: "Profile", icon: "user" },
 	{ id: "quests", label: "Quests", icon: "scroll" },
 	{ id: "skills", label: "Skills", icon: "bar-chart" },
 	{ id: "habits", label: "Habits", icon: "refresh-cw" },
@@ -41,6 +43,7 @@ export class CharacterSheetView extends ItemView {
 
 	// Panel instances (lazy-created)
 	private statsPanel: StatsPanel | null = null;
+	private profilePanel: ProfilePanel | null = null;
 	private questsPanel: QuestsPanel | null = null;
 	private skillsPanel: SkillsPanel | null = null;
 	private habitsPanel: HabitsPanel | null = null;
@@ -161,6 +164,11 @@ export class CharacterSheetView extends ItemView {
 				this.statsPanel.render(state.character);
 				break;
 
+			case "profile":
+				this.profilePanel = new ProfilePanel(this.tabContentEl, this.stateManager);
+				this.profilePanel.render(state.character);
+				break;
+
 			case "quests":
 				this.questsPanel = new QuestsPanel(this.tabContentEl);
 				const plugin = (this.stateManager as any).plugin;
@@ -246,6 +254,7 @@ export class CharacterSheetView extends ItemView {
 
 	private destroyPanels(): void {
 		this.statsPanel?.destroy();
+		this.profilePanel?.destroy();
 		this.questsPanel?.destroy();
 		this.skillsPanel?.destroy();
 		this.habitsPanel?.destroy();
@@ -254,6 +263,7 @@ export class CharacterSheetView extends ItemView {
 		this.activityLogPanel?.destroy();
 
 		this.statsPanel = null;
+		this.profilePanel = null;
 		this.questsPanel = null;
 		this.skillsPanel = null;
 		this.habitsPanel = null;
