@@ -300,6 +300,43 @@ export class StateManager {
 		this.notify();
 	}
 
+	/** Set habit history state for a specific date (Retroactive adjustment) */
+	async setHabitHistory(id: string, dateStr: string, completed: boolean): Promise<void> {
+		const habit = this.state.habits.find(h => h.id === id);
+		if (!habit) return;
+
+		const { applyRetroactiveHabitHistoryChange } = await import("../engine/HabitManager");
+		const result = applyRetroactiveHabitHistoryChange(
+			habit,
+			dateStr,
+			completed,
+			this.state.character,
+			this.state.skills,
+			this.settings
+		);
+
+		// Update all states
+		const idx = this.state.habits.findIndex(h => h.id === id);
+		if (idx !== -1) {
+			this.state.habits[idx] = result.habit;
+		}
+		this.state.character = result.character;
+		this.state.skills = result.skills;
+		
+		// Add logs
+		for (const entry of result.logEntries) {
+			this.state.eventLog.unshift(entry);
+		}
+		
+		// Trim log
+		if (this.state.eventLog.length > this.settings.maxLogEntries) {
+			this.state.eventLog = this.state.eventLog.slice(0, this.settings.maxLogEntries);
+		}
+
+		this.save();
+		this.notify();
+	}
+
 	// -----------------------------------------------------------------------
 	// Reward Mutations
 	// -----------------------------------------------------------------------

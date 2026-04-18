@@ -101,6 +101,7 @@ export interface Habit {
 	outstandingDays: number;
 	lastEvaluatedDate: string | null; // ISO date string without time
 	recurrenceDays?: number; // number of days between occurrences (e.g. 1 for daily, 5 for every 5 days)
+	history?: Record<string, boolean>; // Retroactive history tracking: DateStr -> Completed
 }
 
 /** A custom reward the player can purchase with GP */

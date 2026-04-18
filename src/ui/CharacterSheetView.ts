@@ -15,6 +15,7 @@ import { RewardsPanel } from "./components/RewardsPanel";
 import { BossPanel } from "./components/BossPanel";
 import { ActivityLogPanel } from "./components/ActivityLogPanel";
 import { ProfilePanel } from "./components/ProfilePanel";
+import { HabitHistoryModal } from "../modals/HabitHistoryModal";
 
 type TabId = "stats" | "profile" | "quests" | "skills" | "habits" | "rewards" | "boss" | "log";
 

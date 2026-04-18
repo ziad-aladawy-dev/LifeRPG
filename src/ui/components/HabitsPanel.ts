@@ -9,6 +9,7 @@ import { type StateManager } from "../../state/StateManager";
 import { logGoodHabit, logBadHabit, resolveOutstandingHabit, undoHabit } from "../../engine/HabitManager";
 import { calculateHabitReward, streakBonusMultiplier } from "../../engine/GameEngine";
 import { generateId } from "../../constants";
+import { HabitHistoryModal } from "../../modals/HabitHistoryModal";
 
 export class HabitsPanel {
 	private containerEl: HTMLElement;
@@ -200,6 +201,19 @@ export class HabitsPanel {
 		});
 		editBtn.addEventListener("click", () => {
 			this.showEditHabitForm(habit, card, cardContent, actions);
+		});
+
+		// History button
+		const historyBtn = actions.createEl("button", {
+			text: "⌛",
+			cls: "life-rpg-btn-icon",
+		});
+		historyBtn.title = "View History";
+		historyBtn.addEventListener("click", () => {
+			const { App } = require("obsidian"); 
+			// We can get app from the plugin instance via stateManager
+			const app = (this.stateManager as any).plugin.app;
+			new HabitHistoryModal(app, habit, this.stateManager).open();
 		});
 
 		// Delete button

@@ -72,6 +72,11 @@ export function logGoodHabit(
 		updatedHabit.streak = 1; // Reset streak
 	}
 	updatedHabit.lastCompleted = today.toISOString();
+	
+	// Track in history
+	if (!updatedHabit.history) updatedHabit.history = {};
+	const todayStr = getTodayStr();
+	updatedHabit.history[todayStr] = true;
 
 	// Calculate rewards with streak bonus
 	const baseReward = calculateHabitReward("good", habit.difficulty, settings);
@@ -173,6 +178,10 @@ export function logBadHabit(
 	updatedHabit.lastCompleted = new Date().toISOString();
 	updatedHabit.streak++; // For bad habits, streak = how many times in a row
 	updatedHabit.hpPenalty = damage;
+
+	// Track in history
+	if (!updatedHabit.history) updatedHabit.history = {};
+	updatedHabit.history[todayStr] = true;
 
 	// Apply damage
 	const wisBonus = 10;
@@ -452,6 +461,165 @@ export function undoHabit(
 
 	// Reset lastCompleted
 	h.lastCompleted = null;
+	if (h.history) {
+		const todayStr = getTodayStr();
+		delete h.history[todayStr];
+	}
 
 	return { habit: h, character: c, skills: s, logEntries };
+}
+
+/**
+ * Apply a retroactive change to a habit's history.
+ * This function calculates the XP/GP/HP deltas and returns the updated state.
+ */
+export function applyRetroactiveHabitHistoryChange(
+	habit: Habit,
+	dateStr: string,
+	completed: boolean,
+	character: CharacterState,
+	skills: Skill[],
+	settings: PluginSettings
+): {
+	habit: Habit;
+	character: CharacterState;
+	skills: Skill[];
+	logEntries: EventLogEntry[];
+} {
+	const logEntries: EventLogEntry[] = [];
+	let h = { ...habit };
+	let c = { ...character };
+	let s = skills.map((sk) => ({ ...sk }));
+
+	if (!h.history) h.history = {};
+	const wasCompleted = !!h.history[dateStr];
+	
+	if (wasCompleted === completed) {
+		return { habit: h, character: c, skills: s, logEntries };
+	}
+
+	// Calculate rewards/penalties for this habit
+	const reward = calculateHabitReward(h.type, h.difficulty, settings, c.attributes);
+	
+	if (h.type === "good") {
+		const xpDelta = completed ? reward.xp : -reward.xp;
+		const gpDelta = completed ? reward.gp : -reward.gp;
+
+		if (completed) {
+			// NONE -> COMPLETED
+			c = processGpGain(c, gpDelta);
+			const wisBonus = 10;
+			const actualHpGain = settings.hpPerLevel + (c.attributes.wis.level * wisBonus);
+			const xpResult = processXpGain(c, xpDelta, actualHpGain);
+			c = xpResult.character;
+			logEntries.push(...xpResult.logEntries);
+
+			if (h.skillId) {
+				const sIdx = s.findIndex(sk => sk.id === h.skillId || sk.name.toLowerCase() === h.skillId!.toLowerCase());
+				if (sIdx !== -1) {
+					const skRes = processSkillXpGain(s[sIdx], xpDelta);
+					s[sIdx] = skRes.skill;
+					logEntries.push(...skRes.logEntries);
+				}
+			}
+		} else {
+			// COMPLETED -> NONE
+			c.gp = Math.max(0, c.gp + gpDelta);
+			const wisBonus = 10;
+			const actualHpGain = settings.hpPerLevel + (c.attributes.wis.level * wisBonus);
+			const xpResult = revertXpGain(c, Math.abs(xpDelta), actualHpGain);
+			c = xpResult.character;
+			logEntries.push(...xpResult.logEntries);
+
+			if (h.skillId) {
+				const sIdx = s.findIndex(sk => sk.id === h.skillId || sk.name.toLowerCase() === h.skillId!.toLowerCase());
+				if (sIdx !== -1) {
+					const skRes = revertSkillXpGain(s[sIdx], Math.abs(xpDelta));
+					s[sIdx] = skRes.skill;
+					logEntries.push(...skRes.logEntries);
+				}
+			}
+		}
+
+		logEntries.push({
+			id: generateId(),
+			timestamp: new Date().toISOString(),
+			type: EventType.HabitGood,
+			message: `⏪ History Adjusted (${dateStr}): "${h.name}" marked as ${completed ? 'Completed' : 'Missed'} → ${xpDelta > 0 ? '+' : ''}${xpDelta} XP, ${gpDelta > 0 ? '+' : ''}${gpDelta} GP`,
+			xpDelta,
+			gpDelta,
+			hpDelta: 0,
+		});
+	} else {
+		// Bad Habit
+		const hpDelta = completed ? -reward.hpDamage : reward.hpDamage;
+		const oldHp = c.hp;
+
+		if (completed) {
+			// NONE -> COMPLETED (Took damage)
+			const wisBonus = 10;
+			const actualHpGain = settings.hpPerLevel + (c.attributes.wis.level * wisBonus);
+			const hpResult = processHpDamage(c, reward.hpDamage, actualHpGain);
+			c = hpResult.character;
+			if (hpResult.died) logEntries.push(...hpResult.logEntries);
+		} else {
+			// COMPLETED -> NONE (Heal damage)
+			c.hp = Math.min(c.maxHp, c.hp + reward.hpDamage);
+		}
+
+		logEntries.push({
+			id: generateId(),
+			timestamp: new Date().toISOString(),
+			type: EventType.HabitBad,
+			message: `⏪ History Adjusted (${dateStr}): "${h.name}" marked as ${completed ? 'Completed' : 'Cleared'} → ${c.hp - oldHp > 0 ? '+' : ''}${c.hp - oldHp} HP`,
+			xpDelta: 0,
+			gpDelta: 0,
+			hpDelta: c.hp - oldHp,
+		});
+	}
+
+	// Update history map
+	if (completed) {
+		h.history[dateStr] = true;
+	} else {
+		delete h.history[dateStr];
+	}
+
+	// Recalculate streak
+	h.streak = recalculateHabitStreak(h);
+
+	return { habit: h, character: c, skills: s, logEntries };
+}
+
+/**
+ * Iterates backwards from today through habit history to calculate the current streak.
+ */
+export function recalculateHabitStreak(habit: Habit): number {
+	if (!habit.history) return 0;
+	
+	let streak = 0;
+	const date = new Date(getTodayStr());
+	
+	// For good habits, we check if they did it today or yesterday to continue streak.
+	// For simplicity in this engine, a streak is consecutive days marked 'true'.
+	
+	while (true) {
+		const dateStr = date.toISOString().split("T")[0];
+		if (habit.history[dateStr]) {
+			streak++;
+			date.setDate(date.getDate() - 1);
+		} else {
+			// If not done today, the streak might still be alive if they did it yesterday.
+			if (streak === 0) {
+				const todayStr = getTodayStr();
+				if (dateStr === todayStr) {
+					date.setDate(date.getDate() - 1);
+					continue;
+				}
+			}
+			break;
+		}
+	}
+	
+	return streak;
 }
