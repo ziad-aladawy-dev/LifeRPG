@@ -161,9 +161,26 @@ export class StateManager {
 
 	/** Notify all listeners of a state change */
 	private notify(): void {
+		if (this.suppressNotifications) return;
 		const snapshot = this.getState();
 		for (const cb of this.listeners) {
 			cb(snapshot);
+		}
+	}
+
+	private suppressNotifications = false;
+
+	/** Perform multiple updates and only notify once at the end */
+	batchUpdates(callback: () => void): void {
+		const wasSuppressed = this.suppressNotifications;
+		this.suppressNotifications = true;
+		try {
+			callback();
+		} finally {
+			this.suppressNotifications = wasSuppressed;
+			if (!wasSuppressed) {
+				this.notify();
+			}
 		}
 	}
 

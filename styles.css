@@ -1878,3 +1878,41 @@
 	font-style: italic;
 	line-height: 1.4;
 }
+
+/* ---------------------------------------------------------------------------
+   UPCOMING / INACTIVE HABITS
+   --------------------------------------------------------------------------- */
+.life-rpg-upcoming-toggle {
+	margin: 12px 0 8px;
+	display: flex;
+	justify-content: center;
+}
+
+.life-rpg-btn-subtle {
+	background: transparent;
+	border: 1px solid var(--rpg-border);
+	color: var(--rpg-text-muted);
+	opacity: 0.7;
+	transition: all var(--rpg-transition);
+}
+
+.life-rpg-btn-subtle:hover {
+	opacity: 1;
+	background: var(--rpg-bg-secondary);
+	color: var(--rpg-text-primary);
+	border-color: var(--rpg-accent);
+}
+
+.life-rpg-upcoming-list {
+	opacity: 0.5;
+	filter: saturate(0.5);
+	transform: scale(0.98);
+	transform-origin: top;
+	transition: all 0.3s ease;
+}
+
+.life-rpg-upcoming-list:hover {
+	opacity: 0.8;
+	filter: saturate(0.8);
+}
+

@@ -172,6 +172,7 @@ export class StatsPanel {
 			placeholder: "Character Name",
 			cls: "life-rpg-input",
 		});
+		nameInput.addEventListener("keydown", (e) => e.stopPropagation());
 
 		const avatarRow = form.createDiv({ cls: "life-rpg-form-row" });
 		avatarRow.createEl("label", { text: "Avatar (Emoji or URL):" });
@@ -181,6 +182,7 @@ export class StatsPanel {
 			placeholder: "⚔️",
 			cls: "life-rpg-input",
 		});
+		avatarInput.addEventListener("keydown", (e) => e.stopPropagation());
 
 		const btnGroup = form.createDiv({ cls: "life-rpg-btn-group" });
 		const saveBtn = btnGroup.createEl("button", {

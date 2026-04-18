@@ -15,9 +15,31 @@ export class HabitsPanel {
 	private containerEl: HTMLElement;
 	private stateManager: StateManager;
 
+	// Use static to persist toggle state across tab switches within a session
+	private static showUpcomingGood = false;
+	private static showUpcomingBad = false;
+
 	constructor(parentEl: HTMLElement, stateManager: StateManager) {
 		this.containerEl = parentEl.createDiv({ cls: "life-rpg-habits-panel" });
 		this.stateManager = stateManager;
+	}
+
+	private isHabitDue(habit: Habit): boolean {
+		const today = new Date().toISOString().split("T")[0];
+		
+		// 1. Backlog is always due
+		if ((habit.outstandingDays || 0) > 0) return true;
+		
+		// 2. Daily is always due
+		if ((habit.recurrenceDays || 1) <= 1) return true;
+		
+		// 3. Cycle day matches today
+		if (habit.lastEvaluatedDate === today) return true;
+		
+		// 4. Completed today (so user can see their success)
+		if (habit.lastCompleted && habit.lastCompleted.startsWith(today)) return true;
+		
+		return false;
 	}
 
 	render(habits: Habit[], skills: Skill[]): void {
@@ -44,24 +66,72 @@ export class HabitsPanel {
 		// Good habits section
 		const goodHabits = habits.filter((h: Habit) => h.type === "good");
 		if (goodHabits.length > 0) {
+			const dueGood = goodHabits.filter(h => this.isHabitDue(h));
+			const upcomingGood = goodHabits.filter(h => !this.isHabitDue(h));
+
 			el.createEl("h4", { text: "✅ Good Habits", cls: "life-rpg-section-title life-rpg-section-good" });
+			
 			const goodList = el.createDiv({ cls: "life-rpg-habits-list" });
-			for (const habit of goodHabits) {
+			for (const habit of dueGood) {
 				const completedToday = habit.lastCompleted !== null && 
 					new Date(habit.lastCompleted).toDateString() === new Date().toDateString();
 				this.renderHabitCard(goodList, habit, completedToday);
+			}
+
+			if (upcomingGood.length > 0) {
+				const toggleContainer = el.createDiv({ cls: "life-rpg-upcoming-toggle" });
+				const toggleBtn = toggleContainer.createEl("button", {
+					text: HabitsPanel.showUpcomingGood ? "Hide Upcoming Good Habits" : `Show Upcoming (${upcomingGood.length})`,
+					cls: "life-rpg-btn-subtle life-rpg-btn-small",
+				});
+				
+				toggleBtn.addEventListener("click", () => {
+					HabitsPanel.showUpcomingGood = !HabitsPanel.showUpcomingGood;
+					this.render(habits, skills);
+				});
+
+				if (HabitsPanel.showUpcomingGood) {
+					const upcomingList = el.createDiv({ cls: "life-rpg-habits-list life-rpg-upcoming-list" });
+					for (const habit of upcomingGood) {
+						this.renderHabitCard(upcomingList, habit, false);
+					}
+				}
 			}
 		}
 
 		// Bad habits section
 		const badHabits = habits.filter((h: Habit) => h.type === "bad");
 		if (badHabits.length > 0) {
+			const dueBad = badHabits.filter(h => this.isHabitDue(h));
+			const upcomingBad = badHabits.filter(h => !this.isHabitDue(h));
+
 			el.createEl("h4", { text: "⛔ Bad Habits", cls: "life-rpg-section-title life-rpg-section-bad" });
+			
 			const badList = el.createDiv({ cls: "life-rpg-habits-list" });
-			for (const habit of badHabits) {
+			for (const habit of dueBad) {
 				const completedToday = habit.lastCompleted !== null && 
 					new Date(habit.lastCompleted).toDateString() === new Date().toDateString();
 				this.renderHabitCard(badList, habit, completedToday);
+			}
+
+			if (upcomingBad.length > 0) {
+				const toggleContainer = el.createDiv({ cls: "life-rpg-upcoming-toggle" });
+				const toggleBtn = toggleContainer.createEl("button", {
+					text: HabitsPanel.showUpcomingBad ? "Hide Upcoming Bad Habits" : `Show Upcoming (${upcomingBad.length})`,
+					cls: "life-rpg-btn-subtle life-rpg-btn-small",
+				});
+				
+				toggleBtn.addEventListener("click", () => {
+					HabitsPanel.showUpcomingBad = !HabitsPanel.showUpcomingBad;
+					this.render(habits, skills);
+				});
+
+				if (HabitsPanel.showUpcomingBad) {
+					const upcomingList = el.createDiv({ cls: "life-rpg-habits-list life-rpg-upcoming-list" });
+					for (const habit of upcomingBad) {
+						this.renderHabitCard(upcomingList, habit, false);
+					}
+				}
 			}
 		}
 	}
@@ -313,6 +383,7 @@ export class HabitsPanel {
 			placeholder: "Habit name",
 			cls: "life-rpg-input",
 		});
+		nameInput.addEventListener("keydown", (e) => e.stopPropagation());
 
 		// Icon
 		const iconInput = form.createEl("input", {
@@ -320,6 +391,7 @@ export class HabitsPanel {
 			value: habit.icon,
 			cls: "life-rpg-input life-rpg-input-small",
 		});
+		iconInput.addEventListener("keydown", (e) => e.stopPropagation());
 		iconInput.style.width = "120px";
 
 		// Type
@@ -331,17 +403,29 @@ export class HabitsPanel {
 		if (habit.type === "good") optGood.selected = true;
 		else optBad.selected = true;
 
-		if (habit.difficulty === 3) optH.selected = true;
+		// Difficulty
+		const diffRow = form.createDiv({ cls: "life-rpg-form-row" });
+		diffRow.createEl("label", { text: "Difficulty:" });
+		const diffSelect = diffRow.createEl("select", { cls: "life-rpg-select" });
+		diffSelect.addEventListener("keydown", (e) => e.stopPropagation());
+		const optEasy = diffSelect.createEl("option", { value: "1", text: "⭐ Easy" });
+		const optMed = diffSelect.createEl("option", { value: "2", text: "⭐⭐ Medium" });
+		const optHard = diffSelect.createEl("option", { value: "3", text: "⭐⭐⭐ Hard" });
+		
+		if (habit.difficulty === 1) optEasy.selected = true;
+		else if (habit.difficulty === 2) optMed.selected = true;
+		else if (habit.difficulty === 3) optHard.selected = true;
 
 		// Skill Selector
-		const skills = this.stateManager.getSkills();
+		const skillsList = this.stateManager.getSkills();
 		const skillRow = form.createDiv({ cls: "life-rpg-form-row" });
 		skillRow.createEl("label", { text: "Related Skill:" });
 		const skillSelect = skillRow.createEl("select", { cls: "life-rpg-select" });
+		skillSelect.addEventListener("keydown", (e) => e.stopPropagation());
 		skillSelect.createEl("option", { value: "", text: "None" });
-		for (const skill of skills) {
-			const opt = skillSelect.createEl("option", { value: skill.id, text: `${skill.icon} ${skill.name}` });
-			if (habit.skillId === skill.id) opt.selected = true;
+		for (const sk of skillsList) {
+			const opt = skillSelect.createEl("option", { value: sk.id, text: `${sk.icon} ${sk.name}` });
+			if (habit.skillId === sk.id) opt.selected = true;
 		}
 
 		// Buttons
@@ -389,6 +473,7 @@ export class HabitsPanel {
 			placeholder: "Habit name (e.g., Morning Meditation)",
 			cls: "life-rpg-input",
 		});
+		nameInput.addEventListener("keydown", (e) => e.stopPropagation());
 
 		// Icon
 		const iconInput = form.createEl("input", {
@@ -396,6 +481,7 @@ export class HabitsPanel {
 			placeholder: "Icon (e.g., 'check' or 🧘)",
 			cls: "life-rpg-input life-rpg-input-small",
 		});
+		iconInput.addEventListener("keydown", (e) => e.stopPropagation());
 		iconInput.style.width = "120px";
 		iconInput.title = "Can be an emoji or a Lucide icon name like 'check', 'x', 'heart'";
 
@@ -410,6 +496,7 @@ export class HabitsPanel {
 		const diffRow = form.createDiv({ cls: "life-rpg-form-row" });
 		diffRow.createEl("label", { text: "Difficulty:" });
 		const diffSelect = diffRow.createEl("select", { cls: "life-rpg-select" });
+		diffSelect.addEventListener("keydown", (e) => e.stopPropagation());
 		diffSelect.createEl("option", { value: "1", text: "⭐ Easy" });
 		diffSelect.createEl("option", { value: "2", text: "⭐⭐ Medium" });
 		diffSelect.createEl("option", { value: "3", text: "⭐⭐⭐ Hard" });
@@ -423,6 +510,7 @@ export class HabitsPanel {
 			value: "1",
 			attr: { min: "1" },
 		});
+		recurInput.addEventListener("keydown", (e) => e.stopPropagation());
 		recurInput.style.width = "50px";
 		recurRow.createEl("span", { text: "days", cls: "life-rpg-form-suffix" });
 
@@ -430,6 +518,7 @@ export class HabitsPanel {
 		const startRow = form.createDiv({ cls: "life-rpg-form-row" });
 		startRow.createEl("label", { text: "Start Tracking From:" });
 		const startSelect = startRow.createEl("select", { cls: "life-rpg-select" });
+		startSelect.addEventListener("keydown", (e) => e.stopPropagation());
 		
 		const today = new Date();
 		for (let i = 0; i < 14; i++) {
@@ -443,7 +532,6 @@ export class HabitsPanel {
 		}
 
 		// Skill Selector
-		const skills = this.stateManager.getSkills();
 		const skillRow = form.createDiv({ cls: "life-rpg-form-row" });
 		skillRow.createEl("label", { text: "Related Skill:" });
 		const skillSelect = skillRow.createEl("select", { cls: "life-rpg-select" });

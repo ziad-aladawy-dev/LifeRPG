@@ -40,6 +40,7 @@ export class ProfilePanel {
 			cls: "life-rpg-input",
 			value: character.name,
 		});
+		nameInput.addEventListener("keydown", (e) => e.stopPropagation());
 		nameInput.addEventListener("change", () => {
 			const name = nameInput.value.trim() || "Hero";
 			this.stateManager.updateCharacter({ name });
@@ -49,6 +50,7 @@ export class ProfilePanel {
 		const classRow = form.createDiv({ cls: "life-rpg-form-row" });
 		classRow.createEl("label", { text: "Class:" });
 		const classSelect = classRow.createEl("select", { cls: "life-rpg-select" });
+		classSelect.addEventListener("keydown", (e) => e.stopPropagation());
 
 		for (const [id, def] of Object.entries(CHARACTER_CLASSES)) {
 			const option = classSelect.createEl("option", {
@@ -73,6 +75,7 @@ export class ProfilePanel {
 			value: character.avatarUrl,
 			placeholder: "emoji or http://...",
 		});
+		avatarInput.addEventListener("keydown", (e) => e.stopPropagation());
 		avatarInput.addEventListener("change", () => {
 			const avatarUrl = avatarInput.value.trim() || "⚔️";
 			this.stateManager.updateCharacter({ avatarUrl });

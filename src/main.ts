@@ -249,18 +249,19 @@ export default class LifeRpgPlugin extends Plugin {
 			);
 			
 			// Save the updated results
-			for (const h of result.updatedHabits) {
-				this.stateManager.updateHabit(h.id, h);
-			}
-			this.stateManager.updateCharacter(result.character);
-			for (const s of result.skills) {
-				this.stateManager.updateSkill(s.id, s);
-			}
-			for (const entry of result.logEntries) {
-				this.stateManager.addLogEntry(entry);
-			}
-
-			this.stateManager.updateLastPlayedDate();
+			this.stateManager.batchUpdates(() => {
+				for (const h of result.updatedHabits) {
+					this.stateManager.updateHabit(h.id, h);
+				}
+				this.stateManager.updateCharacter(result.character);
+				for (const s of result.skills) {
+					this.stateManager.updateSkill(s.id, s);
+				}
+				for (const entry of result.logEntries) {
+					this.stateManager.addLogEntry(entry);
+				}
+				this.stateManager.updateLastPlayedDate();
+			});
 		}
 	}
 }
