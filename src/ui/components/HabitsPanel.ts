@@ -96,6 +96,13 @@ export class HabitsPanel {
 		// Streak & info
 		const infoRow = cardContent.createDiv({ cls: "life-rpg-habit-info" });
 		
+		if (habit.recurrenceDays && habit.recurrenceDays > 1) {
+			infoRow.createEl("span", {
+				text: `⏳ Every ${habit.recurrenceDays}d`,
+				cls: "life-rpg-habit-streak",
+			});
+		}
+
 		const settings = this.stateManager.getSettings();
 		const baseReward = calculateHabitReward(habit.type, habit.difficulty, settings);
 		
@@ -307,6 +314,18 @@ export class HabitsPanel {
 		diffSelect.createEl("option", { value: "2", text: "⭐⭐ Medium" });
 		diffSelect.createEl("option", { value: "3", text: "⭐⭐⭐ Hard" });
 
+		// Recurrence
+		const recurRow = form.createDiv({ cls: "life-rpg-form-row" });
+		recurRow.createEl("label", { text: "Repeats:" });
+		const recurInput = recurRow.createEl("input", {
+			type: "number",
+			cls: "life-rpg-input life-rpg-input-small",
+			value: "1",
+			attr: { min: "1" },
+		});
+		recurInput.style.width = "50px";
+		recurRow.createEl("span", { text: "days", cls: "life-rpg-form-suffix" });
+
 		// Buttons
 		const btnGroup = form.createDiv({ cls: "life-rpg-btn-group" });
 		const saveBtn = btnGroup.createEl("button", {
@@ -320,7 +339,8 @@ export class HabitsPanel {
 
 		saveBtn.addEventListener("click", () => {
 			const name = nameInput.value.trim();
-			if (!name) return;
+			const recurDays = parseInt(recurInput.value, 10);
+			if (!name || isNaN(recurDays) || recurDays < 1) return;
 
 			const habit: Habit = {
 				id: generateId(),
@@ -336,6 +356,7 @@ export class HabitsPanel {
 				hpPenalty: 0,
 				outstandingDays: 0,
 				lastEvaluatedDate: new Date().toISOString().split("T")[0],
+				recurrenceDays: recurDays,
 			};
 
 			this.stateManager.addHabit(habit);

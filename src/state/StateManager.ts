@@ -99,6 +99,12 @@ export class StateManager {
 			this.state.character.className = "Adventurer"; // Deprecated basically
 		}
 		if (!this.state.character.avatarUrl) this.state.character.avatarUrl = "⚔️";
+
+		// Migrate Constitution to Wisdom if necessary
+		if (this.state.character.attributes && this.state.character.attributes.con && !this.state.character.attributes.wis) {
+			this.state.character.attributes.wis = this.state.character.attributes.con;
+			delete this.state.character.attributes.con;
+		}
 	}
 
 	/** Save state + settings to data.json (debounced) */

@@ -96,7 +96,7 @@ export function calculateHabitReward(
 		let hpDamage = 5 * multiplier; // Base 5 damage * multiplier
 		if (attributes) {
 			// CON reduces damage by 2% per level (max 90% reduction)
-			const damageReduction = Math.min(0.9, attributes.con.level * 0.02);
+			const damageReduction = Math.min(0.9, attributes.wis.level * 0.02);
 			hpDamage *= (1 - damageReduction);
 		}
 
@@ -294,7 +294,7 @@ export function processAttributeXpGain(
 		const displayMap: Record<string, string> = {
 			str: '🦾 Strength',
 			int: '🧠 Intelligence',
-			con: '🫀 Constitution',
+			wis: '🫀 Wisdom',
 			cha: '👑 Charisma'
 		};
 
@@ -335,7 +335,7 @@ export function revertAttributeXpGain(
 		const displayMap: Record<string, string> = {
 			str: '🦾 Strength',
 			int: '🧠 Intelligence',
-			con: '🫀 Constitution',
+			wis: '🫀 Wisdom',
 			cha: '👑 Charisma'
 		};
 
@@ -472,8 +472,8 @@ export function processTaskCompletion(
 
 	// 2. Process character XP (may trigger level-up)
 	// CON applies to HP per level
-	const conBonus = 10; // Extra HP 
-	const actualHpGain = settings.hpPerLevel + (currentChar.attributes.con.level * conBonus);
+	const wisBonus = 10; // Extra HP
+	const actualHpGain = settings.hpPerLevel + (currentChar.attributes.wis.level * wisBonus);
 	
 	const xpResult = processXpGain(currentChar, reward.xp, actualHpGain);
 	currentChar = xpResult.character;
@@ -582,8 +582,8 @@ export function processTaskUncompletion(
 	currentChar.gp -= gpLoss;
 
 	// 2. Process character XP revert
-	const conBonus = 10;
-	const actualHpGain = settings.hpPerLevel + (currentChar.attributes.con.level * conBonus);
+	const wisBonus = 10;
+	const actualHpGain = settings.hpPerLevel + (currentChar.attributes.wis.level * wisBonus);
 	
 	const xpResult = revertXpGain(currentChar, reward.xp, actualHpGain);
 	currentChar = xpResult.character;

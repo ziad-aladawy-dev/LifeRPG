@@ -51,7 +51,7 @@ export class LifeRpgSettingsTab extends PluginSettingTab {
 			.setDesc("Choose your RPG class archetype. This determines your title and rank progression.")
 			.addDropdown((dropdown) => {
 				dropdown.addOption("adventurer", "Adventurer (Generalist)");
-				dropdown.addOption("warrior", "Warrior (Strength & Constitution)");
+				dropdown.addOption("warrior", "Warrior (Strength & Wisdom)");
 				dropdown.addOption("mage", "Mage (Intelligence)");
 				dropdown.addOption("rogue", "Rogue (Dexterity/Charisma)");
 
@@ -64,7 +64,7 @@ export class LifeRpgSettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Character Avatar")
-			.setDesc("An emoji or an image URL (http...) for your character.")
+			.setDesc("An emoji, an image URL (http...), or a data URI (data:image/...) for your character.")
 			.addText((text) =>
 				text
 					.setPlaceholder("⚔️ or https://...")

@@ -63,7 +63,7 @@ export class SkillsPanel {
 		nameSpan.createEl("span", { text: ` ${skill.name}` });
 		
 		const attrDisplayMap: Record<string, string> = {
-			str: '🦾', int: '🧠', con: '🫀', cha: '👑'
+			str: '🦾', int: '🧠', wis: '🕊️', cha: '👑'
 		};
 		const attrIcon = skill.attribute ? attrDisplayMap[skill.attribute] : '';
 
@@ -126,7 +126,7 @@ export class SkillsPanel {
 		attrSelect.style.width = "100px";
 		attrSelect.createEl("option", { text: "🦾 Strength", value: Attribute.STR });
 		attrSelect.createEl("option", { text: "🧠 Intelligence", value: Attribute.INT });
-		attrSelect.createEl("option", { text: "🫀 Constitution", value: Attribute.CON });
+		attrSelect.createEl("option", { text: "🕊️ Wisdom", value: Attribute.WIS });
 		attrSelect.createEl("option", { text: "👑 Charisma", value: Attribute.CHA });
 
 		const btnGroup = form.createDiv({ cls: "life-rpg-btn-group" });

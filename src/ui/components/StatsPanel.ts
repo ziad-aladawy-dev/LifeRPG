@@ -23,7 +23,7 @@ export class StatsPanel {
 		const header = el.createDiv({ cls: "life-rpg-char-header" });
 		const avatarContainer = header.createDiv({ cls: "life-rpg-char-avatar" });
 
-		if (character.avatarUrl && character.avatarUrl.startsWith("http")) {
+		if (character.avatarUrl && (character.avatarUrl.startsWith("http") || character.avatarUrl.startsWith("data:image/"))) {
 			avatarContainer.createEl("img", {
 				attr: { src: character.avatarUrl, alt: "Avatar" },
 				cls: "life-rpg-char-avatar-img"
@@ -106,7 +106,7 @@ export class StatsPanel {
 		
 		this.createAttributeCard(attrGrid, "Strength", "STR", "sword", character.attributes.str);
 		this.createAttributeCard(attrGrid, "Intelligence", "INT", "brain", character.attributes.int);
-		this.createAttributeCard(attrGrid, "Constitution", "CON", "heart-pulse", character.attributes.con);
+		this.createAttributeCard(attrGrid, "Wisdom", "WIS", "feather", character.attributes.wis);
 		this.createAttributeCard(attrGrid, "Charisma", "CHA", "crown", character.attributes.cha);
 	}
 

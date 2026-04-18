@@ -50,7 +50,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 export const DEFAULT_ATTRIBUTES: CharacterAttributes = {
 	[Attribute.STR]: { level: 1, xp: 0, xpToNextLevel: 75 },
 	[Attribute.INT]: { level: 1, xp: 0, xpToNextLevel: 75 },
-	[Attribute.CON]: { level: 1, xp: 0, xpToNextLevel: 75 },
+	[Attribute.WIS]: { level: 1, xp: 0, xpToNextLevel: 75 },
 	[Attribute.CHA]: { level: 1, xp: 0, xpToNextLevel: 75 },
 };
 

@@ -22,6 +22,16 @@ export class ProfilePanel {
 		// Profile Edit Section
 		const form = el.createDiv({ cls: "life-rpg-form" });
 
+		const avatarPreview = form.createDiv({ cls: "life-rpg-profile-avatar-preview" });
+		if (character.avatarUrl && (character.avatarUrl.startsWith("http") || character.avatarUrl.startsWith("data:image/"))) {
+			avatarPreview.createEl("img", {
+				attr: { src: character.avatarUrl, alt: "Avatar" },
+				cls: "life-rpg-char-avatar-img"
+			});
+		} else {
+			avatarPreview.setText(character.avatarUrl || "⚔️");
+		}
+
 		// Name
 		const nameRow = form.createDiv({ cls: "life-rpg-form-row" });
 		nameRow.createEl("label", { text: "Name:" });

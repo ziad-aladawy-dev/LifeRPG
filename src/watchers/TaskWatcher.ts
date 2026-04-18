@@ -166,8 +166,8 @@ export class TaskWatcher {
 		}
 
 		if (overdueCount > 0) {
-			const conBonus = 10;
-			const actualHpGain = settings.hpPerLevel + (char.attributes.con.level * conBonus);
+			const wisBonus = 10;
+			const actualHpGain = settings.hpPerLevel + (char.attributes.wis.level * wisBonus);
 			const hpResult = processHpDamage(char, damageDealt, actualHpGain);
 			char = hpResult.character;
 			died = hpResult.died;

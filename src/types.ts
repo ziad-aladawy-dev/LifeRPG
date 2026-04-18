@@ -18,7 +18,7 @@ export enum Difficulty {
 export enum Attribute {
 	STR = "str",
 	INT = "int",
-	CON = "con",
+	WIS = "wis",
 	CHA = "cha",
 }
 
@@ -53,8 +53,9 @@ export interface AttributeState {
 export interface CharacterAttributes {
 	[Attribute.STR]: AttributeState;
 	[Attribute.INT]: AttributeState;
-	[Attribute.CON]: AttributeState;
+	[Attribute.WIS]: AttributeState;
 	[Attribute.CHA]: AttributeState;
+	con?: AttributeState; // Kept as optional for old state migration
 }
 
 /** The player's core character statistics */
@@ -99,6 +100,7 @@ export interface Habit {
 	causedDeathLevelDown?: boolean;
 	outstandingDays: number;
 	lastEvaluatedDate: string | null; // ISO date string without time
+	recurrenceDays?: number; // number of days between occurrences (e.g. 1 for daily, 5 for every 5 days)
 }
 
 /** A custom reward the player can purchase with GP */

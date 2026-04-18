@@ -87,8 +87,8 @@ export function logGoodHabit(
 	currentChar = processGpGain(currentChar, gpGain);
 
 	// Process character XP
-	const conBonus = 10;
-	const actualHpGain = settings.hpPerLevel + (currentChar.attributes.con.level * conBonus);
+	const wisBonus = 10;
+	const actualHpGain = settings.hpPerLevel + (currentChar.attributes.wis.level * wisBonus);
 	const xpResult = processXpGain(currentChar, xpGain, actualHpGain);
 	currentChar = xpResult.character;
 	logEntries.push(...xpResult.logEntries);
@@ -175,8 +175,8 @@ export function logBadHabit(
 	updatedHabit.hpPenalty = damage;
 
 	// Apply damage
-	const conBonus = 10;
-	const actualHpGain = settings.hpPerLevel + (currentChar.attributes.con.level * conBonus);
+	const wisBonus = 10;
+	const actualHpGain = settings.hpPerLevel + (currentChar.attributes.wis.level * wisBonus);
 	const wasLevelGreaterThanOne = currentChar.level > 1;
 	const hpResult = processHpDamage(currentChar, damage, actualHpGain);
 	if (hpResult.died && wasLevelGreaterThanOne) {
@@ -235,28 +235,38 @@ export function evaluateDailyHabits(habits: Habit[]): Habit[] {
 		const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
 		if (diffDays > 0) {
-			// If it's a good habit and it wasn't completed on exactly its lastEvaluatedDate
-			// Note: If lastCompleted === h.lastEvaluatedDate, they DID complete it that day,
-			// so they don't get penalized for the first day, but only for diffDays - 1.
-			
-			// Actually, a simpler robust way: You owe a completion for every day strictly between 
-			// lastCompleted (or creation) and today.
-			
-			// If it's a "good" habit, they accumulate debt.
 			if (h.type === "good") {
-				// Base missed instance is every day passed
-				let missed = diffDays;
+				// We need a robust way to track days elapsed since the *last* valid completion
+				// relative to the recurrence interval.
+				const recurrence = h.recurrenceDays || 1;
 				
-				// Did they complete it on the actual lastEvaluatedDate? Then that day is safe.
-				const lastCompStr = h.lastCompleted ? new Date(h.lastCompleted).toISOString().split("T")[0] : null;
-				if (lastCompStr === h.lastEvaluatedDate) {
-					missed -= 1;
+				// To handle daily checks properly without losing remainder days:
+				// If we evaluate daily, `diffDays` is 1. If recurrence is 3, Math.floor(1/3) = 0.
+				// Next day, diffDays=1, still 0. We'd never accumulate debt!
+				// So instead, we must NOT update `lastEvaluatedDate` if we haven't crossed the recurrence threshold.
+
+				// Let's track the *total* days elapsed since the last evaluated date.
+				// If total >= recurrence, we process the chunk and push lastEvaluatedDate forward.
+				let missedChunks = Math.floor(diffDays / recurrence);
+
+				if (missedChunks > 0) {
+					// Did they complete it on the actual lastEvaluatedDate?
+					// Wait, if lastEvaluatedDate moves in chunks of `recurrence`, this is cleaner.
+					const lastCompStr = h.lastCompleted ? new Date(h.lastCompleted).toISOString().split("T")[0] : null;
+					if (lastCompStr === h.lastEvaluatedDate) {
+						missedChunks -= 1; // Safed the first chunk
+					}
+
+					h.outstandingDays = Math.min(7, (h.outstandingDays || 0) + missedChunks);
+
+					// Advance the evaluated date by exactly the chunks we processed,
+					// keeping any remainder days for tomorrow's check.
+					const newEvalDate = new Date(evalDate.getTime() + (missedChunks * recurrence * 24 * 60 * 60 * 1000));
+					h.lastEvaluatedDate = newEvalDate.toISOString().split("T")[0];
 				}
-
-				h.outstandingDays = Math.min(7, (h.outstandingDays || 0) + missed);
+			} else {
+				h.lastEvaluatedDate = todayStr;
 			}
-
-			h.lastEvaluatedDate = todayStr;
 		}
 
 		return h;
@@ -291,8 +301,8 @@ export function resolveOutstandingHabit(
 		const gpGain = Math.round(baseReward.gp * bonus);
 
 		c = processGpGain(c, gpGain);
-		const conBonus = 10;
-		const actualHpGain = settings.hpPerLevel + (c.attributes.con.level * conBonus);
+		const wisBonus = 10;
+		const actualHpGain = settings.hpPerLevel + (c.attributes.wis.level * wisBonus);
 		const xpResult = processXpGain(c, xpGain, actualHpGain);
 		c = xpResult.character;
 		logEntries.push(...xpResult.logEntries);
@@ -322,8 +332,8 @@ export function resolveOutstandingHabit(
 		const reward = calculateHabitReward("bad", h.difficulty, settings);
 		
 		// Apply damage
-		const conBonus = 10;
-		const actualHpGain = settings.hpPerLevel + (c.attributes.con.level * conBonus);
+		const wisBonus = 10;
+		const actualHpGain = settings.hpPerLevel + (c.attributes.wis.level * wisBonus);
 		const hpResult = processHpDamage(c, reward.hpDamage, actualHpGain);
 		c = hpResult.character;
 		if (hpResult.died) logEntries.push(...hpResult.logEntries);
@@ -380,8 +390,8 @@ export function undoHabit(
 		c.gp = Math.max(0, c.gp - gpToRevert);
 
 		// Revert XP
-		const conBonus = 10;
-		const actualHpGain = settings.hpPerLevel + (c.attributes.con.level * conBonus);
+		const wisBonus = 10;
+		const actualHpGain = settings.hpPerLevel + (c.attributes.wis.level * wisBonus);
 		const xpResult = revertXpGain(c, xpToRevert, actualHpGain);
 		c = xpResult.character;
 		logEntries.push(...xpResult.logEntries);
@@ -419,8 +429,8 @@ export function undoHabit(
 
 		if (h.causedDeathLevelDown) {
 			c.level++;
-			const conBonus = 10;
-			const actualHpGain = settings.hpPerLevel + (c.attributes.con.level * conBonus);
+			const wisBonus = 10;
+			const actualHpGain = settings.hpPerLevel + (c.attributes.wis.level * wisBonus);
 			c.maxHp += actualHpGain;
 			c.xpToNextLevel = xpThresholdForLevel(c.level);
 		}
