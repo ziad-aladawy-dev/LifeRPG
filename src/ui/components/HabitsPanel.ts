@@ -9,7 +9,7 @@ import { type StateManager } from "../../state/StateManager";
 import { logGoodHabit, logBadHabit, resolveOutstandingHabit, undoHabit } from "../../engine/HabitManager";
 import { calculateHabitReward, streakBonusMultiplier } from "../../engine/GameEngine";
 import { generateId } from "../../constants";
-import { HabitHistoryModal } from "../../modals/HabitHistoryModal";
+import { HabitHistoryModal } from "../modals/HabitHistoryModal";
 
 export class HabitsPanel {
 	private containerEl: HTMLElement;
@@ -423,6 +423,22 @@ export class HabitsPanel {
 		recurInput.style.width = "50px";
 		recurRow.createEl("span", { text: "days", cls: "life-rpg-form-suffix" });
 
+		// Start Date Picker
+		const startRow = form.createDiv({ cls: "life-rpg-form-row" });
+		startRow.createEl("label", { text: "Start Tracking From:" });
+		const startSelect = startRow.createEl("select", { cls: "life-rpg-select" });
+		
+		const today = new Date();
+		for (let i = 0; i < 14; i++) {
+			const date = new Date(today);
+			date.setDate(date.getDate() - i);
+			const dateStr = date.toISOString().split("T")[0];
+			startSelect.createEl("option", { 
+				value: dateStr, 
+				text: i === 0 ? "Today" : date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+			});
+		}
+
 		// Buttons
 		const btnGroup = form.createDiv({ cls: "life-rpg-btn-group" });
 		const saveBtn = btnGroup.createEl("button", {
@@ -452,12 +468,18 @@ export class HabitsPanel {
 				gpReward: 0,
 				hpPenalty: 0,
 				outstandingDays: 0,
-				lastEvaluatedDate: new Date().toISOString().split("T")[0],
-				recurrenceDays: recurDays,
+				lastEvaluatedDate: startSelect.value,
+				recurrenceDays: recurInput.value ? parseInt(recurInput.value, 10) : 1,
 			};
 
 			this.stateManager.addHabit(habit);
 			form.remove();
+
+			// If they picked a past date, immediately open the history modal
+			if (startSelect.value !== new Date().toISOString().split("T")[0]) {
+				const app = (this.stateManager as any).plugin.app;
+				new HabitHistoryModal(app, habit, this.stateManager).open();
+			}
 		});
 
 		cancelBtn.addEventListener("click", () => form.remove());
