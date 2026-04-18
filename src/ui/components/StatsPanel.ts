@@ -32,15 +32,16 @@ export class StatsPanel {
 			avatarContainer.setText(character.avatarUrl || "⚔️");
 		}
 
-		const headerInfo = header.createDiv({ cls: "life-rpg-char-info" });
-		const titleRow = headerInfo.createDiv({ cls: "life-rpg-char-title-row", attr: { style: "display: flex; align-items: center; justify-content: space-between;" } });
+		const headerInfo = header.createDiv({ cls: "life-rpg-char-info", attr: { style: "display: flex; flex-direction: column; gap: 4px; flex-grow: 1;" } });
 		
-		titleRow.createEl("h3", {
-			text: `Level ${character.level} ${character.name}`,
-			cls: "life-rpg-char-title",
+		const nameRow = headerInfo.createDiv({ attr: { style: "display: flex; align-items: center; justify-content: space-between;" } });
+		nameRow.createEl("h2", {
+			text: character.name,
+			cls: "life-rpg-char-name",
+			attr: { style: "margin: 0; font-size: 24px; font-weight: 800; color: var(--rpg-text-primary);" }
 		});
-		
-		const editBtn = titleRow.createEl("button", {
+
+		const editBtn = nameRow.createEl("button", {
 			text: "✏️ Edit Profile",
 			cls: "life-rpg-btn life-rpg-btn-small",
 		});
@@ -49,10 +50,18 @@ export class StatsPanel {
 			this.showEditProfileForm(character, header);
 		});
 
+		const metaRow = headerInfo.createDiv({ attr: { style: "display: flex; flex-direction: column; gap: 2px;" } });
+		metaRow.createEl("span", {
+			text: `Level ${character.level}`,
+			cls: "life-rpg-char-level",
+			attr: { style: "font-weight: 600; color: var(--rpg-text-secondary); font-size: 14px;" }
+		});
+
 		const rankTitle = getCharacterRank(character.level, character.classId);
-		headerInfo.createEl("span", {
-			text: rankTitle,
+		metaRow.createEl("span", {
+			text: rankTitle.toUpperCase(),
 			cls: "life-rpg-char-class",
+			attr: { style: "font-size: 12px; font-weight: 700; color: var(--rpg-accent); letter-spacing: 0.5px;" }
 		});
 
 		// HP Bar

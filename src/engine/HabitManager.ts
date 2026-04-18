@@ -222,11 +222,24 @@ export function logBadHabit(
  * Checks all habits and computes missed days since the last evaluation.
  * Caps the missed days at 7 to prevent completely breaking the game.
  */
-export function evaluateDailyHabits(habits: Habit[]): Habit[] {
+export function evaluateDailyHabits(
+	habits: Habit[],
+	character: CharacterState,
+	skills: Skill[],
+	settings: PluginSettings
+): {
+	updatedHabits: Habit[];
+	logEntries: EventLogEntry[];
+	character: CharacterState;
+	skills: Skill[];
+} {
 	const todayStr = getTodayStr();
 	const todayDate = new Date(todayStr);
+	const logEntries: EventLogEntry[] = [];
+	let currentChar = { ...character };
+	let updatedSkills = skills.map((s) => ({ ...s }));
 
-	return habits.map((habit) => {
+	const resultHabits = habits.map((habit) => {
 		const h = { ...habit };
 		
 		if (!h.lastEvaluatedDate) {
@@ -273,13 +286,59 @@ export function evaluateDailyHabits(habits: Habit[]): Habit[] {
 					const newEvalDate = new Date(evalDate.getTime() + (missedChunks * recurrence * 24 * 60 * 60 * 1000));
 					h.lastEvaluatedDate = newEvalDate.toISOString().split("T")[0];
 				}
-			} else {
-				h.lastEvaluatedDate = todayStr;
-			}
+				} else {
+					// Bad Habit: Missed days = Win (Avoidance Reward)
+					for (let i = 0; i < missedChunks; i++) {
+						const dateToCheck = new Date(evalDate.getTime() + (i * recurrence * 24 * 60 * 60 * 1000));
+						const dateStr = dateToCheck.toISOString().split("T")[0];
+						
+						const wasRelapsed = h.history && h.history[dateStr];
+						
+						if (!wasRelapsed) {
+							// AWARD A WIN (Avoidance Reward)
+							h.streak++;
+							const reward = calculateHabitReward("good", h.difficulty, settings, currentChar.attributes);
+							const bonus = streakBonusMultiplier(h.streak);
+							const xpGain = Math.round(reward.xp * bonus);
+							const gpGain = Math.round(reward.gp * bonus);
+
+							currentChar = processGpGain(currentChar, gpGain);
+							const wisBonus = 10;
+							const actualHpGain = settings.hpPerLevel + (currentChar.attributes.wis.level * wisBonus);
+							const xpRes = processXpGain(currentChar, xpGain, actualHpGain);
+							currentChar = xpRes.character;
+							logEntries.push(...xpRes.logEntries);
+
+							if (h.skillId) {
+								const sIdx = updatedSkills.findIndex(s => s.id === h.skillId || s.name.toLowerCase() === h.skillId!.toLowerCase());
+								if (sIdx !== -1) {
+									const skRes = processSkillXpGain(updatedSkills[sIdx], xpGain);
+									updatedSkills[sIdx] = skRes.skill;
+									logEntries.push(...skRes.logEntries);
+								}
+							}
+
+							logEntries.push({
+								id: generateId(),
+								timestamp: new Date().toISOString(),
+								type: EventType.HabitGood,
+								message: `🛡️ Avoided "${h.name}" on ${dateStr}! (+${xpGain} XP, +${gpGain} GP)`,
+								xpDelta: xpGain,
+								gpDelta: gpGain,
+								hpDelta: 0,
+							});
+						} else {
+							// Relapsed on that day. Streak broke.
+							h.streak = 0;
+						}
+					}
+				}
 		}
 
 		return h;
 	});
+
+	return { updatedHabits: resultHabits, logEntries, character: currentChar, skills: updatedSkills };
 }
 
 /**

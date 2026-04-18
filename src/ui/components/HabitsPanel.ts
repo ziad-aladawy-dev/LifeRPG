@@ -331,16 +331,18 @@ export class HabitsPanel {
 		if (habit.type === "good") optGood.selected = true;
 		else optBad.selected = true;
 
-		// Difficulty
-		const diffRow = form.createDiv({ cls: "life-rpg-form-row" });
-		diffRow.createEl("label", { text: "Difficulty:" });
-		const diffSelect = diffRow.createEl("select", { cls: "life-rpg-select" });
-		const optE = diffSelect.createEl("option", { value: "1", text: "⭐ Easy" });
-		const optM = diffSelect.createEl("option", { value: "2", text: "⭐⭐ Medium" });
-		const optH = diffSelect.createEl("option", { value: "3", text: "⭐⭐⭐ Hard" });
-		if (habit.difficulty === 1) optE.selected = true;
-		if (habit.difficulty === 2) optM.selected = true;
 		if (habit.difficulty === 3) optH.selected = true;
+
+		// Skill Selector
+		const skills = this.stateManager.getSkills();
+		const skillRow = form.createDiv({ cls: "life-rpg-form-row" });
+		skillRow.createEl("label", { text: "Related Skill:" });
+		const skillSelect = skillRow.createEl("select", { cls: "life-rpg-select" });
+		skillSelect.createEl("option", { value: "", text: "None" });
+		for (const skill of skills) {
+			const opt = skillSelect.createEl("option", { value: skill.id, text: `${skill.icon} ${skill.name}` });
+			if (habit.skillId === skill.id) opt.selected = true;
+		}
 
 		// Buttons
 		const btnGroup = form.createDiv({ cls: "life-rpg-btn-group" });
@@ -362,6 +364,7 @@ export class HabitsPanel {
 				icon: iconInput.value.trim() || (typeSelect.value === "good" ? "check" : "x"),
 				type: typeSelect.value as "good" | "bad",
 				difficulty: parseInt(diffSelect.value, 10) as Difficulty,
+				skillId: skillSelect.value || null,
 			});
 		});
 
@@ -439,6 +442,16 @@ export class HabitsPanel {
 			});
 		}
 
+		// Skill Selector
+		const skills = this.stateManager.getSkills();
+		const skillRow = form.createDiv({ cls: "life-rpg-form-row" });
+		skillRow.createEl("label", { text: "Related Skill:" });
+		const skillSelect = skillRow.createEl("select", { cls: "life-rpg-select" });
+		skillSelect.createEl("option", { value: "", text: "None" });
+		for (const skill of skills) {
+			skillSelect.createEl("option", { value: skill.id, text: `${skill.icon} ${skill.name}` });
+		}
+
 		// Buttons
 		const btnGroup = form.createDiv({ cls: "life-rpg-btn-group" });
 		const saveBtn = btnGroup.createEl("button", {
@@ -452,8 +465,7 @@ export class HabitsPanel {
 
 		saveBtn.addEventListener("click", () => {
 			const name = nameInput.value.trim();
-			const recurDays = parseInt(recurInput.value, 10);
-			if (!name || isNaN(recurDays) || recurDays < 1) return;
+			if (!name) return;
 
 			const habit: Habit = {
 				id: generateId(),
@@ -461,7 +473,7 @@ export class HabitsPanel {
 				icon: iconInput.value.trim() || (typeSelect.value === "good" ? "check" : "x"),
 				type: typeSelect.value as "good" | "bad",
 				difficulty: parseInt(diffSelect.value, 10) as Difficulty,
-				skillId: null,
+				skillId: skillSelect.value || null,
 				streak: 0,
 				lastCompleted: null,
 				xpReward: 0,

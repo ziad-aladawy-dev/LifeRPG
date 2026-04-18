@@ -241,12 +241,24 @@ export default class LifeRpgPlugin extends Plugin {
 
 			// Evaluate habits mapping for the daily rollover 
 			const habits = this.stateManager.getHabits();
-			const evaluatedHabits = evaluateDailyHabits(habits);
+			const result = evaluateDailyHabits(
+				habits,
+				this.stateManager.getCharacter(),
+				this.stateManager.getSkills(),
+				this.stateManager.getSettings()
+			);
 			
-			// Save the updated habits with correctly calculated missed instances
-			evaluatedHabits.forEach((h: any) => {
+			// Save the updated results
+			for (const h of result.updatedHabits) {
 				this.stateManager.updateHabit(h.id, h);
-			});
+			}
+			this.stateManager.updateCharacter(result.character);
+			for (const s of result.skills) {
+				this.stateManager.updateSkill(s.id, s);
+			}
+			for (const entry of result.logEntries) {
+				this.stateManager.addLogEntry(entry);
+			}
 
 			this.stateManager.updateLastPlayedDate();
 		}
