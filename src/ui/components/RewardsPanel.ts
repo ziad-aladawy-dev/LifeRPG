@@ -115,6 +115,15 @@ export class RewardsPanel {
 			buyBtn.disabled = true;
 		}
 
+		// Edit button
+		const editBtn = actions.createEl("button", {
+			text: "✏️",
+			cls: "life-rpg-btn-icon",
+		});
+		editBtn.addEventListener("click", () => {
+			this.showEditRewardForm(reward, card);
+		});
+
 		// Delete button
 		const deleteBtn = actions.createEl("button", {
 			text: "✕",
@@ -146,6 +155,74 @@ export class RewardsPanel {
 			gpDelta: -reward.cost,
 			hpDelta: 0,
 		});
+	}
+
+	private showEditRewardForm(reward: Reward, card: HTMLElement): void {
+		const children = Array.from(card.children);
+		children.forEach(c => ((c as HTMLElement).style.display = "none"));
+
+		const form = card.createDiv({ cls: "life-rpg-add-reward-form life-rpg-form" });
+
+		const nameInput = form.createEl("input", {
+			type: "text",
+			value: reward.name,
+			placeholder: "Reward name",
+			cls: "life-rpg-input",
+		});
+
+		const descInput = form.createEl("input", {
+			type: "text",
+			value: reward.description || "",
+			placeholder: "Description (optional)",
+			cls: "life-rpg-input",
+		});
+
+		const row = form.createDiv({ cls: "life-rpg-form-row" });
+
+		const iconInput = row.createEl("input", {
+			type: "text",
+			value: reward.icon,
+			cls: "life-rpg-input life-rpg-input-small",
+		});
+		iconInput.style.width = "120px";
+
+		const costInput = row.createEl("input", {
+			type: "number",
+			value: reward.cost.toString(),
+			placeholder: "Cost (GP)",
+			cls: "life-rpg-input",
+		});
+		costInput.style.width = "100px";
+
+		const btnGroup = form.createDiv({ cls: "life-rpg-btn-group" });
+		const saveBtn = btnGroup.createEl("button", {
+			text: "Save",
+			cls: "life-rpg-btn life-rpg-btn-primary",
+		});
+		const cancelBtn = btnGroup.createEl("button", {
+			text: "Cancel",
+			cls: "life-rpg-btn",
+		});
+
+		saveBtn.addEventListener("click", () => {
+			const name = nameInput.value.trim();
+			const cost = parseInt(costInput.value, 10);
+			if (!name || isNaN(cost) || cost <= 0) return;
+
+			this.stateManager.updateReward(reward.id, {
+				name,
+				description: descInput.value.trim(),
+				cost,
+				icon: iconInput.value.trim() || "gift",
+			});
+		});
+
+		cancelBtn.addEventListener("click", () => {
+			form.remove();
+			children.forEach(c => ((c as HTMLElement).style.display = ""));
+		});
+
+		nameInput.focus();
 	}
 
 	private showAddRewardForm(): void {
