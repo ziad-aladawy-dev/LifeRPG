@@ -8,6 +8,7 @@ import { type Habit, type Skill, Difficulty, ItemSlot } from "../../types";
 import { type StateManager } from "../../state/StateManager";
 import { logGoodHabit, logBadHabit, resolveOutstandingHabit, undoHabit, recalculateHabitStreak } from "../../engine/HabitManager";
 import { calculateHabitReward, streakBonusMultiplier } from "../../engine/GameEngine";
+import { Notice } from "obsidian";
 import { generateId } from "../../constants";
 import { HabitDetailModal } from "../modals/HabitDetailModal";
 import { HabitHistoryModal } from "../modals/HabitHistoryModal";

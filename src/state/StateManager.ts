@@ -3,7 +3,7 @@
 // Manages all game state persistence via data.json with reactive change events.
 // ============================================================================
 
-import { type Plugin } from "obsidian";
+import { type Plugin, Notice } from "obsidian";
 import { getTodayStr } from "../utils/dateUtils";
 import {
 	type GameState,
@@ -568,12 +568,12 @@ export class StateManager {
 		// Celebrations
 		if (this.settings.showNotifications) {
 			if (this.state.character.level > oldChar.level) {
-				this.celebrationManager.celebrateLevelUp(this.state.character.level, this.settings.hpPerLevel);
+				new Notice(`🎉 LEVEL UP! You reached Level ${this.state.character.level}!`, 5000); //this.state.character.level, this.settings.hpPerLevel);
 			}
 			for (const newSkill of this.state.skills) {
 				const oldSkill = oldSkills.find(os => os.id === newSkill.id);
 				if (oldSkill && newSkill.level > oldSkill.level) {
-					this.celebrationManager.celebrateSkillUp(newSkill.name, newSkill.level);
+					new Notice(`🎯 SKILL UP: ${newSkill.name} reached Level ${newSkill.level}!`, 4000); //newSkill.name, newSkill.level);
 				}
 			}
 		}
