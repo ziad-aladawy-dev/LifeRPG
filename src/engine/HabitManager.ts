@@ -9,46 +9,51 @@ import {
 	type Skill,
 	type EventLogEntry,
 	type PluginSettings,
+	type Item,
 	EventType,
 } from "../types";
 import { generateId, xpThresholdForLevel } from "../constants";
-import { getTodayStr, isSameDay } from "../utils/dateUtils";
+import { getTodayStr, isSameDay, formatDate } from "../utils/dateUtils";
 import {
 	calculateHabitReward,
+	calculateGlobalModifiers,
 	processXpGain,
 	processHpDamage,
 	processGpGain,
 	processSkillXpGain,
+	processAttributeXpGain,
 	revertXpGain,
 	revertSkillXpGain,
+	revertAttributeXpGain,
 	checkStreakContinuity,
 	streakBonusMultiplier,
 } from "./GameEngine";
+import { INITIAL_ITEMS } from "../constants";
 
 // ---------------------------------------------------------------------------
 // Good Habit Logging
 // ---------------------------------------------------------------------------
 
-/**
- * Log a good habit completion. Awards XP, GP, updates streak, and processes
- * skill XP if the habit is linked to a skill.
- */
 export function logGoodHabit(
 	habit: Habit,
 	character: CharacterState,
 	skills: Skill[],
-	settings: PluginSettings
+	settings: PluginSettings,
+	modifiers: ReturnType<typeof calculateGlobalModifiers>
 ): {
 	habit: Habit;
 	character: CharacterState;
 	skills: Skill[];
 	logEntries: EventLogEntry[];
+	foundItem: any | null;
+	spEarned: number;
 } {
 	const logEntries: EventLogEntry[] = [];
 	const today = new Date();
 	let updatedHabit = { ...habit };
 	let currentChar = { ...character };
 	let updatedSkills = skills.map((s) => ({ ...s }));
+	let spEarned = 0;
 
 	// Update streak
 	if (checkStreakContinuity(updatedHabit.lastCompleted, today)) {
@@ -59,12 +64,12 @@ export function logGoodHabit(
 				today.toDateString()
 		) {
 			// Already completed today. Return early!
-			return { habit: updatedHabit, character: currentChar, skills: updatedSkills, logEntries };
+			return { habit: updatedHabit, character: currentChar, skills: updatedSkills, logEntries, foundItem: null, spEarned: 0 };
 		}
 		
 		if ((updatedHabit.outstandingDays || 0) > 0) {
 			// Cannot log today's instance until backlogs are resolved
-			return { habit: updatedHabit, character: currentChar, skills: updatedSkills, logEntries };
+			return { habit: updatedHabit, character: currentChar, skills: updatedSkills, logEntries, foundItem: null, spEarned: 0 };
 		}
 		
 		updatedHabit.streak++;
@@ -78,8 +83,8 @@ export function logGoodHabit(
 	const todayStr = getTodayStr();
 	updatedHabit.history[todayStr] = true;
 
-	// Calculate rewards with streak bonus
-	const baseReward = calculateHabitReward("good", habit.difficulty, settings);
+	// Calculate rewards with streak bonus and gear modifiers
+	const baseReward = calculateHabitReward("good", habit.difficulty, settings, currentChar.attributes, modifiers);
 	const bonus = streakBonusMultiplier(updatedHabit.streak);
 	const xpGain = Math.round(baseReward.xp * bonus);
 	const gpGain = Math.round(baseReward.gp * bonus);
@@ -112,6 +117,20 @@ export function logGoodHabit(
 			);
 			updatedSkills[skillIdx] = skillResult.skill;
 			logEntries.push(...skillResult.logEntries);
+			spEarned += skillResult.spEarned;
+
+			// Level the corresponding attribute
+			const skillRef = updatedSkills[skillIdx];
+			if (skillRef.attribute) {
+				const attrObj = currentChar.attributes[skillRef.attribute];
+				if (attrObj) {
+					const ratio = settings.skillToAttributeRatio ?? 0.2;
+					const attrXp = Math.round(xpGain * ratio);
+					const attrResult = processAttributeXpGain(skillRef.attribute, attrObj, attrXp);
+					currentChar.attributes[skillRef.attribute] = attrResult.attribute;
+					logEntries.push(...attrResult.logEntries);
+				}
+			}
 		}
 	}
 
@@ -128,11 +147,31 @@ export function logGoodHabit(
 		hpDelta: 0,
 	});
 
+	// Chance to find an item (5% base + CHA bonus)
+	let foundItem = null;
+	const chaBonus = (currentChar.attributes.cha.level + modifiers.cha) * 0.01;
+	if (Math.random() < 0.05 + chaBonus) {
+		const randomIndex = Math.floor(Math.random() * INITIAL_ITEMS.length);
+		foundItem = { ...INITIAL_ITEMS[randomIndex], id: generateId() };
+		
+		logEntries.push({
+			id: generateId(),
+			timestamp: new Date().toISOString(),
+			type: EventType.ItemFound,
+			message: `🎁 You found a rare item: **${foundItem.name}**!`,
+			xpDelta: 0,
+			gpDelta: 0,
+			hpDelta: 0,
+		});
+	}
+
 	return {
 		habit: updatedHabit,
 		character: currentChar,
 		skills: updatedSkills,
 		logEntries,
+		foundItem,
+		spEarned
 	};
 }
 
@@ -140,13 +179,11 @@ export function logGoodHabit(
 // Bad Habit Logging
 // ---------------------------------------------------------------------------
 
-/**
- * Log a bad habit occurrence. Deals HP damage to the character.
- */
 export function logBadHabit(
 	habit: Habit,
 	character: CharacterState,
-	settings: PluginSettings
+	settings: PluginSettings,
+	modifiers: ReturnType<typeof calculateGlobalModifiers>
 ): {
 	habit: Habit;
 	character: CharacterState;
@@ -156,12 +193,12 @@ export function logBadHabit(
 	const updatedHabit = { ...habit };
 	let currentChar = { ...character };
 
-	const todayStr = new Date().toISOString().split("T")[0];
+	const todayStr = getTodayStr();
 	
 	// Check if already logged today
 	if (
 		updatedHabit.lastCompleted &&
-		new Date(updatedHabit.lastCompleted).toISOString().split("T")[0] === todayStr
+		isSameDay(updatedHabit.lastCompleted, todayStr)
 	) {
 		return { habit: updatedHabit, character: currentChar, logEntries };
 	}
@@ -171,7 +208,7 @@ export function logBadHabit(
 	}
 
 	// Calculate damage
-	const reward = calculateHabitReward("bad", habit.difficulty, settings);
+	const reward = calculateHabitReward("bad", habit.difficulty, settings, currentChar.attributes, modifiers);
 	const damage = reward.hpDamage;
 
 	// Update habit tracking
@@ -218,169 +255,186 @@ export function logBadHabit(
 // Daily Evaluation & Resolution
 // ---------------------------------------------------------------------------
 
-/**
- * Checks all habits and computes missed days since the last evaluation.
- * Caps the missed days at 7 to prevent completely breaking the game.
- */
 export function evaluateDailyHabits(
 	habits: Habit[],
 	character: CharacterState,
 	skills: Skill[],
-	settings: PluginSettings
+	settings: PluginSettings,
+	modifiers: ReturnType<typeof calculateGlobalModifiers>
 ): {
 	updatedHabits: Habit[];
 	logEntries: EventLogEntry[];
 	character: CharacterState;
 	skills: Skill[];
+	spEarned: number;
 } {
 	const todayStr = getTodayStr();
-	const todayDate = new Date(todayStr);
 	const logEntries: EventLogEntry[] = [];
 	let currentChar = { ...character };
 	let updatedSkills = skills.map((s) => ({ ...s }));
+	let spEarned = 0;
 
 	const resultHabits = habits.map((habit) => {
 		const h = { ...habit };
 		
-		if (!h.lastEvaluatedDate) {
-			h.lastEvaluatedDate = todayStr;
-			h.outstandingDays = 0;
-			return h;
-		}
-
-		if (h.lastEvaluatedDate === todayStr) {
-			return h;
-		}
-
-		const evalDate = new Date(h.lastEvaluatedDate);
-		const diffTime = todayDate.getTime() - evalDate.getTime();
-		const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-		if (diffDays > 0) {
-			if (h.type === "good") {
-				// We need a robust way to track days elapsed since the *last* valid completion
-				// relative to the recurrence interval.
-				const recurrence = h.recurrenceDays || 1;
-				
-				// To handle daily checks properly without losing remainder days:
-				// If we evaluate daily, `diffDays` is 1. If recurrence is 3, Math.floor(1/3) = 0.
-				// Next day, diffDays=1, still 0. We'd never accumulate debt!
-				// So instead, we must NOT update `lastEvaluatedDate` if we haven't crossed the recurrence threshold.
-
-				// Let's track the *total* days elapsed since the last evaluated date.
-				// If total >= recurrence, we process the chunk and push lastEvaluatedDate forward.
-				let missedChunks = Math.floor(diffDays / recurrence);
-
-				if (missedChunks > 0) {
-					// Did they complete it on the actual lastEvaluatedDate?
-					// Wait, if lastEvaluatedDate moves in chunks of `recurrence`, this is cleaner.
-					const lastCompStr = h.lastCompleted ? new Date(h.lastCompleted).toISOString().split("T")[0] : null;
-					if (lastCompStr === h.lastEvaluatedDate) {
-						missedChunks -= 1; // Safed the first chunk
-					}
-
-					h.outstandingDays = Math.min(7, (h.outstandingDays || 0) + missedChunks);
-
-					// Advance the evaluated date by exactly the chunks we processed,
-					// keeping any remainder days for tomorrow's check.
-					const newEvalDate = new Date(evalDate.getTime() + (missedChunks * recurrence * 24 * 60 * 60 * 1000));
-					h.lastEvaluatedDate = newEvalDate.toISOString().split("T")[0];
+		// 1. Determine anchor for start
+		const anchorDateStr = h.startDate || h.createdAt.split("T")[0];
+		const [ay, am, ad] = anchorDateStr.split("-").map(Number);
+		const anchorDate = new Date(ay, am - 1, ad);
+		
+		const recurrence = h.recurrenceDays || 1;
+		const today = new Date();
+		
+		// 2. Automated "Missed" logic for gaps older than 15 days
+		if (!h.history) h.history = {};
+		
+		const maxLookback = 60; // Sanity cap
+		for (let i = 16; i <= maxLookback; i++) {
+			const checkDate = new Date(today);
+			checkDate.setDate(today.getDate() - i);
+			
+			// Don't look back before ritual started
+			if (checkDate.getTime() < anchorDate.getTime()) break;
+			
+			const dateStr = formatDate(checkDate);
+			
+			// Check if it was a due day
+			const diffMs = checkDate.getTime() - anchorDate.getTime();
+			const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+			
+			if (diffDays % recurrence === 0) {
+				// If unresolved gap, mark as missed (false) to clear from future scans
+				if (h.history[dateStr] === undefined) {
+					h.history[dateStr] = false;
 				}
-				} else {
-					// Bad Habit: Missed days = Win (Avoidance Reward)
-					for (let i = 0; i < missedChunks; i++) {
-						const dateToCheck = new Date(evalDate.getTime() + (i * recurrence * 24 * 60 * 60 * 1000));
-						const dateStr = dateToCheck.toISOString().split("T")[0];
-						
-						const wasRelapsed = h.history && h.history[dateStr];
-						
-						if (!wasRelapsed) {
-							// AWARD A WIN (Avoidance Reward)
-							h.streak++;
-							const reward = calculateHabitReward("good", h.difficulty, settings, currentChar.attributes);
-							const bonus = streakBonusMultiplier(h.streak);
-							const xpGain = Math.round(reward.xp * bonus);
-							const gpGain = Math.round(reward.gp * bonus);
-
-							currentChar = processGpGain(currentChar, gpGain);
-							const wisBonus = 10;
-							const actualHpGain = settings.hpPerLevel + (currentChar.attributes.wis.level * wisBonus);
-							const xpRes = processXpGain(currentChar, xpGain, actualHpGain);
-							currentChar = xpRes.character;
-							logEntries.push(...xpRes.logEntries);
-
-							if (h.skillId) {
-								const sIdx = updatedSkills.findIndex(s => s.id === h.skillId || s.name.toLowerCase() === h.skillId!.toLowerCase());
-								if (sIdx !== -1) {
-									const skRes = processSkillXpGain(updatedSkills[sIdx], xpGain);
-									updatedSkills[sIdx] = skRes.skill;
-									logEntries.push(...skRes.logEntries);
-								}
-							}
-
-							logEntries.push({
-								id: generateId(),
-								timestamp: new Date().toISOString(),
-								type: EventType.HabitGood,
-								message: `🛡️ Avoided "${h.name}" on ${dateStr}! (+${xpGain} XP, +${gpGain} GP)`,
-								xpDelta: xpGain,
-								gpDelta: gpGain,
-								hpDelta: 0,
-							});
-						} else {
-							// Relapsed on that day. Streak broke.
-							h.streak = 0;
-						}
-					}
-				}
+			}
 		}
+
+		// 3. Recalculate dynamic status
+		h.outstandingDays = calculateOutstandingDates(h).length;
+		h.lastEvaluatedDate = todayStr;
+		h.streak = recalculateHabitStreak(h);
 
 		return h;
 	});
 
-	return { updatedHabits: resultHabits, logEntries, character: currentChar, skills: updatedSkills };
+	return { 
+		updatedHabits: resultHabits, 
+		character: currentChar, 
+		skills: updatedSkills, 
+		logEntries, 
+		spEarned 
+	};
 }
 
 /**
- * Resolve an outstanding habit missed on a previous day.
+ * Finds specific dates that were due but have no entry in history.
+ * Limited to a 15-day lookback per user request.
+ */
+export function calculateOutstandingDates(habit: Habit): string[] {
+	const recurrence = habit.recurrenceDays || 1;
+	const history = habit.history || {};
+	const today = new Date();
+	const todayStr = getTodayStr();
+	
+	// Anchor calculation from the start date or creation date
+	const anchorDateStr = habit.startDate || habit.createdAt.split("T")[0];
+	const [ay, am, ad] = anchorDateStr.split("-").map(Number);
+	const anchorDate = new Date(ay, am - 1, ad);
+	
+	const outstanding: string[] = [];
+	
+	// We look back at most 15 days from yesterday
+	const lookbackLimit = 15;
+	for (let i = 1; i <= lookbackLimit; i++) {
+		const checkDate = new Date(today);
+		checkDate.setDate(today.getDate() - i);
+		
+		// Don't look back before the habit even started
+		if (checkDate.getTime() < anchorDate.getTime()) break;
+		
+		const dateStr = formatDate(checkDate);
+		
+		// 1. Is this date a 'due' date according to the recurrence?
+		// Calculate days between anchor and checkDate
+		const diffMs = checkDate.getTime() - anchorDate.getTime();
+		const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+		
+		if (diffDays % recurrence === 0) {
+			// 2. Is it unresolved (not in history)?
+			if (history[dateStr] === undefined) {
+				outstanding.push(dateStr);
+			}
+		}
+	}
+	
+	return outstanding.sort(); // Oldest first
+}
+
+/**
+ * Resolves a single outstanding habit instance.
+ * Now targets the oldest specific date identified by the gap calculation.
  */
 export function resolveOutstandingHabit(
 	habit: Habit,
 	character: CharacterState,
 	skills: Skill[],
 	settings: PluginSettings,
-	wasCompleted: boolean
+	wasCompleted: boolean,
+	modifiers: ReturnType<typeof calculateGlobalModifiers>
 ): {
 	habit: Habit;
 	character: CharacterState;
 	skills: Skill[];
 	logEntries: EventLogEntry[];
+	spEarned: number;
 } {
 	const logEntries: EventLogEntry[] = [];
-	let h = { ...habit };
+	const h = { ...habit };
 	let c = { ...character };
-	let s = skills.map((sk) => ({ ...sk }));
+	const s = skills.map(sk => ({ ...sk }));
+	let spEarned = 0;
+
+	// Find the oldest gap to resolve
+	const gaps = calculateOutstandingDates(h);
+	if (gaps.length === 0) {
+		return { habit: h, character: c, skills: s, logEntries, spEarned: 0 };
+	}
+	
+	const targetDateStr = gaps[0];
 
 	if (wasCompleted) {
-		// They did it, just forgot to check it. Award XP/GP based on current streak.
-		const baseReward = calculateHabitReward("good", h.difficulty, settings);
-		const bonus = streakBonusMultiplier(h.streak);
-		const xpGain = Math.round(baseReward.xp * bonus);
-		const gpGain = Math.round(baseReward.gp * bonus);
+		// Award rewards
+		const reward = calculateHabitReward("good", h.difficulty, settings, c.attributes, modifiers);
+		const xpGain = reward.xp;
+		const gpGain = reward.gp;
 
 		c = processGpGain(c, gpGain);
 		const wisBonus = 10;
 		const actualHpGain = settings.hpPerLevel + (c.attributes.wis.level * wisBonus);
-		const xpResult = processXpGain(c, xpGain, actualHpGain);
-		c = xpResult.character;
-		logEntries.push(...xpResult.logEntries);
+		const xpRes = processXpGain(c, xpGain, actualHpGain);
+		c = xpRes.character;
+		logEntries.push(...xpRes.logEntries);
 
 		if (h.skillId) {
-			const skillIdx = s.findIndex(sk => sk.id === h.skillId || sk.name.toLowerCase() === h.skillId!.toLowerCase());
+			const skillIdx = s.findIndex(sk => sk.id === h.skillId || sk.name.toLowerCase() === h.skillId?.toLowerCase());
 			if (skillIdx !== -1) {
 				const skResult = processSkillXpGain(s[skillIdx], xpGain);
 				s[skillIdx] = skResult.skill;
 				logEntries.push(...skResult.logEntries);
+				spEarned += skResult.spEarned;
+
+				const skillRef = s[skillIdx];
+				if (skillRef.attribute) {
+					const attrObj = c.attributes[skillRef.attribute];
+					if (attrObj) {
+						const ratio = settings.skillToAttributeRatio ?? 0.2;
+						const attrXp = Math.round(xpGain * ratio);
+						const attrRes = processAttributeXpGain(skillRef.attribute, attrObj, attrXp);
+						c.attributes[skillRef.attribute] = attrRes.attribute;
+						logEntries.push(...attrRes.logEntries);
+					}
+				}
 			}
 		}
 
@@ -388,18 +442,17 @@ export function resolveOutstandingHabit(
 			id: generateId(),
 			timestamp: new Date().toISOString(),
 			type: EventType.HabitGood,
-			message: `⏪ Retroactive Good Habit: "${h.name}" → +${xpGain} XP, +${gpGain} GP`,
+			message: `⏪ Resolved Backlog (${targetDateStr}): "${h.name}" marked Done → +${xpGain} XP, +${gpGain} GP`,
 			xpDelta: xpGain,
 			gpDelta: gpGain,
 			hpDelta: 0,
 		});
 		
-		h.streak++; // Retain and increment streak
+		if (!h.history) h.history = {};
+		h.history[targetDateStr] = true;
 	} else {
-		// They failed it. Take damage, break streak entirely.
-		const reward = calculateHabitReward("bad", h.difficulty, settings);
-		
-		// Apply damage
+		// Mark as missed (False)
+		const reward = calculateHabitReward("bad", h.difficulty, settings, c.attributes, modifiers);
 		const wisBonus = 10;
 		const actualHpGain = settings.hpPerLevel + (c.attributes.wis.level * wisBonus);
 		const hpResult = processHpDamage(c, reward.hpDamage, actualHpGain);
@@ -410,18 +463,21 @@ export function resolveOutstandingHabit(
 			id: generateId(),
 			timestamp: new Date().toISOString(),
 			type: EventType.HabitBad,
-			message: `💔 Missed Habit: "${h.name}" → -${reward.hpDamage} HP. Streak broken!`,
+			message: `💔 Resolved Backlog (${targetDateStr}): "${h.name}" marked Missed → -${reward.hpDamage} HP. Streak Reset.`,
 			xpDelta: 0,
 			gpDelta: 0,
 			hpDelta: -reward.hpDamage,
 		});
 		
-		h.streak = 0; // Streak totally wiped out
+		if (!h.history) h.history = {};
+		h.history[targetDateStr] = false;
 	}
 
-	h.outstandingDays = Math.max(0, h.outstandingDays - 1);
+	// Recalculate status
+	h.outstandingDays = calculateOutstandingDates(h).length;
+	h.streak = recalculateHabitStreak(h);
 
-	return { habit: h, character: c, skills: s, logEntries };
+	return { habit: h, character: c, skills: s, logEntries, spEarned };
 }
 
 /**
@@ -438,15 +494,17 @@ export function undoHabit(
 	character: CharacterState;
 	skills: Skill[];
 	logEntries: EventLogEntry[];
+	spEarned: number;
 } {
 	const logEntries: EventLogEntry[] = [];
 	let h = { ...habit };
 	let c = { ...character };
 	let s = skills.map((sk) => ({ ...sk }));
+	let spEarned = 0;
 
 	const today = getTodayStr();
 	if (!h.lastCompleted || !isSameDay(h.lastCompleted, today)) {
-		return { habit: h, character: c, skills: s, logEntries };
+		return { habit: h, character: c, skills: s, logEntries, spEarned };
 	}
 
 	if (h.type === "good") {
@@ -475,6 +533,20 @@ export function undoHabit(
 				const skillResult = revertSkillXpGain(s[skillIdx], xpToRevert);
 				s[skillIdx] = skillResult.skill;
 				logEntries.push(...skillResult.logEntries);
+				if (skillResult.leveledDown) spEarned -= 1;
+
+				// Revert Attribute XP
+				const skillRef = s[skillIdx];
+				if (skillRef.attribute) {
+					const attrObj = c.attributes[skillRef.attribute];
+					if (attrObj) {
+						const ratio = settings.skillToAttributeRatio ?? 0.2;
+						const attrXp = Math.round(xpToRevert * ratio);
+						const attrResult = revertAttributeXpGain(skillRef.attribute, attrObj, attrXp);
+						c.attributes[skillRef.attribute] = attrResult.attribute;
+						logEntries.push(...attrResult.logEntries);
+					}
+				}
 			}
 		}
 
@@ -525,7 +597,7 @@ export function undoHabit(
 		delete h.history[todayStr];
 	}
 
-	return { habit: h, character: c, skills: s, logEntries };
+	return { habit: h, character: c, skills: s, logEntries, spEarned };
 }
 
 /**
@@ -538,27 +610,30 @@ export function applyRetroactiveHabitHistoryChange(
 	completed: boolean,
 	character: CharacterState,
 	skills: Skill[],
-	settings: PluginSettings
+	settings: PluginSettings,
+	modifiers: ReturnType<typeof calculateGlobalModifiers>
 ): {
 	habit: Habit;
 	character: CharacterState;
 	skills: Skill[];
 	logEntries: EventLogEntry[];
+	spEarned: number;
 } {
 	const logEntries: EventLogEntry[] = [];
 	let h = { ...habit };
 	let c = { ...character };
 	let s = skills.map((sk) => ({ ...sk }));
+	let spEarned = 0;
 
 	if (!h.history) h.history = {};
 	const wasCompleted = !!h.history[dateStr];
 	
 	if (wasCompleted === completed) {
-		return { habit: h, character: c, skills: s, logEntries };
+		return { habit: h, character: c, skills: s, logEntries, spEarned };
 	}
-
+	
 	// Calculate rewards/penalties for this habit
-	const reward = calculateHabitReward(h.type, h.difficulty, settings, c.attributes);
+	const reward = calculateHabitReward(h.type, h.difficulty, settings, c.attributes, modifiers);
 	
 	if (h.type === "good") {
 		const xpDelta = completed ? reward.xp : -reward.xp;
@@ -579,6 +654,20 @@ export function applyRetroactiveHabitHistoryChange(
 					const skRes = processSkillXpGain(s[sIdx], xpDelta);
 					s[sIdx] = skRes.skill;
 					logEntries.push(...skRes.logEntries);
+					spEarned += skRes.spEarned;
+
+					// Level attribute
+					const skillRef = s[sIdx];
+					if (skillRef.attribute) {
+						const attrObj = c.attributes[skillRef.attribute];
+						if (attrObj) {
+							const ratio = settings.skillToAttributeRatio ?? 0.2;
+							const attrXp = Math.round(xpDelta * ratio);
+							const attrRes = processAttributeXpGain(skillRef.attribute, attrObj, attrXp);
+							c.attributes[skillRef.attribute] = attrRes.attribute;
+							logEntries.push(...attrRes.logEntries);
+						}
+					}
 				}
 			}
 		} else {
@@ -596,6 +685,20 @@ export function applyRetroactiveHabitHistoryChange(
 					const skRes = revertSkillXpGain(s[sIdx], Math.abs(xpDelta));
 					s[sIdx] = skRes.skill;
 					logEntries.push(...skRes.logEntries);
+					if (skRes.leveledDown) spEarned -= 1;
+
+					// Revert attribute
+					const skillRef = s[sIdx];
+					if (skillRef.attribute) {
+						const attrObj = c.attributes[skillRef.attribute];
+						if (attrObj) {
+							const ratio = settings.skillToAttributeRatio ?? 0.2;
+							const attrXp = Math.round(Math.abs(xpDelta) * ratio);
+							const attrRes = revertAttributeXpGain(skillRef.attribute, attrObj, attrXp);
+							c.attributes[skillRef.attribute] = attrRes.attribute;
+							logEntries.push(...attrRes.logEntries);
+						}
+					}
 				}
 			}
 		}
@@ -644,41 +747,102 @@ export function applyRetroactiveHabitHistoryChange(
 		delete h.history[dateStr];
 	}
 
-	// Recalculate streak
+	// Recalculate streak and backlog
 	h.streak = recalculateHabitStreak(h);
+	h.outstandingDays = calculateOutstandingDates(h).length;
 
-	return { habit: h, character: c, skills: s, logEntries };
+	return { habit: h, character: c, skills: s, logEntries, spEarned };
 }
 
 /**
- * Iterates backwards from today through habit history to calculate the current streak.
+ * Robustly recalculates habit streaks from history.
  */
 export function recalculateHabitStreak(habit: Habit): number {
-	if (!habit.history) return 0;
+	const recurrence = habit.recurrenceDays || 1;
+	const history = habit.history || {};
 	
-	let streak = 0;
-	const date = new Date(getTodayStr());
+	// Determine the hard floor for calculations (User Start Date or Creation Date)
+	const anchorDateStr = habit.startDate || habit.createdAt.split("T")[0];
+	const [ay, am, ad] = anchorDateStr.split("-").map(Number);
+	const anchorTime = new Date(ay, am - 1, ad).getTime();
 	
-	// For good habits, we check if they did it today or yesterday to continue streak.
-	// For simplicity in this engine, a streak is consecutive days marked 'true'.
-	
-	while (true) {
-		const dateStr = date.toISOString().split("T")[0];
-		if (habit.history[dateStr]) {
-			streak++;
-			date.setDate(date.getDate() - 1);
-		} else {
-			// If not done today, the streak might still be alive if they did it yesterday.
-			if (streak === 0) {
-				const todayStr = getTodayStr();
-				if (dateStr === todayStr) {
-					date.setDate(date.getDate() - 1);
-					continue;
-				}
-			}
-			break;
-		}
+	// Robustly collect completion dates from history OR lastCompleted (legacy)
+	let historyKeys = Object.keys(history).filter(k => history[k] === true);
+	if (habit.lastCompleted && !historyKeys.includes(habit.lastCompleted.split("T")[0])) {
+		historyKeys.push(habit.lastCompleted.split("T")[0]);
 	}
+	historyKeys = [...new Set(historyKeys)].sort().reverse();
 	
-	return streak;
+	const parseLocalDate = (s: string) => {
+		const [y, m, d] = s.split("-").map(Number);
+		return new Date(y, m - 1, d);
+	};
+
+	const todayStr = getTodayStr();
+
+	if (habit.type === "good") {
+		if (historyKeys.length === 0) return 0;
+
+		const todayTime = parseLocalDate(todayStr).getTime();
+		
+		// 1. Find the most recent completion
+		const mostRecentStr = historyKeys[0];
+		const mostRecentTime = parseLocalDate(mostRecentStr).getTime();
+		
+		// 2. Check if the gap is valid (Recurrence + Backlog)
+		const diffDays = Math.floor((todayTime - mostRecentTime) / (1000 * 60 * 60 * 24));
+		const backlogDays = (habit.outstandingDays || 0) * recurrence;
+		const maxAllowedGap = recurrence + backlogDays;
+
+		if (diffDays > maxAllowedGap) {
+			return 0; // Streak broken
+		}
+
+		// 3. Count backwards from the most recent completion
+		let streak = 0;
+		let checkDate = parseLocalDate(mostRecentStr);
+		
+		while (true) {
+			const dateStr = formatDate(checkDate);
+			if (history[dateStr] || (habit.lastCompleted && habit.lastCompleted.startsWith(dateStr))) {
+				streak++;
+				checkDate.setDate(checkDate.getDate() - recurrence);
+				
+				// Stop if we go before creation/start or too far back
+				if (checkDate.getTime() < anchorTime - 43200000) break; 
+			} else {
+				break;
+			}
+		}
+		
+		return streak;
+	} else {
+		// Bad Habits: Streak = Days Resisted (consecutive days NOT in history)
+		
+		// User Relapsed Today? Immediate reset to 0.
+		if (history[todayStr]) {
+			return 0;
+		}
+
+		let streak = 0;
+		const backlogDays = (habit.outstandingDays || 0) * recurrence;
+		let checkDate = parseLocalDate(todayStr);
+		checkDate.setDate(checkDate.getDate() - backlogDays - 1); // Start before backlog
+		
+		const maxLookback = 365;
+		for (let i = 0; i < maxLookback; i++) {
+			// HARD STOP: Don't count before the ritual start date!
+			if (checkDate.getTime() < anchorTime - 43200000) break;
+
+			const dateStr = formatDate(checkDate);
+			if (!history[dateStr]) {
+				streak++;
+				checkDate.setDate(checkDate.getDate() - 1);
+			} else {
+				break;
+			}
+		}
+		
+		return streak;
+	}
 }

@@ -42,11 +42,11 @@ export class ActivityLogPanel {
 		const filters = el.createDiv({ cls: "life-rpg-log-filters" });
 		const filterOptions: { label: string; icon?: string; value: EventType | "all" }[] = [
 			{ label: "All", value: "all" },
-			{ label: "Tasks", icon: "check-circle", value: EventType.TaskComplete },
-			{ label: "Habits", icon: "refresh-cw", value: EventType.HabitGood },
-			{ label: "Boss", icon: "swords", value: EventType.BossDamageDealt },
-			{ label: "Rewards", icon: "shopping-cart", value: EventType.RewardPurchase },
-			{ label: "Level Up", icon: "arrow-up-circle", value: EventType.LevelUp },
+			{ label: "Tasks", icon: "✅", value: EventType.TaskComplete },
+			{ label: "Habits", icon: "🔄", value: EventType.HabitGood },
+			{ label: "Boss", icon: "⚔️", value: EventType.BossDamageDealt },
+			{ label: "Rewards", icon: "🛒", value: EventType.RewardPurchase },
+			{ label: "Level Up", icon: "🔼", value: EventType.LevelUp },
 		];
 
 		for (const opt of filterOptions) {
@@ -55,7 +55,7 @@ export class ActivityLogPanel {
 			});
 			if (opt.icon) {
 				const iconEl = btn.createEl("span", { cls: "life-rpg-filter-icon" });
-				setIcon(iconEl, opt.icon);
+				iconEl.setText(opt.icon);
 			}
 			btn.createEl("span", { text: opt.label });
 			btn.addEventListener("click", () => {

@@ -24,9 +24,28 @@ export class SkillsPanel {
 
 		// Header with Add button
 		const header = el.createDiv({ cls: "life-rpg-panel-header" });
-		header.createEl("h3", { text: "📊 Skills" });
-		const addBtn = header.createEl("button", {
-			text: "+ Add Skill",
+		const titleContainer = header.createDiv({ cls: "life-rpg-title-with-sp" });
+		titleContainer.createEl("h3", { text: "🎯 Skills" });
+		
+		const spDisplay = titleContainer.createDiv({ cls: "life-rpg-sp-badge" });
+		spDisplay.createEl("span", { text: "SP: ", cls: "life-rpg-sp-label" });
+		spDisplay.createEl("span", { text: this.stateManager.getSkillPoints().toString(), cls: "life-rpg-sp-value" });
+
+		const btnGroup = header.createDiv({ cls: "life-rpg-panel-btn-group" });
+		
+		const treeBtn = btnGroup.createEl("button", {
+			text: "🌳 Tree",
+			cls: "life-rpg-btn life-rpg-btn-small life-rpg-btn-tree",
+		});
+		treeBtn.title = "Open Skill Tree";
+		treeBtn.onclick = () => {
+			// Trigger tab change in CharacterSheetView via state event or similar
+			// For now, assume user can switch tabs, but we can emit a custom event
+			(this.stateManager as any).plugin.app.workspace.trigger("life-rpg:switch-tab", "skills_tree");
+		};
+
+		const addBtn = btnGroup.createEl("button", {
+			text: "+ Skill",
 			cls: "life-rpg-btn life-rpg-btn-small",
 		});
 		addBtn.addEventListener("click", () => this.showAddSkillInput());

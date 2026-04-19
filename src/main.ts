@@ -1,35 +1,31 @@
-// ============================================================================
-// Life RPG — Main Plugin Entry Point
-// Registers views, commands, event listeners, and initializes state.
-// ============================================================================
-
-import { Editor, Notice, Plugin, WorkspaceLeaf } from "obsidian";
-import { logGoodHabit, logBadHabit, evaluateDailyHabits } from "./engine/HabitManager";
+import { Plugin, WorkspaceLeaf, Editor, Notice } from "obsidian";
+import { VIEW_TYPE_CHARACTER_SHEET } from "./constants";
 import { StateManager } from "./state/StateManager";
 import { TaskWatcher } from "./watchers/TaskWatcher";
 import { CharacterSheetView } from "./ui/CharacterSheetView";
-import { LifeRpgSettingsTab } from "./ui/SettingsTab";
-import {
-	TaskPropertyModal,
-	buildMetadataString,
-} from "./ui/modals/TaskPropertyModal";
-import { VIEW_TYPE_CHARACTER_SHEET } from "./constants";
-import { EventType } from "./types";
 import { TaskModifierSuggest } from "./editor/ModifierSuggest";
+import { TaskPropertyModal, buildMetadataString } from "./ui/modals/TaskPropertyModal";
 import { getTodayStr } from "./utils/dateUtils";
+import { evaluateDailyHabits } from "./engine/HabitManager";
+import { EventType, ItemSlot } from "./types";
+import { LifeRpgSettingsTab } from "./ui/SettingsTab";
 
 export default class LifeRpgPlugin extends Plugin {
-	stateManager!: StateManager;
-	taskWatcher!: TaskWatcher;
+	public stateManager: StateManager;
+	public taskWatcher: TaskWatcher;
+	private dayCheckInterval: number;
 
 	async onload(): Promise<void> {
-		console.log("Life RPG: Loading plugin...");
+		console.log("Loading Life RPG Plugin...");
 
 		// ---------------------------------------------------------------
 		// 1. Initialize State Manager
 		// ---------------------------------------------------------------
 		this.stateManager = new StateManager(this);
 		await this.stateManager.load();
+
+		// Add Settings Tab
+		this.addSettingTab(new LifeRpgSettingsTab(this.app, this));
 
 		// Check for new day → HP regen
 		this.checkNewDay();
@@ -67,6 +63,14 @@ export default class LifeRpgPlugin extends Plugin {
 			name: "Open Character Sheet",
 			callback: () => {
 				this.activateCharacterSheet();
+			},
+		});
+
+		this.addCommand({
+			id: "evaluate-habits",
+			name: "Evaluate Daily Habits",
+			callback: () => {
+				this.evaluateDailyHabits();
 			},
 		});
 
@@ -109,47 +113,36 @@ export default class LifeRpgPlugin extends Plugin {
 			},
 		});
 
-		this.addCommand({
-			id: "show-stats",
-			name: "Show Character Stats",
-			callback: () => {
-				const char = this.stateManager.getCharacter();
-				new Notice(
-					`⚔️ Level ${char.level}\n❤️ HP: ${char.hp}/${char.maxHp}\n✨ XP: ${char.xp}/${char.xpToNextLevel}\n💰 GP: ${char.gp}`,
-					5000
-				);
-			},
-		});
-
 		// ---------------------------------------------------------------
-		// 5. Register Settings Tab
+		// 5. Automatic Daily Check (every 30 mins)
 		// ---------------------------------------------------------------
-		this.addSettingTab(new LifeRpgSettingsTab(this.app, this));
-
-		// ---------------------------------------------------------------
-		// 6. Show startup notification
-		// ---------------------------------------------------------------
-		const char = this.stateManager.getCharacter();
-		if (this.stateManager.getSettings().showNotifications) {
-			new Notice(
-				`⚔️ Life RPG loaded! Level ${char.level} | HP: ${char.hp}/${char.maxHp} | XP: ${char.xp}/${char.xpToNextLevel} | GP: ${char.gp}`
-			);
-		}
-
-		console.log("Life RPG: Plugin loaded successfully.");
+		this.dayCheckInterval = window.setInterval(() => {
+			this.checkNewDay();
+		}, 30 * 60 * 1000); // 30 minutes
 	}
 
 	async onunload(): Promise<void> {
-		console.log("Life RPG: Unloading plugin...");
-		this.taskWatcher.stop();
-		await this.stateManager.saveImmediate();
+		console.log("Unloading Life RPG Plugin...");
+		if (this.dayCheckInterval) {
+			window.clearInterval(this.dayCheckInterval);
+		}
+		if (this.stateManager) {
+			await this.stateManager.saveImmediate();
+		}
 	}
 
-	// -------------------------------------------------------------------
-	// View Activation
-	// -------------------------------------------------------------------
+	/**
+	 * Triggered when data.json is updated by an external sync (e.g. Obsidian Sync).
+	 */
+	async onExternalSettingsChange(): Promise<void> {
+		if (this.stateManager) {
+			await this.stateManager.load();
+			// Notify listeners so UI updates automatically
+			this.stateManager.forceNotify();
+		}
+	}
 
-	/** Open the Character Sheet in the right sidebar */
+	/** Ensure the Character Sheet view is visible in the sidebar */
 	async activateCharacterSheet(): Promise<void> {
 		const { workspace } = this.app;
 
@@ -159,9 +152,8 @@ export default class LifeRpgPlugin extends Plugin {
 		if (leaves.length > 0) {
 			leaf = leaves[0];
 		} else {
-			const rightLeaf = workspace.getRightLeaf(false);
-			if (rightLeaf) {
-				leaf = rightLeaf;
+			leaf = workspace.getRightLeaf(false);
+			if (leaf) {
 				await leaf.setViewState({
 					type: VIEW_TYPE_CHARACTER_SHEET,
 					active: true,
@@ -208,6 +200,36 @@ export default class LifeRpgPlugin extends Plugin {
 		}
 	}
 
+	/** Trigger the daily rollover manually */
+	private async evaluateDailyHabits(): Promise<void> {
+		const habits = this.stateManager.getHabits();
+		const modifiers = this.stateManager.getGlobalModifiers();
+
+		const result = evaluateDailyHabits(
+			habits,
+			this.stateManager.getCharacter(),
+			this.stateManager.getSkills(),
+			this.stateManager.getSettings(),
+			modifiers
+		);
+		
+		this.stateManager.batchUpdates(() => {
+			for (const h of result.updatedHabits) {
+				this.stateManager.updateHabit(h.id, h);
+			}
+			this.stateManager.updateCharacter(result.character);
+			for (const s of result.skills) {
+				this.stateManager.updateSkill(s.id, s);
+			}
+			for (const entry of result.logEntries) {
+				this.stateManager.addLogEntry(entry);
+			}
+			this.stateManager.updateLastPlayedDate();
+		});
+		
+		new Notice("✅ Daily habits evaluated!");
+	}
+
 	// -------------------------------------------------------------------
 	// Daily Check
 	// -------------------------------------------------------------------
@@ -241,11 +263,14 @@ export default class LifeRpgPlugin extends Plugin {
 
 			// Evaluate habits mapping for the daily rollover 
 			const habits = this.stateManager.getHabits();
+			const modifiers = this.stateManager.getGlobalModifiers();
+
 			const result = evaluateDailyHabits(
 				habits,
 				this.stateManager.getCharacter(),
 				this.stateManager.getSkills(),
-				this.stateManager.getSettings()
+				this.stateManager.getSettings(),
+				modifiers
 			);
 			
 			// Save the updated results

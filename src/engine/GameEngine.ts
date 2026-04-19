@@ -5,7 +5,6 @@
 // ============================================================================
 
 import {
-	type CharacterState,
 	type Skill,
 	type PluginSettings,
 	type EventLogEntry,
@@ -13,6 +12,9 @@ import {
 	type TaskMetadata,
 	type CharacterAttributes,
 	type AttributeState,
+	type CharacterState,
+	type Item,
+	type SkillTreeNode,
 	Difficulty,
 	EventType,
 } from "../types";
@@ -22,6 +24,65 @@ import {
 	generateId,
 } from "../constants";
 import { getRankUpTitle } from "./ClassSystem";
+
+// ---------------------------------------------------------------------------
+// Item & Equipment Modifiers
+// ---------------------------------------------------------------------------
+
+/**
+ * Aggregates modifiers from all equipped items AND unlocked skill tree nodes.
+ */
+export function calculateGlobalModifiers(
+	character: CharacterState,
+	inventory: Item[],
+	unlockedNodes: string[],
+	allSkillNodes: SkillTreeNode[]
+) {
+	const total = {
+		str: 0,
+		int: 0,
+		wis: 0,
+		cha: 0,
+		hpMax: 0,
+		xpMultiplier: 1.0,
+		gpMultiplier: 1.0,
+		damageBonus: 0,
+		damageReduction: 0,
+		wisdomSave: 0, // Reduces bad habit damage
+		dropChance: 0,
+	};
+
+	// 1. Item Modifiers
+	const equippedItems = Object.values(character.equippedItems)
+		.map(id => inventory.find(i => i.id === id) || null);
+
+	for (const item of equippedItems) {
+		if (!item) continue;
+		total.str += item.modifiers.str || 0;
+		total.int += item.modifiers.int || 0;
+		total.wis += item.modifiers.wis || 0;
+		total.cha += item.modifiers.cha || 0;
+		total.hpMax += item.modifiers.hpMax || 0;
+		total.xpMultiplier += item.modifiers.xpBonus || 0;
+		total.gpMultiplier += item.modifiers.gpBonus || 0;
+		total.damageBonus += item.modifiers.damageBonus || 0;
+		total.damageReduction += item.modifiers.damageReduction || 0;
+	}
+
+	// 2. Skill tree modifiers
+	for (const nodeId of unlockedNodes) {
+		const node = allSkillNodes.find(n => n.id === nodeId);
+		if (!node) continue;
+		total.hpMax += node.modifiers.hpMax || 0;
+		total.xpMultiplier += node.modifiers.xpMultiplier || 0;
+		total.gpMultiplier += node.modifiers.gpMultiplier || 0;
+		total.damageBonus += node.modifiers.damageBonus || 0;
+		total.wisdomSave += node.modifiers.wisdomSave || 0;
+		total.dropChance += node.modifiers.dropChance || 0;
+	}
+
+	return total;
+}
 
 // ---------------------------------------------------------------------------
 // Task Reward Calculation
@@ -34,8 +95,10 @@ import { getRankUpTitle } from "./ClassSystem";
 export function calculateTaskReward(
 	difficulty: Difficulty,
 	settings: PluginSettings,
-	attributes?: CharacterAttributes, // Optional for backward-compat or pure base checks
-	isSubtask?: boolean
+	attributes: CharacterAttributes,
+	globalModifiers: ReturnType<typeof calculateGlobalModifiers>,
+	isSubtask?: boolean,
+	comboCount: number = 0
 ): { xp: number; gp: number } {
 	const multiplier = settings.difficultyMultipliers[difficulty] ?? 1;
 	
@@ -44,15 +107,20 @@ export function calculateTaskReward(
 	let gp = settings.baseGp * multiplier;
 
 	// Apply Attribute Modifiers
-	if (attributes) {
-		// INT boosts XP by 2% per level
-		const intBonus = 1 + (attributes.int.level * 0.02);
-		xp *= intBonus;
+	// INT boosts XP by 2% per EFFECTIVE level
+	const intBonus = 1 + ((attributes.int.level + globalModifiers.int) * 0.02);
+	xp *= intBonus;
+	xp *= globalModifiers.xpMultiplier;
 
-		// CHA boosts GP by 3% per level
-		const chaBonus = 1 + (attributes.cha.level * 0.03);
-		gp *= chaBonus;
-	}
+	// CHA boosts GP by 3% per EFFECTIVE level
+	const chaBonus = 1 + ((attributes.cha.level + globalModifiers.cha) * 0.03);
+	gp *= chaBonus;
+	gp *= globalModifiers.gpMultiplier;
+
+	// Combo Bonus: +5% per combo hit (max 50%)
+	const comboBonus = 1 + Math.min(0.5, (comboCount * 0.05));
+	xp *= comboBonus;
+	gp *= comboBonus;
 
 	// Apply Subtask Penalty (25% yield)
 	if (isSubtask) {
@@ -68,24 +136,26 @@ export function calculateTaskReward(
 
 /**
  * Calculate XP and GP for a habit action.
- * Good habits: positive XP/GP based on difficulty
- * Bad habits: HP penalty based on difficulty
  */
 export function calculateHabitReward(
 	type: "good" | "bad",
 	difficulty: Difficulty,
 	settings: PluginSettings,
-	attributes?: CharacterAttributes
+	attributes: CharacterAttributes,
+	globalModifiers: ReturnType<typeof calculateGlobalModifiers>
 ): { xp: number; gp: number; hpDamage: number } {
 	const multiplier = settings.difficultyMultipliers[difficulty] ?? 1;
 	if (type === "good") {
 		let xp = settings.baseXp * multiplier;
 		let gp = settings.baseGp * multiplier * 0.5; // Habits give 50% GP
 
-		if (attributes) {
-			xp *= 1 + (attributes.int.level * 0.02);
-			gp *= 1 + (attributes.cha.level * 0.03);
-		}
+		const intBonus = 1 + ((attributes.int.level + globalModifiers.int) * 0.02);
+		xp *= intBonus;
+		xp *= globalModifiers.xpMultiplier;
+
+		const chaBonus = 1 + ((attributes.cha.level + globalModifiers.cha) * 0.03);
+		gp *= chaBonus;
+		gp *= globalModifiers.gpMultiplier;
 
 		return {
 			xp: Math.round(xp),
@@ -94,11 +164,9 @@ export function calculateHabitReward(
 		};
 	} else {
 		let hpDamage = 5 * multiplier; // Base 5 damage * multiplier
-		if (attributes) {
-			// CON reduces damage by 2% per level (max 90% reduction)
-			const damageReduction = Math.min(0.9, attributes.wis.level * 0.02);
-			hpDamage *= (1 - damageReduction);
-		}
+		// WIS reduces damage by 2% per effect level (max 90% reduction)
+		const damageReduction = Math.min(0.9, ((attributes.wis.level + globalModifiers.wis) * 0.02) + globalModifiers.damageReduction + globalModifiers.wisdomSave);
+		hpDamage *= (1 - damageReduction);
 
 		return {
 			xp: 0,
@@ -114,7 +182,6 @@ export function calculateHabitReward(
 
 /**
  * Process an XP gain on the character. Handles cascading level-ups.
- * Returns the new character state and any log entries generated.
  */
 export function processXpGain(
 	character: CharacterState,
@@ -158,15 +225,15 @@ export function processXpGain(
 
 /**
  * Process an XP gain on a skill. Handles cascading skill level-ups.
- * Returns the new skill state and any log entries generated.
  */
 export function processSkillXpGain(
 	skill: Skill,
 	xpAmount: number
-): { skill: Skill; logEntries: EventLogEntry[]; leveledUp: boolean } {
+): { skill: Skill; logEntries: EventLogEntry[]; leveledUp: boolean; spEarned: number } {
 	const s = { ...skill };
 	const logEntries: EventLogEntry[] = [];
 	let leveledUp = false;
+	let spEarned = 0;
 
 	s.xp += xpAmount;
 
@@ -175,19 +242,20 @@ export function processSkillXpGain(
 		s.level++;
 		s.xpToNextLevel = xpThresholdForSkillLevel(s.level);
 		leveledUp = true;
+		spEarned++;
 
 		logEntries.push({
 			id: generateId(),
 			timestamp: new Date().toISOString(),
 			type: EventType.SkillUp,
-			message: `⬆️ ${s.icon} ${s.name} leveled up to Level ${s.level}!`,
+			message: `⬆️ ${s.icon} ${s.name} leveled up to Level ${s.level}! (Earned 1 Skill Point)`,
 			xpDelta: 0,
 			gpDelta: 0,
 			hpDelta: 0,
 		});
 	}
 
-	return { skill: s, logEntries, leveledUp };
+	return { skill: s, logEntries, leveledUp, spEarned };
 }
 
 /**
@@ -447,7 +515,6 @@ export function processGpSpend(
 
 /**
  * Process a full task completion, including XP, GP, skill XP, and level-ups.
- * This is the main orchestrator called when a task checkbox is toggled.
  */
 export function processTaskCompletion(
 	character: CharacterState,
@@ -455,25 +522,26 @@ export function processTaskCompletion(
 	metadata: TaskMetadata,
 	taskText: string,
 	settings: PluginSettings,
-	isSubtask?: boolean
+	globalModifiers: ReturnType<typeof calculateGlobalModifiers>,
+	isSubtask?: boolean,
+	comboCount: number = 0
 ): {
 	character: CharacterState;
 	skills: Skill[];
 	logEntries: EventLogEntry[];
-	result: RewardResult;
+	result: RewardResult & { spEarned: number };
 } {
-	const reward = calculateTaskReward(metadata.difficulty, settings, character.attributes, isSubtask);
+	const reward = calculateTaskReward(metadata.difficulty, settings, character.attributes, globalModifiers, isSubtask, comboCount);
 	const logEntries: EventLogEntry[] = [];
 	let currentChar = { ...character };
 	let updatedSkills = skills.map((s) => ({ ...s }));
+	let spEarned = 0;
 
 	// 1. Award GP
 	currentChar = processGpGain(currentChar, reward.gp);
 
 	// 2. Process character XP (may trigger level-up)
-	// CON applies to HP per level
-	const wisBonus = 10; // Extra HP
-	const actualHpGain = settings.hpPerLevel + (currentChar.attributes.wis.level * wisBonus);
+	const actualHpGain = settings.hpPerLevel + (currentChar.attributes.wis.level * 10);
 	
 	const xpResult = processXpGain(currentChar, reward.xp, actualHpGain);
 	currentChar = xpResult.character;
@@ -492,22 +560,21 @@ export function processTaskCompletion(
 		);
 		if (skillIdx !== -1) {
 			const skillRef = updatedSkills[skillIdx];
-			// Level the skill
-			const skillResult = processSkillXpGain(
-				skillRef,
-				reward.xp
-			);
+			const skillResult = processSkillXpGain(skillRef, reward.xp);
 			updatedSkills[skillIdx] = skillResult.skill;
 			logEntries.push(...skillResult.logEntries);
 			skillLeveledUp = skillResult.leveledUp;
 			skillName = skillResult.skill.name;
 			newSkillLevel = skillResult.skill.level;
+			spEarned = skillResult.spEarned;
 
 			// Level the corresponding attribute
 			if (skillRef.attribute) {
 				const attrObj = currentChar.attributes[skillRef.attribute];
 				if (attrObj) {
-					const attrResult = processAttributeXpGain(skillRef.attribute, attrObj, reward.xp);
+					const ratio = settings.skillToAttributeRatio ?? 0.2;
+					const attrXp = Math.round(reward.xp * ratio);
+					const attrResult = processAttributeXpGain(skillRef.attribute, attrObj, attrXp);
 					currentChar.attributes[skillRef.attribute] = attrResult.attribute;
 					logEntries.push(...attrResult.logEntries);
 				}
@@ -516,40 +583,32 @@ export function processTaskCompletion(
 	}
 
 	// 4. Create the task completion log entry
-	const diffLabel =
-		metadata.difficulty === Difficulty.Hard
-			? "Hard"
-			: metadata.difficulty === Difficulty.Medium
-				? "Medium"
-				: "Easy";
+	const diffLabel = metadata.difficulty === Difficulty.Hard ? "Hard" : metadata.difficulty === Difficulty.Medium ? "Medium" : "Easy";
 
 	logEntries.unshift({
 		id: generateId(),
 		timestamp: new Date().toISOString(),
 		type: EventType.TaskComplete,
-		message: `✅ Completed: "${taskText}" [${diffLabel}] → +${reward.xp} XP, +${reward.gp} GP${
-			skillName ? ` (${skillName})` : ""
-		}`,
+		message: `✅ Completed: "${taskText}" [${diffLabel}] → +${reward.xp} XP, +${reward.gp} GP${skillName ? ` (${skillName})` : ""}`,
 		xpDelta: reward.xp,
 		gpDelta: reward.gp,
 		hpDelta: 0,
 	});
 
-	const result: RewardResult = {
-		xp: reward.xp,
-		gp: reward.gp,
-		leveledUp: xpResult.leveledUp,
-		newLevel: currentChar.level,
-		skillLeveledUp,
-		skillName,
-		newSkillLevel,
-	};
-
 	return {
 		character: currentChar,
 		skills: updatedSkills,
 		logEntries,
-		result,
+		result: {
+			xp: reward.xp,
+			gp: reward.gp,
+			leveledUp: xpResult.leveledUp,
+			newLevel: currentChar.level,
+			skillLeveledUp,
+			skillName,
+			newSkillLevel,
+			spEarned,
+		},
 	};
 }
 
@@ -562,62 +621,55 @@ export function processTaskUncompletion(
 	metadata: TaskMetadata,
 	taskText: string,
 	settings: PluginSettings,
+	globalModifiers: ReturnType<typeof calculateGlobalModifiers>,
 	isSubtask?: boolean
 ): {
 	character: CharacterState;
 	skills: Skill[];
 	logEntries: EventLogEntry[];
-	result: RewardResult;
+	result: RewardResult & { spEarned: number };
 } {
-	const reward = calculateTaskReward(metadata.difficulty, settings, character.attributes, isSubtask);
+	const reward = calculateTaskReward(metadata.difficulty, settings, character.attributes, globalModifiers, isSubtask);
 	const logEntries: EventLogEntry[] = [];
 	let currentChar = { ...character };
 	let updatedSkills = skills.map((s) => ({ ...s }));
+	let spLost = 0;
 
-	// 1. Revert GP (don't go below 0)
+	// 1. Revert GP
 	let gpLoss = reward.gp;
-	if (currentChar.gp - gpLoss < 0) {
-		gpLoss = currentChar.gp; // Can only lose what we have
-	}
+	if (currentChar.gp - gpLoss < 0) gpLoss = currentChar.gp;
 	currentChar.gp -= gpLoss;
 
 	// 2. Process character XP revert
-	const wisBonus = 10;
-	const actualHpGain = settings.hpPerLevel + (currentChar.attributes.wis.level * wisBonus);
-	
+	const actualHpGain = settings.hpPerLevel + (currentChar.attributes.wis.level * 10);
 	const xpResult = revertXpGain(currentChar, reward.xp, actualHpGain);
 	currentChar = xpResult.character;
 	logEntries.push(...xpResult.logEntries);
 
-	// 3. Process skill XP revert if a skill is specified
+	// 3. Process skill XP revert
 	let skillLeveledDown = false;
 	let skillName: string | null = null;
 	let newSkillLevel = 0;
 
 	if (metadata.skillId) {
-		const skillIdx = updatedSkills.findIndex(
-			(s) =>
-				s.id === metadata.skillId ||
-				s.name.toLowerCase() === metadata.skillId!.toLowerCase()
-		);
+		const skillIdx = updatedSkills.findIndex(s => s.id === metadata.skillId || s.name.toLowerCase() === metadata.skillId!.toLowerCase());
 		if (skillIdx !== -1) {
 			const skillRef = updatedSkills[skillIdx];
-			// Revert the skill
-			const skillResult = revertSkillXpGain(
-				skillRef,
-				reward.xp
-			);
+			const skillResult = revertSkillXpGain(skillRef, reward.xp);
 			updatedSkills[skillIdx] = skillResult.skill;
 			logEntries.push(...skillResult.logEntries);
 			skillLeveledDown = skillResult.leveledDown;
 			skillName = skillResult.skill.name;
 			newSkillLevel = skillResult.skill.level;
+			if (skillResult.leveledDown) spLost = 1; // Assuming 1 SP per level
 
-			// Revert the corresponding attribute
+			// Revert attribute
 			if (skillRef.attribute) {
 				const attrObj = currentChar.attributes[skillRef.attribute];
 				if (attrObj) {
-					const attrResult = revertAttributeXpGain(skillRef.attribute, attrObj, reward.xp);
+					const ratio = settings.skillToAttributeRatio ?? 0.2;
+					const attrXp = Math.round(reward.xp * ratio);
+					const attrResult = revertAttributeXpGain(skillRef.attribute, attrObj, attrXp);
 					currentChar.attributes[skillRef.attribute] = attrResult.attribute;
 					logEntries.push(...attrResult.logEntries);
 				}
@@ -625,34 +677,30 @@ export function processTaskUncompletion(
 		}
 	}
 
-	// 4. Create the un-completion log entry
 	logEntries.unshift({
 		id: generateId(),
 		timestamp: new Date().toISOString(),
-		type: EventType.TaskComplete, // Reusing for the log
-		message: `❌ Unchecked: "${taskText}" → -${reward.xp} XP, -${gpLoss} GP${
-			skillName ? ` (${skillName})` : ""
-		}`,
+		type: EventType.TaskComplete,
+		message: `❌ Unchecked: "${taskText}" → -${reward.xp} XP, -${gpLoss} GP${skillName ? ` (${skillName})` : ""}`,
 		xpDelta: -reward.xp,
 		gpDelta: -gpLoss,
 		hpDelta: 0,
 	});
 
-	const result: RewardResult = {
-		xp: -reward.xp, // Reusing RewardResult to transport the neg delta
-		gp: -gpLoss,
-		leveledUp: xpResult.leveledDown, // Using leveledUp field for leveledDown state
-		newLevel: currentChar.level,
-		skillLeveledUp: skillLeveledDown,
-		skillName,
-		newSkillLevel,
-	};
-
 	return {
 		character: currentChar,
 		skills: updatedSkills,
 		logEntries,
-		result,
+		result: {
+			xp: -reward.xp,
+			gp: -gpLoss,
+			leveledUp: xpResult.leveledDown,
+			newLevel: currentChar.level,
+			skillLeveledUp: skillLeveledDown,
+			skillName,
+			newSkillLevel,
+			spEarned: -spLost,
+		},
 	};
 }
 
@@ -674,10 +722,16 @@ export function dealDamageToBoss(
 
 /**
  * Calculate boss damage to deal to the player.
- * Scales with boss attack power.
+ * Scales with boss attack power and is reduced by WIS and gear.
  */
-export function calculateBossAttackDamage(attackPower: number): number {
-	return attackPower;
+export function calculateBossAttackDamage(
+	attackPower: number,
+	attributes: CharacterAttributes,
+	modifiers: ReturnType<typeof calculateGlobalModifiers>
+): number {
+	// WIS reduces boss damage by 1% per level (max 75% reduction)
+	const reduction = Math.min(0.75, ((attributes.wis.level + modifiers.wis) * 0.01) + modifiers.damageReduction);
+	return Math.round(attackPower * (1 - reduction));
 }
 
 // ---------------------------------------------------------------------------

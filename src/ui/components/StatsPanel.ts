@@ -4,131 +4,265 @@
 // ============================================================================
 
 import { setIcon } from "obsidian";
+import { type StateManager } from "../../state/StateManager";
 import { type CharacterState, type AttributeState } from "../../types";
 import { formatNumber, percentage } from "../../utils/formatter";
 import { getCharacterRank } from "../../engine/ClassSystem";
+import { SKILL_TREE_NODES } from "../../constants";
 
 export class StatsPanel {
 	private containerEl: HTMLElement;
+	private stateManager: StateManager;
+	private prevValues: Map<string, number> = new Map();
 
-	constructor(parentEl: HTMLElement) {
+	constructor(parentEl: HTMLElement, stateManager: StateManager) {
 		this.containerEl = parentEl.createDiv({ cls: "life-rpg-stats-panel" });
+		this.stateManager = stateManager;
 	}
 
 	render(character: CharacterState): void {
+		// Detect changes for floating numbers
+		this.checkAndSpawnDelta(character.hp, "hp", "❤️");
+		this.checkAndSpawnDelta(character.xp, "xp", "✨");
+		this.checkAndSpawnDelta(character.gp, "gp", "💰");
+
+		this.prevValues.set("hp", character.hp);
+		this.prevValues.set("xp", character.xp);
+		this.prevValues.set("gp", character.gp);
+
 		const el = this.containerEl;
 		el.empty();
+		el.addClass("life-rpg-stats-container");
 
-		// Character Header
-		const header = el.createDiv({ cls: "life-rpg-char-header" });
-		const avatarContainer = header.createDiv({ cls: "life-rpg-char-avatar" });
+		// --- TOP SECTION: RADAR CHART ---
+		const radarSection = el.createDiv({ cls: "life-rpg-radar-section" });
+		const canvas = radarSection.createEl("canvas", { 
+			cls: "life-rpg-radar-canvas",
+			attr: { width: "320", height: "300" } 
+		});
+		this.drawRadarChart(canvas, character.attributes as unknown as Record<string, AttributeState>);
 
+		// --- PROFILE SECTION ---
+		const profileSection = el.createDiv({ cls: "life-rpg-stats-profile" });
+		
+		const avatarContainer = profileSection.createDiv({ cls: "life-rpg-stats-avatar" });
 		if (character.avatarUrl && (character.avatarUrl.startsWith("http") || character.avatarUrl.startsWith("data:image/"))) {
-			avatarContainer.createEl("img", {
-				attr: { src: character.avatarUrl, alt: "Avatar" },
-				cls: "life-rpg-char-avatar-img"
-			});
+			avatarContainer.createEl("img", { attr: { src: character.avatarUrl }, cls: "life-rpg-avatar-img" });
 		} else {
 			avatarContainer.setText(character.avatarUrl || "⚔️");
 		}
 
-		const headerInfo = header.createDiv({ cls: "life-rpg-char-info", attr: { style: "display: flex; flex-direction: column; gap: 4px; flex-grow: 1;" } });
-		
-		const nameRow = headerInfo.createDiv({ attr: { style: "display: flex; align-items: center; justify-content: space-between;" } });
-		nameRow.createEl("h2", {
-			text: character.name,
-			cls: "life-rpg-char-name",
-			attr: { style: "margin: 0; font-size: 24px; font-weight: 800; color: var(--rpg-text-primary);" }
-		});
-
-		const editBtn = nameRow.createEl("button", {
-			text: "✏️ Edit Profile",
-			cls: "life-rpg-btn life-rpg-btn-small",
-		});
-
-		editBtn.addEventListener("click", () => {
-			this.showEditProfileForm(character, header);
-		});
-
-		const metaRow = headerInfo.createDiv({ attr: { style: "display: flex; flex-direction: column; gap: 2px;" } });
-		metaRow.createEl("span", {
-			text: `Level ${character.level}`,
-			cls: "life-rpg-char-level",
-			attr: { style: "font-weight: 600; color: var(--rpg-text-secondary); font-size: 14px;" }
-		});
-
+		const nameContainer = profileSection.createDiv({ cls: "life-rpg-stats-name-group" });
+		nameContainer.createEl("h2", { text: character.name, cls: "life-rpg-stats-name" });
 		const rankTitle = getCharacterRank(character.level, character.classId);
-		metaRow.createEl("span", {
-			text: rankTitle.toUpperCase(),
-			cls: "life-rpg-char-class",
-			attr: { style: "font-size: 12px; font-weight: 700; color: var(--rpg-accent); letter-spacing: 0.5px;" }
-		});
+		nameContainer.createEl("span", { text: `${rankTitle} • Level ${character.level}`, cls: "life-rpg-stats-rank" });
 
-		// HP Bar
-		const hpSection = el.createDiv({ cls: "life-rpg-stat-section" });
-		const hpHeader = hpSection.createDiv({ cls: "life-rpg-stat-header" });
-		hpHeader.createEl("span", { text: "❤️ Health", cls: "life-rpg-stat-label" });
-		hpHeader.createEl("span", {
-			text: `${formatNumber(character.hp)} / ${formatNumber(character.maxHp)}`,
-			cls: "life-rpg-stat-value",
-		});
+		// --- RESOURCE BARS SECTION ---
+		const resourceSection = el.createDiv({ cls: "life-rpg-resource-section" });
+		
+		this.renderResourceBar(resourceSection, "Health", character.hp, character.maxHp, "hp");
+		this.renderResourceBar(resourceSection, "Experience", character.xp, character.xpToNextLevel, "xp");
 
-		const hpBarContainer = hpSection.createDiv({ cls: "life-rpg-bar-container" });
-		const hpBar = hpBarContainer.createDiv({ cls: "life-rpg-bar life-rpg-bar-hp" });
-		const hpPct = percentage(character.hp, character.maxHp);
-		hpBar.style.width = `${hpPct}%`;
+		// --- ATTRIBUTES GRID ---
+		const attrsGrid = el.createDiv({ cls: "life-rpg-attrs-grid" });
+		const modifiers = this.stateManager.getGlobalModifiers();
 
-		// Color coding: green > 60%, yellow 30-60%, red < 30%
-		if (hpPct > 60) {
-			hpBar.addClass("life-rpg-bar-hp-high");
-		} else if (hpPct > 30) {
-			hpBar.addClass("life-rpg-bar-hp-mid");
-		} else {
-			hpBar.addClass("life-rpg-bar-hp-low");
+		const attrConfigs = [
+			{ id: "str", name: "Strength", icon: "💪", color: "var(--rpg-str)" },
+			{ id: "int", name: "Intelligence", icon: "🧠", color: "var(--rpg-int)" },
+			{ id: "wis", name: "Wisdom", icon: "🫀", color: "var(--rpg-wis)" },
+			{ id: "cha", name: "Charisma", icon: "👑", color: "var(--rpg-cha)" }
+		];
+
+		for (const config of attrConfigs) {
+			const attr = (character.attributes as any)[config.id];
+			const mod = (modifiers as any)[config.id] || 0;
+			this.renderAttributeCard(attrsGrid, config, attr, mod);
 		}
 
-		// XP Bar
-		const xpSection = el.createDiv({ cls: "life-rpg-stat-section" });
-		const xpHeader = xpSection.createDiv({ cls: "life-rpg-stat-header" });
-		xpHeader.createEl("span", { text: "✨ Experience", cls: "life-rpg-stat-label" });
-		xpHeader.createEl("span", {
-			text: `${formatNumber(character.xp)} / ${formatNumber(character.xpToNextLevel)}`,
-			cls: "life-rpg-stat-value",
-		});
+		// --- FLOATING GOLD ---
+		const goldPocket = el.createDiv({ cls: "life-rpg-gold-pocket" });
+		setIcon(goldPocket.createEl("span"), "coins");
+		goldPocket.createEl("span", { text: `${formatNumber(character.gp)} GP` });
 
-		const xpBarContainer = xpSection.createDiv({ cls: "life-rpg-bar-container" });
-		const xpBar = xpBarContainer.createDiv({ cls: "life-rpg-bar life-rpg-bar-xp" });
-		xpBar.style.width = `${percentage(character.xp, character.xpToNextLevel)}%`;
+		// --- ACTIVE BONUS SUMMARY ---
+		this.renderBonusSummary(el, character, modifiers);
+	}
 
-		// GP Display
-		const gpSection = el.createDiv({ cls: "life-rpg-gp-section" });
-		const gpIcon = gpSection.createEl("span", { cls: "life-rpg-gp-icon" });
-		setIcon(gpIcon, "coins");
-		gpSection.createEl("span", {
-			text: `${formatNumber(character.gp)} Gold`,
-			cls: "life-rpg-gp-value",
-		});
+	private renderBonusSummary(parent: HTMLElement, character: CharacterState, modifiers: any): void {
+		const section = parent.createDiv({ cls: "life-rpg-bonus-summary" });
+		section.createEl("h3", { text: "⚡ Active Bonuses" });
 
-		const statsGrid = el.createDiv({ cls: "life-rpg-quick-stats" });
-		this.createQuickStat(statsGrid, "Level", character.level.toString(), "medal");
-		this.createQuickStat(statsGrid, "Max HP", character.maxHp.toString(), "shield");
-		this.createQuickStat(
-			statsGrid,
-			"Next Lv",
-			`${formatNumber(character.xpToNextLevel - character.xp)} XP`,
-			"arrow-up-circle"
-		);
+		const grid = section.createDiv({ cls: "life-rpg-bonus-grid" });
 
-		// Core Attributes Grid
-		const attrSection = el.createDiv({ cls: "life-rpg-attributes-section" });
-		attrSection.createEl("h4", { text: "🧬 Core Attributes", cls: "life-rpg-attributes-title" });
+		// Collect per-source breakdown
+		const inventory = this.stateManager.getInventory();
+		const equippedItems = Object.values(character.equippedItems)
+			.map(id => inventory.find(i => i.id === id))
+			.filter(Boolean) as any[];
+
+		const unlockedNodeIds = this.stateManager.getUnlockedSkillNodes();
+		const allNodes = (this.stateManager as any).constructor ? SKILL_TREE_NODES : [];
+
+		const bonusTypes = [
+			{ key: "xpMultiplier", label: "XP Bonus", format: (v: number) => `+${Math.round((v - 1)*100)}%`, base: 1, itemKey: "xpBonus", nodeKey: "xpMultiplier" },
+			{ key: "gpMultiplier", label: "GP Bonus", format: (v: number) => `+${Math.round((v - 1)*100)}%`, base: 1, itemKey: "gpBonus", nodeKey: "gpMultiplier" },
+			{ key: "damageBonus", label: "Boss DMG", format: (v: number) => `+${Math.round(v*100)}%`, base: 0, itemKey: "damageBonus", nodeKey: "damageBonus" },
+			{ key: "damageReduction", label: "DMG Reduction", format: (v: number) => `+${Math.round(v*100)}%`, base: 0, itemKey: "damageReduction", nodeKey: "damageReduction" },
+			{ key: "wisdomSave", label: "Wisdom Save", format: (v: number) => `+${Math.round(v*100)}%`, base: 0, itemKey: "wisdomSave", nodeKey: "wisdomSave" },
+			{ key: "hpMax", label: "Bonus HP", format: (v: number) => `+${v}`, base: 0, itemKey: "hpMax", nodeKey: "hpMax" },
+		];
+
+		for (const bt of bonusTypes) {
+			const totalVal = modifiers[bt.key] ?? bt.base;
+			if (totalVal === bt.base) continue; // Skip if no bonus
+
+			const row = grid.createDiv({ cls: "life-rpg-bonus-row" });
+			const header = row.createDiv({ cls: "life-rpg-bonus-row-header" });
+			header.createEl("span", { text: bt.label, cls: "life-rpg-bonus-label" });
+			header.createEl("span", { text: bt.format(totalVal), cls: "life-rpg-bonus-total" });
+
+			const sources = row.createDiv({ cls: "life-rpg-bonus-sources" });
+
+			// Equipment sources
+			for (const item of equippedItems) {
+				const val = item.modifiers[bt.itemKey] || 0;
+				if (val > 0) {
+					sources.createEl("span", { text: `${item.name}: +${bt.key.includes("Multiplier") || bt.key.includes("Bonus") || bt.key.includes("Save") || bt.key.includes("Reduction") ? Math.round(val*100)+"%" : val}`, cls: "life-rpg-bonus-source" });
+				}
+			}
+
+			// Skill tree sources
+			for (const nodeId of unlockedNodeIds) {
+				const node = SKILL_TREE_NODES.find(n => n.id === nodeId);
+				if (!node) continue;
+				const val = (node.modifiers as any)[bt.nodeKey] || 0;
+				if (val > 0) {
+					sources.createEl("span", { text: `🌳 ${node.name}: +${bt.key === "hpMax" ? val : Math.round(val*100)+"%"}`, cls: "life-rpg-bonus-source" });
+				}
+			}
+		}
+	}
+
+
+	private renderResourceBar(parent: HTMLElement, label: string, val: number, max: number, type: "hp" | "xp"): void {
+		const container = parent.createDiv({ cls: `life-rpg-big-bar-container life-rpg-bar-${type}` });
+		const header = container.createDiv({ cls: "life-rpg-bar-header" });
+		header.createEl("span", { text: label });
+		header.createEl("span", { text: `${formatNumber(val)} / ${formatNumber(max)}` });
+
+		const barOuter = container.createDiv({ cls: "life-rpg-bar-outer" });
+		const fill = barOuter.createDiv({ cls: "life-rpg-bar-fill" });
+		const pct = percentage(val, max);
+		fill.style.width = `${pct}%`;
+	}
+
+	private renderAttributeCard(parent: HTMLElement, config: any, attr: AttributeState, mod: number): void {
+		const card = parent.createDiv({ cls: "life-rpg-attr-card" });
+		card.style.setProperty("--attr-color", config.color);
+
+		const header = card.createDiv({ cls: "life-rpg-attr-card-header" });
+		header.createEl("span", { text: config.icon });
+		header.createEl("span", { text: config.name });
+
+		const valGroup = card.createDiv({ cls: "life-rpg-attr-card-value" });
+		valGroup.createEl("span", { text: `Lv.${attr.level}`, cls: "life-rpg-level" });
+		if (mod > 0) valGroup.createEl("span", { text: ` (+${mod})`, cls: "life-rpg-mod" });
+
+		const barOuter = card.createDiv({ cls: "life-rpg-mini-bar-outer" });
+		const barFill = barOuter.createDiv({ cls: "life-rpg-mini-bar-fill" });
+		barFill.style.width = `${percentage(attr.xp, attr.xpToNextLevel)}%`;
+	}
+
+	private drawRadarChart(canvas: HTMLCanvasElement, attributes: Record<string, AttributeState>): void {
+		const ctx = canvas.getContext("2d");
+		if (!ctx) return;
+
+		const width = canvas.width;
+		const height = canvas.height;
+		const centerX = width / 2;
+		const centerY = height / 2;
+		const labels = ["STR", "INT", "WIS", "CHA"];
+		const keys = ["str", "int", "wis", "cha"];
 		
-		const attrGrid = attrSection.createDiv({ cls: "life-rpg-attributes-grid" });
-		
-		this.createAttributeCard(attrGrid, "Strength", "STR", "sword", character.attributes.str);
-		this.createAttributeCard(attrGrid, "Intelligence", "INT", "brain", character.attributes.int);
-		this.createAttributeCard(attrGrid, "Wisdom", "WIS", "feather", character.attributes.wis);
-		this.createAttributeCard(attrGrid, "Charisma", "CHA", "crown", character.attributes.cha);
+		// Find max level for scaling (at least 10)
+		const values = keys.map(k => attributes[k].level);
+		const maxVal = Math.max(10, ...values) * 1.1; 
+		const radius = Math.min(centerX, centerY) * 0.8;
+
+		ctx.clearRect(0,0,width,height);
+
+		// Set drawing styles
+		ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+		ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+		ctx.font = "bold 12px Inter, sans-serif";
+		ctx.textAlign = "center";
+
+		// Draw concentric web
+		const levels = 5;
+		for (let i = 1; i <= levels; i++) {
+			const r = (radius / levels) * i;
+			ctx.beginPath();
+			for (let j = 0; j < labels.length; j++) {
+				const angle = (Math.PI * 2 * j) / labels.length - Math.PI / 2;
+				const x = centerX + r * Math.cos(angle);
+				const y = centerY + r * Math.sin(angle);
+				if (j === 0) ctx.moveTo(x, y);
+				else ctx.lineTo(x, y);
+			}
+			ctx.closePath();
+			ctx.stroke();
+		}
+
+		// Draw axes and labels
+		for (let i = 0; i < labels.length; i++) {
+			const angle = (Math.PI * 2 * i) / labels.length - Math.PI / 2;
+			const x = centerX + radius * Math.cos(angle);
+			const y = centerY + radius * Math.sin(angle);
+			
+			ctx.beginPath();
+			ctx.moveTo(centerX, centerY);
+			ctx.lineTo(x, y);
+			ctx.stroke();
+
+			const labelX = centerX + (radius + 20) * Math.cos(angle);
+			const labelY = centerY + (radius + 20) * Math.sin(angle);
+			ctx.fillText(labels[i], labelX, labelY + 5);
+		}
+
+		// Draw data polygon
+		ctx.beginPath();
+		ctx.strokeStyle = "#f0d486";
+		ctx.fillStyle = "rgba(240, 212, 134, 0.25)";
+		ctx.lineWidth = 3;
+
+		for (let i = 0; i < keys.length; i++) {
+			const val = attributes[keys[i]].level;
+			const r = (val / maxVal) * radius;
+			const angle = (Math.PI * 2 * i) / keys.length - Math.PI / 2;
+			const x = centerX + r * Math.cos(angle);
+			const y = centerY + r * Math.sin(angle);
+			
+			if (i === 0) ctx.moveTo(x, y);
+			else ctx.lineTo(x, y);
+		}
+		ctx.closePath();
+		ctx.fill();
+		ctx.stroke();
+
+		// Points of the polygon
+		ctx.fillStyle = "#f0d486";
+		for (let i = 0; i < keys.length; i++) {
+			const val = attributes[keys[i]].level;
+			const r = (val / maxVal) * radius;
+			const angle = (Math.PI * 2 * i) / keys.length - Math.PI / 2;
+			const x = centerX + r * Math.cos(angle);
+			const y = centerY + r * Math.sin(angle);
+			
+			ctx.beginPath();
+			ctx.arc(x, y, 4, 0, Math.PI * 2);
+			ctx.fill();
+		}
 	}
 
 	private createAttributeCard(parent: HTMLElement, name: string, shortName: string, icon: string, attr: AttributeState): void {
@@ -137,7 +271,7 @@ export class StatsPanel {
 		const header = card.createDiv({ cls: "life-rpg-attr-header" });
 		const title = header.createDiv({ cls: "life-rpg-attr-title" });
 		const iconEl = title.createEl("span", { cls: "life-rpg-attr-icon" });
-		setIcon(iconEl, icon);
+		iconEl.setText(icon);
 		title.createEl("span", { text: name, cls: "life-rpg-attr-name" });
 		
 		header.createEl("span", { text: `Lv.${attr.level}`, cls: "life-rpg-attr-level" });
@@ -155,7 +289,7 @@ export class StatsPanel {
 	): void {
 		const stat = parent.createDiv({ cls: "life-rpg-quick-stat" });
 		const iconEl = stat.createEl("span", { cls: "life-rpg-quick-stat-icon" });
-		setIcon(iconEl, icon);
+		iconEl.setText(icon);
 		stat.createEl("span", { text: value, cls: "life-rpg-quick-stat-value" });
 		stat.createEl("span", { text: label, cls: "life-rpg-quick-stat-label" });
 	}
@@ -210,6 +344,32 @@ export class StatsPanel {
 		});
 
 		nameInput.focus();
+	}
+
+	private checkAndSpawnDelta(current: number, key: string, icon: string): void {
+		const prev = this.prevValues.get(key);
+		if (prev !== undefined && prev !== current) {
+			const delta = current - prev;
+			const sign = delta > 0 ? "+" : "";
+			const cls = delta > 0 ? "life-rpg-delta-positive" : "life-rpg-delta-negative";
+			
+			// Determine color based on key
+			let typeCls = "life-rpg-delta-xp";
+			if (key === "hp") typeCls = "life-rpg-delta-hp";
+			if (key === "gp") typeCls = "life-rpg-delta-gp";
+
+			const floating = document.body.createDiv({ cls: `life-rpg-floating-delta ${cls} ${typeCls}` });
+			floating.setText(`${icon} ${sign}${delta}`);
+			
+			// Position near the stats panel? Better to just show at top right or center
+			// But for "juice", let's spawn at a random position near the center?
+			const x = 20 + Math.random() * 20;
+			const y = 40 + Math.random() * 20;
+			floating.style.right = `${x}%`;
+			floating.style.top = `${y}%`;
+
+			setTimeout(() => floating.remove(), 2000);
+		}
 	}
 
 	destroy(): void {

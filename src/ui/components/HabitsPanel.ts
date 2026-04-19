@@ -4,11 +4,12 @@
 // ============================================================================
 
 import { setIcon } from "obsidian";
-import { type Habit, type Skill, Difficulty } from "../../types";
+import { type Habit, type Skill, Difficulty, ItemSlot } from "../../types";
 import { type StateManager } from "../../state/StateManager";
-import { logGoodHabit, logBadHabit, resolveOutstandingHabit, undoHabit } from "../../engine/HabitManager";
+import { logGoodHabit, logBadHabit, resolveOutstandingHabit, undoHabit, recalculateHabitStreak } from "../../engine/HabitManager";
 import { calculateHabitReward, streakBonusMultiplier } from "../../engine/GameEngine";
 import { generateId } from "../../constants";
+import { HabitDetailModal } from "../modals/HabitDetailModal";
 import { HabitHistoryModal } from "../modals/HabitHistoryModal";
 
 export class HabitsPanel {
@@ -166,47 +167,87 @@ export class HabitsPanel {
 
 		// Streak & info
 		const infoRow = cardContent.createDiv({ cls: "life-rpg-habit-info" });
-		
+
+		// Always recalculate streak from history to fix drift bugs
+		const liveStreak = recalculateHabitStreak(habit);
+		if (liveStreak !== habit.streak) {
+			this.stateManager.updateHabit(habit.id, { streak: liveStreak });
+		}
+
 		if (habit.recurrenceDays && habit.recurrenceDays > 1) {
 			infoRow.createEl("span", {
 				text: `⏳ Every ${habit.recurrenceDays}d`,
-				cls: "life-rpg-habit-streak",
+				cls: "life-rpg-habit-recurrence",
 			});
 		}
 
 		const settings = this.stateManager.getSettings();
-		const baseReward = calculateHabitReward(habit.type, habit.difficulty, settings);
-		
-		if (habit.type === "good") {
-			if (habit.streak > 0) {
-				infoRow.createEl("span", {
-				text: `🔥 ${habit.streak} streak`,
-					cls: "life-rpg-habit-streak",
-				});
+		const character = this.stateManager.getCharacter();
+		const modifiers = this.stateManager.getGlobalModifiers();
+
+		const baseReward = calculateHabitReward(habit.type, habit.difficulty, settings, character.attributes, modifiers);
+
+		// --- Streak Badge (for both good & bad habits) ---
+		if (liveStreak > 0) {
+			const streakTier = liveStreak >= 30 ? "legendary" : liveStreak >= 14 ? "epic" : liveStreak >= 7 ? "rare" : liveStreak >= 3 ? "uncommon" : "common";
+			const streakIcon = habit.type === "good"
+				? (liveStreak >= 30 ? "🌟" : liveStreak >= 14 ? "💎" : liveStreak >= 7 ? "🔥" : "✨")
+				: (liveStreak >= 7 ? "🛡️" : liveStreak >= 3 ? "💪" : "🙏");
+			const streakLabel = habit.type === "good" ? "streak" : "resisted";
+
+			const streakBadge = infoRow.createEl("span", {
+				text: `${streakIcon} ${liveStreak} ${streakLabel}`,
+				cls: `life-rpg-streak-badge life-rpg-streak-${streakTier} ${habit.type === "bad" ? "life-rpg-streak-resist" : ""}`,
+			});
+
+			// Add bonus multiplier indicator for good habits with decent streak
+			if (habit.type === "good" && liveStreak >= 7) {
+				const bonus = streakBonusMultiplier(liveStreak);
+				streakBadge.title = `${bonus.toFixed(1)}x streak bonus active!`;
 			}
-			
-			const bonus = streakBonusMultiplier(habit.streak);
+		}
+
+		if (habit.type === "good") {
+			const bonus = streakBonusMultiplier(liveStreak);
 			const xpGain = Math.round(baseReward.xp * bonus);
 			const gpGain = Math.round(baseReward.gp * bonus);
-			
+
 			infoRow.createEl("span", {
 				text: `+${xpGain} XP, +${gpGain} GP`,
 				cls: "life-rpg-habit-reward",
 			});
 		} else {
+			// Show penalty for doing the bad habit
 			infoRow.createEl("span", {
-				text: `-${baseReward.hpDamage} HP`,
+				text: `-${baseReward.hpDamage} HP if done`,
 				cls: "life-rpg-habit-penalty",
 			});
+			// Show resist reward — resisting a bad habit earns a small XP/GP bonus
+			const resistXp = Math.round(settings.baseXp * (settings.difficultyMultipliers[habit.difficulty] ?? 1) * 0.3);
+			const resistGp = Math.round(settings.baseGp * (settings.difficultyMultipliers[habit.difficulty] ?? 1) * 0.2);
+			if (resistXp > 0 || resistGp > 0) {
+				infoRow.createEl("span", {
+					text: `+${resistXp} XP, +${resistGp} GP if resisted`,
+					cls: "life-rpg-habit-resist",
+				});
+			}
 		}
 
 		// Add last completed date if available
 		const dateContainer = infoRow.createEl("span", {
 			cls: "life-rpg-habit-date",
 		});
-		if (habit.lastCompleted) {
-			const completedToday = new Date(habit.lastCompleted).toDateString() === new Date().toDateString();
-			const dateStr = completedToday ? "Today" : new Date(habit.lastCompleted).toLocaleDateString(undefined, {
+		
+		const isSameDayComplete = habit.lastCompleted && 
+			new Date(habit.lastCompleted).toDateString() === new Date().toDateString();
+		
+		if (completedToday || isSameDayComplete) {
+			dateContainer.setText(`🗓️ Today`);
+		} else if (this.isHabitDue(habit)) {
+			// If it's due today but not done, or has backlog
+			dateContainer.setText(`🗓️ Today`);
+		} else if (habit.lastCompleted) {
+			const dateStr = new Date(habit.lastCompleted).toLocaleDateString(undefined, {
 				month: "short",
 				day: "numeric",
 			});
@@ -215,7 +256,7 @@ export class HabitsPanel {
 			dateContainer.setText(`🗓️ Never`);
 		}
 
-		// Action buttons
+		// Action buttons row
 		const actions = card.createDiv({ cls: "life-rpg-habit-actions" });
 
 		if ((habit.outstandingDays || 0) > 0) {
@@ -240,7 +281,6 @@ export class HabitsPanel {
 			
 		} else {
 			// Standard Logic State
-			// Good habits disabled if done today. Bad habits are restricted to once per day.
 			const isDisabled = completedToday;
 			
 			const logBtn = actions.createEl("button", {
@@ -252,41 +292,44 @@ export class HabitsPanel {
 				logBtn.setAttribute("disabled", "true");
 				logBtn.classList.add("life-rpg-btn-disabled");
 
-				// Add Undo button
 				const undoBtn = actions.createEl("button", {
 					cls: "life-rpg-btn-icon life-rpg-habit-undo",
 					text: "↩️",
 				});
-				undoBtn.title = "Undo logic";
+				undoBtn.title = "Undo";
 				undoBtn.addEventListener("click", () => this.logHabitUndo(habit));
 			} else {
 				logBtn.addEventListener("click", () => this.logHabit(habit));
 			}
 		}
 
-		// Edit button
-		const editBtn = actions.createEl("button", {
-			text: "✏️",
-			cls: "life-rpg-btn-icon",
-		});
-		editBtn.addEventListener("click", () => {
-			this.showEditHabitForm(habit, card, cardContent, actions);
-		});
+		// Meta buttons (settings, history, delete) — same row, pushed right
+		const metaSpacer = actions.createDiv({ cls: "life-rpg-habit-meta-spacer" });
 
-		// History button
+		const detailsBtn = actions.createEl("button", { 
+			cls: "life-rpg-btn-icon", 
+			title: "View Details & Edit" 
+		});
+		setIcon(detailsBtn, "settings");
+		detailsBtn.onclick = (e) => {
+			e.stopPropagation();
+			const app = (this.stateManager as any).app || (this.stateManager as any).plugin.app;
+			const skills = this.stateManager.getSkills();
+			new HabitDetailModal(app, habit, this.stateManager, skills, (updated) => {
+				this.stateManager.updateHabit(habit.id, updated);
+			}).open();
+		};
+
 		const historyBtn = actions.createEl("button", {
 			text: "⌛",
 			cls: "life-rpg-btn-icon",
 		});
 		historyBtn.title = "View History";
 		historyBtn.addEventListener("click", () => {
-			const { App } = require("obsidian"); 
-			// We can get app from the plugin instance via stateManager
-			const app = (this.stateManager as any).plugin.app;
+			const app = (this.stateManager as any).app || (this.stateManager as any).plugin.app;
 			new HabitHistoryModal(app, habit, this.stateManager).open();
 		});
 
-		// Delete button
 		const deleteBtn = actions.createEl("button", {
 			text: "✕",
 			cls: "life-rpg-btn-icon life-rpg-btn-danger-subtle",
@@ -302,8 +345,29 @@ export class HabitsPanel {
 		const character = this.stateManager.getCharacter();
 		const skills = this.stateManager.getSkills();
 		const settings = this.stateManager.getSettings();
+		const modifiers = this.stateManager.getGlobalModifiers();
 
-		const result = resolveOutstandingHabit(habit, character, skills, settings, wasCompleted);
+		const result = resolveOutstandingHabit(
+			habit,
+			this.stateManager.getCharacter(),
+			this.stateManager.getSkills(),
+			this.stateManager.getSettings(),
+			wasCompleted,
+			modifiers
+		);
+
+		if (result.spEarned !== 0) {
+			this.stateManager.addSkillPoints(result.spEarned);
+		}
+
+		// Notification for backlog resolution
+		if (wasCompleted && settings.showNotifications) {
+			const oldChar = character;
+			const newChar = result.character;
+			if (newChar.level > oldChar.level) {
+				new Notice(`🎉 LEVEL UP! You reached Level ${newChar.level}!`, 5000);
+			}
+		}
 
 		this.stateManager.setCharacter(result.character);
 		this.stateManager.updateHabit(habit.id, result.habit);
@@ -335,6 +399,10 @@ export class HabitsPanel {
 
 		const result = undoHabit(habit, character, skills, settings);
 
+		if (result.spEarned !== 0) {
+			this.stateManager.addSkillPoints(result.spEarned);
+		}
+
 		this.stateManager.setCharacter(result.character);
 		this.stateManager.updateHabit(habit.id, result.habit);
 		for (const skill of result.skills) {
@@ -348,20 +416,43 @@ export class HabitsPanel {
 		const character = this.stateManager.getCharacter();
 		const skills = this.stateManager.getSkills();
 		const settings = this.stateManager.getSettings();
+		const modifiers = this.stateManager.getGlobalModifiers();
 
 		if (habit.type === "good") {
-			const result = logGoodHabit(habit, character, skills, settings);
+			const result = logGoodHabit(habit, character, skills, settings, modifiers);
 			this.stateManager.setCharacter(result.character);
 			this.stateManager.updateHabit(habit.id, result.habit);
 			for (const skill of result.skills) {
 				this.stateManager.updateSkill(skill.id, skill);
 			}
+			if (result.spEarned > 0) {
+				this.stateManager.addSkillPoints(result.spEarned);
+			}
+
+			// Notification
+			if (settings.showNotifications) {
+				const oldChar = character;
+				const newChar = result.character;
+				if (newChar.level > oldChar.level) {
+					new Notice(`🎉 LEVEL UP! You reached Level ${newChar.level}!`, 5000);
+				}
+				for (let i = 0; i < result.skills.length; i++) {
+					const oldSkill = skills.find(s => s.id === result.skills[i].id);
+					if (oldSkill && result.skills[i].level > oldSkill.level) {
+						new Notice(`🎯 SKILL UP: ${result.skills[i].name} reached Level ${result.skills[i].level}!`, 4000);
+					}
+				}
+			}
 			for (const entry of result.logEntries) {
 				this.stateManager.addLogEntry(entry);
 			}
 			this.stateManager.incrementHabitsCompleted();
+			
+			if (result.foundItem) {
+				this.stateManager.addItem(result.foundItem);
+			}
 		} else {
-			const result = logBadHabit(habit, character, settings);
+			const result = logBadHabit(habit, character, settings, modifiers);
 			this.stateManager.setCharacter(result.character);
 			this.stateManager.updateHabit(habit.id, result.habit);
 			for (const entry of result.logEntries) {
@@ -570,6 +661,7 @@ export class HabitsPanel {
 				outstandingDays: 0,
 				lastEvaluatedDate: startSelect.value,
 				recurrenceDays: recurInput.value ? parseInt(recurInput.value, 10) : 1,
+				createdAt: new Date().toISOString(),
 			};
 
 			this.stateManager.addHabit(habit);

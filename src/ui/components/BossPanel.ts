@@ -34,7 +34,7 @@ export class BossPanel {
 		el.empty();
 
 		const header = el.createDiv({ cls: "life-rpg-panel-header" });
-		header.createEl("h3", { text: "⚔️ Adventures" });
+		header.createEl("h3", { text: "💀 Bosses & Dungeons" });
 
 		// Stats summary
 		const stats = el.createDiv({ cls: "life-rpg-boss-stats" });
@@ -66,7 +66,9 @@ export class BossPanel {
 	private renderActiveBoss(parent: HTMLElement, boss: Boss): void {
 		const section = parent.createDiv({ cls: "life-rpg-active-boss" });
 
-		const bossCard = section.createDiv({ cls: "life-rpg-boss-card" });
+		const hpPercent = (boss.hp / boss.maxHp) * 100;
+		const rageClass = hpPercent < 25 ? "boss-is-critical" : hpPercent < 50 ? "boss-is-enraged" : "";
+		const bossCard = section.createDiv({ cls: `life-rpg-boss-card ${rageClass}` });
 
 		// Boss header
 		const bossHeader = bossCard.createDiv({ cls: "life-rpg-boss-header" });
@@ -85,6 +87,21 @@ export class BossPanel {
 			text: boss.flavor,
 			cls: "life-rpg-boss-flavor",
 		});
+
+		// Enrage Timer
+		const settings = this.stateManager.getSettings();
+		const enrageHours = settings.bossEnrageHours ?? 48;
+		const elapsedMs = Date.now() - new Date(boss.startedAt).getTime();
+		const elapsedHours = elapsedMs / (1000 * 60 * 60);
+		const isEnraged = elapsedHours >= enrageHours;
+		const hoursLeft = Math.max(0, Math.ceil(enrageHours - elapsedHours));
+
+		const timerEl = bossCard.createDiv({ cls: `life-rpg-boss-timer ${isEnraged ? "is-enraged" : ""}` });
+		if (isEnraged) {
+			timerEl.setText("💢 ENRAGED! Boss attack power increased by 50%!");
+		} else {
+			timerEl.setText(`⏱️ Enrage in: ${hoursLeft}h — Defeat the boss before time runs out!`);
+		}
 
 		// Boss HP bar
 		const hpSection = bossCard.createDiv({ cls: "life-rpg-stat-section" });
@@ -105,6 +122,25 @@ export class BossPanel {
 			cls: "life-rpg-bar life-rpg-bar-boss",
 		});
 		bar.style.width = `${percentage(boss.hp, boss.maxHp)}%`;
+
+		// Boss Abilities
+		if (boss.abilities && boss.abilities.length > 0) {
+			const abilitiesDiv = bossCard.createDiv({ cls: "life-rpg-boss-abilities" });
+			for (const ability of boss.abilities) {
+				const isActive = hpPercent <= ability.triggerHpPercent;
+				const abilityEl = abilitiesDiv.createDiv({ cls: `life-rpg-boss-ability ${isActive ? "is-active" : ""}` });
+				const effectIcon = ability.effect === "enrage" ? "💢" : ability.effect === "regen" ? "💚" : ability.effect === "dodge" ? "💨" : "⚡";
+				abilityEl.setText(`${effectIcon} ${ability.name}: ${ability.description} ${isActive ? "[ACTIVE]" : `[< ${ability.triggerHpPercent}% HP]`}`);
+			}
+		}
+
+		// Loot Table Preview
+		if (boss.lootTable && boss.lootTable.length > 0) {
+			const lootDiv = bossCard.createDiv({ cls: "life-rpg-boss-loot" });
+			for (const loot of boss.lootTable) {
+				lootDiv.createDiv({ cls: "life-rpg-boss-loot-item", text: `🎁 ${loot.name} (${Math.round(loot.chance * 100)}%)` });
+			}
+		}
 
 		// Rewards preview
 		const rewards = bossCard.createDiv({ cls: "life-rpg-boss-rewards" });
@@ -176,6 +212,29 @@ export class BossPanel {
 		}
 
 		header.createEl("h4", { text: dungeon.name, cls: "life-rpg-dungeon-name" });
+
+		// Visual dungeon map
+		const mapDiv = section.createDiv({ cls: "life-rpg-dungeon-map" });
+		for (let i = 0; i < dungeon.stages.length; i++) {
+			const stage = dungeon.stages[i];
+			const isComplete = stage.tasksCompleted >= stage.tasksRequired;
+			const isCurrent = i === dungeon.currentStage;
+			
+			const nodeEl = mapDiv.createDiv({ 
+				cls: `life-rpg-dungeon-map-node ${isComplete ? "is-complete" : ""} ${isCurrent ? "is-current" : ""}`,
+			});
+			nodeEl.setText(isComplete ? "✓" : `${i + 1}`);
+			nodeEl.title = `${stage.name} (${stage.tasksCompleted}/${stage.tasksRequired})`;
+
+			// Connector line between nodes
+			if (i < dungeon.stages.length - 1) {
+				mapDiv.createDiv({ cls: `life-rpg-dungeon-map-connector ${isComplete ? "is-complete" : ""}` });
+			}
+		}
+		// Final boss node
+		const bossNode = mapDiv.createDiv({ cls: "life-rpg-dungeon-map-node" });
+		bossNode.setText("💀");
+		bossNode.title = "Final Boss";
 
 		// Overall progress bar
 		const progress = getDungeonProgress(dungeon);

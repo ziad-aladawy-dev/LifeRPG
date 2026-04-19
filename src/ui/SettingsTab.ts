@@ -122,6 +122,25 @@ export class LifeRpgSettingsTab extends PluginSettingTab {
 					})
 			);
 
+		new Setting(containerEl)
+			.setName("Attribute XP Gain Ratio")
+			.setDesc("The percentage of skill XP that also contributes to the governing attribute (e.g., 0.2 = 20%). Attributes level up slower than skills.")
+			.addText((text) =>
+				text
+					.setPlaceholder("0.2")
+					.setValue(
+						this.plugin.stateManager.getSettings().skillToAttributeRatio?.toString() || "0.2"
+					)
+					.onChange(async (value) => {
+						const num = parseFloat(value);
+						if (!isNaN(num) && num >= 0 && num <= 1.0) {
+							this.plugin.stateManager.updateSettings({
+								skillToAttributeRatio: num,
+							});
+						}
+					})
+			);
+
 		// ---------------------------------------------------------------
 		// Difficulty Multipliers
 		// ---------------------------------------------------------------

@@ -6,7 +6,7 @@
 import { ItemView, WorkspaceLeaf, setIcon } from "obsidian";
 import { VIEW_TYPE_CHARACTER_SHEET } from "../constants";
 import { type StateManager } from "../state/StateManager";
-import { type GameState } from "../types";
+import { type GameState, ItemSlot } from "../types";
 import { StatsPanel } from "./components/StatsPanel";
 import { SkillsPanel } from "./components/SkillsPanel";
 import { QuestsPanel } from "./components/QuestsPanel";
@@ -15,9 +15,12 @@ import { RewardsPanel } from "./components/RewardsPanel";
 import { BossPanel } from "./components/BossPanel";
 import { ActivityLogPanel } from "./components/ActivityLogPanel";
 import { ProfilePanel } from "./components/ProfilePanel";
-import { HabitHistoryModal } from "../modals/HabitHistoryModal";
+import { InventoryPanel } from "./components/InventoryPanel";
+import { HabitHistoryModal } from "./modals/HabitHistoryModal";
+import { EventType } from "../types";
+import { SkillTreePanel } from "./components/SkillTreePanel";
 
-type TabId = "stats" | "profile" | "quests" | "skills" | "habits" | "rewards" | "boss" | "log";
+type TabId = "stats" | "profile" | "inventory" | "quests" | "skills" | "skill_tree" | "habits" | "rewards" | "boss" | "log";
 
 interface TabDefinition {
 	id: TabId;
@@ -26,14 +29,16 @@ interface TabDefinition {
 }
 
 const TABS: TabDefinition[] = [
-	{ id: "stats", label: "Stats", icon: "sword" },
-	{ id: "profile", label: "Profile", icon: "user" },
-	{ id: "quests", label: "Quests", icon: "scroll" },
-	{ id: "skills", label: "Skills", icon: "bar-chart" },
-	{ id: "habits", label: "Habits", icon: "refresh-cw" },
-	{ id: "rewards", label: "Store", icon: "shopping-cart" },
-	{ id: "boss", label: "Boss", icon: "skull" },
-	{ id: "log", label: "Log", icon: "list" },
+	{ id: "stats", label: "📊 Stats", icon: "sword" },
+	{ id: "profile", label: "👤 Profile", icon: "user" },
+	{ id: "inventory", label: "🎒 Inventory", icon: "briefcase" },
+	{ id: "quests", label: "📜 Quests", icon: "scroll" },
+	{ id: "skills", label: "🎯 Skills", icon: "bar-chart" },
+	{ id: "skill_tree", label: "🌳 Tree", icon: "tree" },
+	{ id: "habits", label: "🔄 Habits", icon: "refresh-cw" },
+	{ id: "rewards", label: "💰 Store", icon: "shopping-cart" },
+	{ id: "boss", label: "💀 Boss", icon: "skull" },
+	{ id: "log", label: "📝 Log", icon: "list" },
 ];
 
 export class CharacterSheetView extends ItemView {
@@ -51,6 +56,9 @@ export class CharacterSheetView extends ItemView {
 	private rewardsPanel: RewardsPanel | null = null;
 	private bossPanel: BossPanel | null = null;
 	private activityLogPanel: ActivityLogPanel | null = null;
+	private inventoryPanel: InventoryPanel | null = null;
+	private skillTreePanel: SkillTreePanel | null = null;
+	private isChroniclePlaying = false;
 
 	constructor(leaf: WorkspaceLeaf, stateManager: StateManager) {
 		super(leaf);
@@ -62,7 +70,7 @@ export class CharacterSheetView extends ItemView {
 	}
 
 	getDisplayText(): string {
-		return "Life RPG";
+		return "Oathbound";
 	}
 
 	getIcon(): string {
@@ -79,8 +87,20 @@ export class CharacterSheetView extends ItemView {
 
 		// Subscribe to state changes
 		this.unsubscribe = this.stateManager.on(() => {
-			this.renderActiveTab();
+			if (!this.isChroniclePlaying) {
+				this.renderActiveTab();
+			}
 		});
+
+		// Listen for custom tab switch event
+		this.registerEvent(
+			(this.app.workspace as any).on("life-rpg:switch-tab", (data: { tabId: TabId }) => {
+				this.activeTab = data.tabId;
+				const tabNav = this.contentEl.querySelector(".life-rpg-tab-nav") as HTMLElement;
+				if (tabNav) this.updateTabHighlight(tabNav);
+				this.renderActiveTab();
+			})
+		);
 
 		// Initial render
 		this.renderActiveTab();
@@ -101,7 +121,9 @@ export class CharacterSheetView extends ItemView {
 	private buildUI(container: HTMLElement): void {
 		// Plugin title bar
 		const titleBar = container.createDiv({ cls: "life-rpg-title-bar" });
-		titleBar.createEl("h2", { text: "⚔️ Life RPG", cls: "life-rpg-title" });
+		const titleContainer = titleBar.createDiv({ cls: "life-rpg-epic-container" });
+		titleContainer.createEl("span", { text: "⚔️", cls: "life-rpg-epic-icon" });
+		titleContainer.createEl("h2", { text: "OATHBOUND", cls: "life-rpg-epic-title" });
 
 		// Quick stats ribbon (always visible)
 		const ribbon = container.createDiv({ cls: "life-rpg-ribbon" });
@@ -109,14 +131,13 @@ export class CharacterSheetView extends ItemView {
 
 		// Tab navigation
 		const tabNav = container.createDiv({ cls: "life-rpg-tab-nav" });
+		this.setupDraggableTabs(tabNav);
+		
 		for (const tab of TABS) {
 			const tabBtn = tabNav.createEl("button", {
 				cls: `life-rpg-tab-btn ${this.activeTab === tab.id ? "life-rpg-tab-active" : ""}`,
 			});
 			tabBtn.setAttribute("data-tab", tab.id);
-
-			const iconEl = tabBtn.createEl("span", { cls: "life-rpg-tab-icon" });
-			setIcon(iconEl, tab.icon);
 
 			tabBtn.createEl("span", { text: tab.label, cls: "life-rpg-tab-label" });
 
@@ -129,6 +150,35 @@ export class CharacterSheetView extends ItemView {
 
 		// Tab content area
 		this.tabContentEl = container.createDiv({ cls: "life-rpg-tab-content" });
+	}
+
+	private setupDraggableTabs(tabNav: HTMLElement): void {
+		let isDown = false;
+		let startX: number;
+		let scrollLeft: number;
+
+		tabNav.addEventListener("mousedown", (e) => {
+			isDown = true;
+			tabNav.addClass("active");
+			startX = e.pageX - tabNav.offsetLeft;
+			scrollLeft = tabNav.scrollLeft;
+		});
+
+		tabNav.addEventListener("mouseleave", () => {
+			isDown = false;
+		});
+
+		tabNav.addEventListener("mouseup", () => {
+			isDown = false;
+		});
+
+		tabNav.addEventListener("mousemove", (e) => {
+			if (!isDown) return;
+			e.preventDefault();
+			const x = e.pageX - tabNav.offsetLeft;
+			const walk = (x - startX) * 2; // scroll-fast
+			tabNav.scrollLeft = scrollLeft - walk;
+		});
 	}
 
 	private updateTabHighlight(tabNav: HTMLElement): void {
@@ -161,7 +211,7 @@ export class CharacterSheetView extends ItemView {
 
 		switch (this.activeTab) {
 			case "stats":
-				this.statsPanel = new StatsPanel(this.tabContentEl);
+				this.statsPanel = new StatsPanel(this.tabContentEl, this.stateManager);
 				this.statsPanel.render(state.character);
 				break;
 
@@ -170,15 +220,25 @@ export class CharacterSheetView extends ItemView {
 				this.profilePanel.render(state.character);
 				break;
 
-			case "quests":
-				this.questsPanel = new QuestsPanel(this.tabContentEl);
+			case "inventory":
+				this.inventoryPanel = new InventoryPanel(this.tabContentEl, this.stateManager);
+				this.inventoryPanel.render();
+				break;
+
+			case "quests": {
+				this.questsPanel = new QuestsPanel(this.tabContentEl, this.app);
 				const plugin = (this.stateManager as any).plugin;
+				
+				const modifiers = this.stateManager.getGlobalModifiers();
+
 				this.questsPanel.render(
 					plugin.taskWatcher.getActiveTasks(),
 					this.stateManager.getSettings(),
-					state.character
+					state.character,
+					modifiers
 				);
 				break;
+			}
 
 			case "skills":
 				this.skillsPanel = new SkillsPanel(
@@ -186,6 +246,14 @@ export class CharacterSheetView extends ItemView {
 					this.stateManager
 				);
 				this.skillsPanel.render(state.skills);
+				break;
+
+			case "skill_tree":
+				this.skillTreePanel = new SkillTreePanel(
+					this.tabContentEl,
+					this.stateManager
+				);
+				this.skillTreePanel.render();
 				break;
 
 			case "habits":
@@ -236,16 +304,17 @@ export class CharacterSheetView extends ItemView {
 		const el = ribbon as HTMLElement;
 
 		const items = [
-			{ icon: "medal", text: `Lv.${char.level}` },
-			{ icon: "heart", text: `${char.hp}/${char.maxHp}` },
-			{ icon: "sparkles", text: `${char.xp}/${char.xpToNextLevel}` },
-			{ icon: "coins", text: `${char.gp}` },
+			{ icon: "🏅", text: `Lv.${char.level}` },
+			{ icon: "❤️", text: `${char.hp}/${char.maxHp}` },
+			{ icon: "✨", text: `${char.xp}/${char.xpToNextLevel}` },
+			{ icon: "⭐", text: `${this.stateManager.getSkillPoints()} SP` },
+			{ icon: "💰", text: `${char.gp}` },
 		];
 
 		for (const item of items) {
 			const span = el.createEl("span", { cls: "life-rpg-ribbon-item" });
 			const iconEl = span.createEl("span", { cls: "life-rpg-ribbon-icon" });
-			setIcon(iconEl, item.icon);
+			iconEl.setText(item.icon);
 			span.createEl("span", {
 				text: item.text,
 				cls: "life-rpg-ribbon-value",
@@ -262,6 +331,7 @@ export class CharacterSheetView extends ItemView {
 		this.rewardsPanel?.destroy();
 		this.bossPanel?.destroy();
 		this.activityLogPanel?.destroy();
+		this.skillTreePanel?.destroy();
 
 		this.statsPanel = null;
 		this.profilePanel = null;
@@ -271,5 +341,6 @@ export class CharacterSheetView extends ItemView {
 		this.rewardsPanel = null;
 		this.bossPanel = null;
 		this.activityLogPanel = null;
+		this.skillTreePanel = null;
 	}
 }

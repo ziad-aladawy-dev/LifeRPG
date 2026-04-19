@@ -81,6 +81,26 @@ export class ProfilePanel {
 			this.stateManager.updateCharacter({ avatarUrl });
 		});
 
+		// Manual Sync Button
+		const syncRow = el.createDiv({ cls: "life-rpg-form-row", attr: { style: "justify-content: center; margin: 16px 0;" } });
+		const syncBtn = syncRow.createEl("button", {
+			text: "🔄 Sync from File",
+			cls: "life-rpg-btn life-rpg-btn-subtle life-rpg-btn-small",
+		});
+		syncBtn.title = "Force reload data from data.json (useful if PC and Mobile are out of sync)";
+		syncBtn.addEventListener("click", async () => {
+			syncBtn.setText("⏳ Syncing...");
+			syncBtn.disabled = true;
+			await this.stateManager.load();
+			this.stateManager.forceNotify();
+			syncBtn.setText("✅ Synced!");
+			setTimeout(() => {
+				syncBtn.setText("🔄 Sync from File");
+				syncBtn.disabled = false;
+				this.render(this.stateManager.getState().character);
+			}, 1500);
+		});
+
 		el.createEl("hr", { cls: "life-rpg-divider" });
 
 		// Rank Progression Tree
@@ -120,11 +140,11 @@ export class ProfilePanel {
 			const iconContainer = item.createDiv({ cls: "life-rpg-rank-icon-container" });
 			const iconEl = iconContainer.createEl("span", { cls: "life-rpg-rank-icon" });
 			if (isCurrent) {
-				setIcon(iconEl, "star");
+				iconEl.setText("⭐");
 			} else if (isAchieved) {
-				setIcon(iconEl, "check");
+				iconEl.setText("✅");
 			} else {
-				setIcon(iconEl, "lock");
+				iconEl.setText("🔒");
 			}
 
 			const content = item.createDiv({ cls: "life-rpg-rank-content" });

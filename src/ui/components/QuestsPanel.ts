@@ -3,18 +3,20 @@
 // Displays all currently tracked active (unchecked) tasks.
 // ============================================================================
 
-import { type TrackedTask, type PluginSettings, type CharacterState, Difficulty } from "../../types";
+import { type TrackedTask, type PluginSettings, type CharacterState, Difficulty, ItemSlot } from "../../types";
 import { parseTaskMetadata, getTaskText } from "../../utils/parser";
-import { calculateTaskReward } from "../../engine/GameEngine";
+import { calculateTaskReward, calculateGlobalModifiers } from "../../engine/GameEngine";
 
 export class QuestsPanel {
+	private app: any;
 	private containerEl: HTMLElement;
 
-	constructor(parentEl: HTMLElement) {
+	constructor(parentEl: HTMLElement, app: any) {
 		this.containerEl = parentEl.createDiv({ cls: "life-rpg-quests-panel" });
+		this.app = app;
 	}
 
-	render(activeTasks: TrackedTask[], settings: PluginSettings, character: CharacterState): void {
+	render(activeTasks: TrackedTask[], settings: PluginSettings, character: CharacterState, globalModifiers: ReturnType<typeof calculateGlobalModifiers>): void {
 		const el = this.containerEl;
 		el.empty();
 
@@ -70,6 +72,15 @@ export class QuestsPanel {
 				}
 
 				const headerRow = card.createDiv({ cls: "life-rpg-quest-header" });
+				headerRow.style.cursor = "pointer";
+				headerRow.title = "Click to jump to file";
+				headerRow.addEventListener("click", async (e) => {
+					e.stopPropagation();
+					// Use obsidian app to open the file at the specific line
+					await this.app.workspace.openLinkText(task.filePath, task.filePath, true, {
+						state: { line: task.line }
+					});
+				});
 
 				// Display logic for subtask visibility toggle
 				const children = childrenMap[task.id] || [];
@@ -108,7 +119,7 @@ export class QuestsPanel {
 				}
 				
 				// Reward Preview
-				const reward = calculateTaskReward(metadata.difficulty, settings, character.attributes, task.isSubtask);
+				const reward = calculateTaskReward(metadata.difficulty, settings, character.attributes, globalModifiers, task.isSubtask);
 				badgesRow.createEl("span", { text: `+${reward.xp} XP`, cls: `life-rpg-quest-badge life-rpg-habit-reward` });
 				badgesRow.createEl("span", { text: `+${reward.gp} GP`, cls: `life-rpg-quest-badge life-rpg-habit-reward` });
 

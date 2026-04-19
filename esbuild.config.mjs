@@ -6,7 +6,7 @@ import path from "path";
 const prod = process.argv[2] === "production";
 
 // Test vault plugin directory — build output is copied here
-const TEST_VAULT_PLUGIN_DIR = "d:\\_\\ObsidianRPG System Test\\.obsidian\\plugins\\life-rpg";
+const TEST_VAULT_PLUGIN_DIR = "d:\\_\\Ideaverse\\.obsidian\\plugins\\life-rpg";
 
 /** Copy built files to the test vault for live testing */
 function copyToTestVault() {
@@ -21,6 +21,27 @@ function copyToTestVault() {
 				// ignore error if destination directory doesn't exist
 			}
 			console.log(`  → Copied ${file} to test vault`);
+		}
+	}
+
+	// Copy assets directory recursively
+	const assetsDir = path.resolve("assets");
+	if (fs.existsSync(assetsDir)) {
+		copyDirRecursive(assetsDir, path.join(TEST_VAULT_PLUGIN_DIR, "assets"));
+		console.log("  → Copied assets/ to test vault");
+	}
+}
+
+/** Recursively copy a directory */
+function copyDirRecursive(src, dest) {
+	if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
+	for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+		const srcPath = path.join(src, entry.name);
+		const destPath = path.join(dest, entry.name);
+		if (entry.isDirectory()) {
+			copyDirRecursive(srcPath, destPath);
+		} else {
+			fs.copyFileSync(srcPath, destPath);
 		}
 	}
 }

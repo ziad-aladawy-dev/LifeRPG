@@ -9,11 +9,12 @@ import {
 	type DungeonStage,
 	type BossTemplate,
 	type EventLogEntry,
+	type DungeonTemplate,
+	type CharacterAttributes,
 	EventType,
 } from "../types";
-import { generateId, type DungeonTemplate } from "../constants";
-import { dealDamageToBoss } from "./GameEngine";
-import type { CharacterAttributes } from "../types";
+import { generateId } from "../constants";
+import { dealDamageToBoss, calculateGlobalModifiers } from "./GameEngine";
 
 // ---------------------------------------------------------------------------
 // Boss Factory
@@ -36,6 +37,8 @@ export function createBossFromTemplate(template: BossTemplate): Boss {
 		defeated: false,
 		startedAt: new Date().toISOString(),
 		defeatedAt: null,
+		abilities: template.abilities || [],
+		lootTable: template.lootTable || [],
 	};
 }
 
@@ -50,7 +53,9 @@ export function createBossFromTemplate(template: BossTemplate): Boss {
 export function playerAttacksBoss(
 	boss: Boss,
 	damage: number,
-	attributes?: CharacterAttributes
+	attributes: CharacterAttributes,
+	modifiers: ReturnType<typeof calculateGlobalModifiers>,
+	comboCount: number = 0
 ): {
 	boss: Boss;
 	defeated: boolean;
@@ -59,11 +64,21 @@ export function playerAttacksBoss(
 	const logEntries: EventLogEntry[] = [];
 	let finalDamage = damage;
 
-	// STR applies a 5% bonus to damage per level
-	if (attributes && attributes.str.level > 1) {
-		const strBonus = 1 + ((attributes.str.level - 1) * 0.05);
-		finalDamage = Math.round(finalDamage * strBonus);
-	}
+	// 1. Attribute Bonus: STR applies a 2% bonus to damage per level + gear bonuses
+	const strBonus = 1 + ((attributes.str.level + modifiers.str) * 0.02) + modifiers.damageBonus;
+	finalDamage = Math.round(finalDamage * strBonus);
+
+	// 2. Combo Bonus: 5% bonus per combo hit (max 50%)
+	const comboMultiplier = 1 + Math.min(0.5, (comboCount * 0.05));
+	finalDamage = Math.round(finalDamage * comboMultiplier);
+
+	// 3. Boss Rage: Bosses are more vulnerable when enraged
+	const hpPct = boss.hp / boss.maxHp;
+	let rageMultiplier = 1.0;
+	if (hpPct <= 0.25) rageMultiplier = 2.0; // Critical: 2x damage taken
+	else if (hpPct <= 0.5) rageMultiplier = 1.5; // Enraged: 1.5x damage taken
+	
+	finalDamage = Math.round(finalDamage * rageMultiplier);
 
 	const { newHp, defeated } = dealDamageToBoss(boss.hp, boss.maxHp, finalDamage);
 
@@ -78,7 +93,7 @@ export function playerAttacksBoss(
 		id: generateId(),
 		timestamp: new Date().toISOString(),
 		type: EventType.BossDamageDealt,
-		message: `⚔️ Dealt ${damage} damage to ${boss.icon} ${boss.name}! (${newHp}/${boss.maxHp} HP)`,
+		message: `⚔️ Dealt ${finalDamage} damage to ${boss.icon} ${boss.name}!${comboCount > 0 ? ` (${comboCount}-Hit Combo!)` : ""} (${newHp}/${boss.maxHp} HP)`,
 		xpDelta: 0,
 		gpDelta: 0,
 		hpDelta: 0,
@@ -137,7 +152,12 @@ export function healBoss(
 export function bossAttacksPlayer(
 	boss: Boss
 ): { damage: number; logEntry: EventLogEntry } {
-	const damage = boss.attackPower;
+	let damage = boss.attackPower;
+
+	// Boss Rage: Bosses deal more damage when enraged
+	const hpPct = boss.hp / boss.maxHp;
+	if (hpPct <= 0.25) damage = Math.round(damage * 1.5); // Desperate: 1.5x damage dealt
+	else if (hpPct <= 0.5) damage = Math.round(damage * 1.25); // Enraged: 1.25x damage dealt
 
 	return {
 		damage,
@@ -165,7 +185,7 @@ export function createDungeonFromTemplate(template: DungeonTemplate): Dungeon {
 		id: generateId(),
 		name: template.name,
 		icon: template.icon,
-		stages: template.stages.map((s) => ({
+		stages: template.stages.map((s: any) => ({
 			name: s.name,
 			description: s.description,
 			tasksRequired: s.tasksRequired,

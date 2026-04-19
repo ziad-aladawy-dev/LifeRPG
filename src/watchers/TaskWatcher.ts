@@ -7,22 +7,21 @@
 
 import { type App, type TFile, type TAbstractFile, Notice, debounce } from "obsidian";
 import { StateManager } from "../state/StateManager";
-import { type TrackedTask, type PluginSettings } from "../types";
+import { type TrackedTask, type PluginSettings, ItemSlot, EventType, Difficulty } from "../types";
 import {
 	parseTaskMetadata,
 	isTaskLine,
 	isTaskCompleted,
 	getTaskText,
 } from "../utils/parser";
-import { processTaskCompletion, processTaskUncompletion } from "../engine/GameEngine";
+import { processTaskCompletion, processTaskUncompletion, processXpGain, processGpGain, processHpDamage } from "../engine/GameEngine";
 import {
 	playerAttacksBoss,
 	healBoss,
 	advanceDungeonProgress,
 	revertDungeonProgress,
 } from "../engine/BossEngine";
-import { processXpGain, processGpGain, processHpDamage } from "../engine/GameEngine";
-import { generateId } from "../constants";
+import { generateId, INITIAL_ITEMS } from "../constants";
 import { getTodayStr } from "../utils/dateUtils";
 
 export class TaskWatcher {
@@ -489,8 +488,25 @@ export class TaskWatcher {
 		// Skip empty task text
 		if (!taskText) return;
 
+		const state = this.stateManager.getState();
+
+		// Combo Logic: 10 minute window (600,000 ms)
+		const now = new Date();
+		let comboCount = state.comboCount;
+		if (state.lastTaskAt) {
+			const lastTime = new Date(state.lastTaskAt).getTime();
+			if (now.getTime() - lastTime < 600000) {
+				comboCount++;
+			} else {
+				comboCount = 0;
+			}
+		}
+		this.stateManager.updateMetadata({ lastTaskAt: now.toISOString(), comboCount });
+
+		// Pre-process gear and state
 		const character = this.stateManager.getCharacter();
 		const skills = this.stateManager.getSkills();
+		const modifiers = this.stateManager.getGlobalModifiers();
 
 		// Process the task through the GameEngine
 		const result = processTaskCompletion(
@@ -499,8 +515,15 @@ export class TaskWatcher {
 			metadata,
 			taskText,
 			settings,
-			task.isSubtask
+			modifiers,
+			task.isSubtask,
+			comboCount
 		);
+
+		// Award SP if earned
+		if (result.result.spEarned > 0) {
+			this.stateManager.addSkillPoints(result.result.spEarned);
+		}
 
 		// Update state
 		this.stateManager.setCharacter(result.character);
@@ -516,7 +539,7 @@ export class TaskWatcher {
 		const activeBoss = this.stateManager.getActiveBoss();
 		if (activeBoss && settings.bossEnabled && !activeBoss.defeated) {
 			const bossDamage = result.result.xp;
-			const bossResult = playerAttacksBoss(activeBoss, bossDamage);
+			const bossResult = playerAttacksBoss(activeBoss, bossDamage, character.attributes, modifiers, comboCount);
 
 			this.stateManager.setActiveBoss(bossResult.boss);
 			for (const entry of bossResult.logEntries) {
@@ -540,10 +563,8 @@ export class TaskWatcher {
 				this.stateManager.addBossToHistory(bossResult.boss);
 
 				if (settings.showNotifications) {
-					new Notice(
-						`🏆 ${bossResult.boss.icon} ${bossResult.boss.name} DEFEATED!\n+${bossResult.boss.xpReward} XP, +${bossResult.boss.gpReward} GP!`,
-						8000
-					);
+					new Notice(`💀 BOSS DEFEATED: ${bossResult.boss.name}!`, 5000);
+					new Notice(`💰 +${bossResult.boss.gpReward} GP, ⚔️ +${bossResult.boss.xpReward} XP`, 5000);
 				}
 			}
 		}
@@ -558,19 +579,23 @@ export class TaskWatcher {
 			}
 			if (dungeonResult.dungeonCleared) {
 				this.stateManager.incrementDungeonsCleared();
+				if (settings.showNotifications) {
+					new Notice(`🏰 DUNGEON CLEARED: ${activeDungeon.name}!`, 5000);
+				}
 			}
 		}
 
 		// --- Notification ---
 		if (settings.showNotifications) {
-			let msg = `⚔️ +${result.result.xp} XP, +${result.result.gp} GP`;
 			if (result.result.leveledUp) {
-				msg += `\n🎉 LEVEL UP → ${result.result.newLevel}!`;
+				new Notice(`🎉 LEVEL UP! You reached Level ${result.result.newLevel}!`, 5000);
+				new Notice(`❤️ Health fully restored! (+${settings.hpPerLevel} Max HP)`, 5000);
+			} else if (result.result.skillLeveledUp) {
+				new Notice(`🎯 SKILL UP: ${result.result.skillName} reached Level ${result.result.newSkillLevel}!`, 4000);
+			} else {
+				let msg = `⚔️ +${result.result.xp} XP, +${result.result.gp} GP`;
+				new Notice(msg, 3000);
 			}
-			if (result.result.skillLeveledUp) {
-				msg += `\n⬆️ ${result.result.skillName} → Lv.${result.result.newSkillLevel}!`;
-			}
-			new Notice(msg, result.result.leveledUp ? 6000 : 3000);
 		}
 	}
 
@@ -586,6 +611,7 @@ export class TaskWatcher {
 
 		const character = this.stateManager.getCharacter();
 		const skills = this.stateManager.getSkills();
+		const modifiers = this.stateManager.getGlobalModifiers();
 
 		// Revert completion
 		const result = processTaskUncompletion(
@@ -594,8 +620,18 @@ export class TaskWatcher {
 			metadata,
 			taskText,
 			settings,
+			modifiers,
 			task.isSubtask
 		);
+
+		// Revert SP if lost
+		if (result.result.spEarned < 0) {
+			const points = this.stateManager.getSkillPoints();
+			this.stateManager.updateMetadata({ unspentSkillPoints: Math.max(0, points + result.result.spEarned) } as any);
+		}
+		
+		// Reset combo on uncheck (optional, but prevents abuse)
+		this.stateManager.updateMetadata({ comboCount: 0 });
 
 		// Update state
 		this.stateManager.setCharacter(result.character);

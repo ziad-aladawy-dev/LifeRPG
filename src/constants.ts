@@ -8,9 +8,17 @@ import {
 	type GameState,
 	type CharacterState,
 	type BossTemplate,
+	type DungeonTemplate,
 	type CharacterAttributes,
 	Difficulty,
 	Attribute,
+	ItemSlot,
+	ItemRarity,
+	type Item,
+	type SkillTreeNode,
+	RewardCategory,
+	ConditionType,
+	EventType,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -41,6 +49,8 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	dailyNotesFolder: "",
 	scanAllFiles: true,
 	showNotifications: true,
+	skillToAttributeRatio: 0.2,
+	bossEnrageHours: 48,
 };
 
 // ---------------------------------------------------------------------------
@@ -66,6 +76,11 @@ export const DEFAULT_CHARACTER: CharacterState = {
 	xpToNextLevel: 100,
 	gp: 0,
 	attributes: JSON.parse(JSON.stringify(DEFAULT_ATTRIBUTES)),
+	equippedItems: {
+		[ItemSlot.Weapon]: null,
+		[ItemSlot.Armor]: null,
+		[ItemSlot.Accessory]: null,
+	},
 };
 
 // ---------------------------------------------------------------------------
@@ -75,14 +90,48 @@ export const DEFAULT_CHARACTER: CharacterState = {
 export const DEFAULT_GAME_STATE: GameState = {
 	character: { ...DEFAULT_CHARACTER },
 	skills: [],
+	unspentSkillPoints: 0,
+	unlockedSkillNodes: [],
 	habits: [],
-	rewards: [],
+	rewards: [
+		{
+			id: "coffee-reward",
+			name: "Fancy Coffee",
+			description: "Tastes like productivity. (Real-world reward)",
+			cost: 20,
+			icon: "coffee",
+			purchaseCount: 0,
+			category: RewardCategory.RealLife,
+		},
+		{
+			id: "gaming-time",
+			name: "1 Hour of Gaming",
+			description: "You've earned it! (Real-world reward)",
+			cost: 50,
+			icon: "gamepad",
+			purchaseCount: 0,
+			category: RewardCategory.RealLife,
+		},
+		{
+			id: "respec-mirror",
+			name: "Mirror of Rebirth",
+			description: "Vanish into the reflection to reset your Skill Tree. (Consumable)",
+			cost: 2500,
+			icon: "sparkles",
+			purchaseCount: 0,
+			category: RewardCategory.Item,
+		}
+	],
 	activeBoss: null,
 	bossHistory: [],
 	totalBossesDefeated: 0,
 	activeDungeon: null,
 	totalDungeonsCleared: 0,
 	eventLog: [],
+	inventory: [],
+	unseenLogIds: [],
+	comboCount: 0,
+	lastTaskAt: null,
 	lastPlayedDate: new Date().toDateString(),
 	lastOverdueCheckDate: "",
 	totalTasksCompleted: 0,
@@ -93,20 +142,14 @@ export const DEFAULT_GAME_STATE: GameState = {
 // XP Threshold Formulas
 // ---------------------------------------------------------------------------
 
-/**
- * Calculate XP required to reach the next character level.
- * Formula: level * 100  (100, 200, 300, ...)
- */
 export function xpThresholdForLevel(level: number): number {
-	return level * 100;
+	if (level <= 1) return 100;
+	return 100 * (Math.pow(2, level) - 2);
 }
 
-/**
- * Calculate XP required to reach the next skill level.
- * Formula: skillLevel * 75  (75, 150, 225, ...)
- */
 export function xpThresholdForSkillLevel(skillLevel: number): number {
-	return skillLevel * 75;
+	if (skillLevel <= 1) return 75;
+	return 75 * (Math.pow(2, skillLevel) - 2);
 }
 
 // ---------------------------------------------------------------------------
@@ -121,8 +164,15 @@ export const BOSS_TEMPLATES: BossTemplate[] = [
 		attackPower: 10,
 		xpReward: 150,
 		gpReward: 75,
-		flavor:
-			"A massive wyrm that feeds on unfinished tasks and broken deadlines. Each delay makes it stronger.",
+		flavor: "A massive wyrm that feeds on unfinished tasks and broken deadlines.",
+		abilities: [
+			{ name: "Temporal Stall", description: "Deadlines deal 2x damage for 3 tasks.", triggerHpPercent: 50, effect: "double_damage" },
+			{ name: "Lazarus Breath", description: "Heals 15% HP if idle for 2+ hours.", triggerHpPercent: 25, effect: "regen" },
+		],
+		lootTable: [
+			{ itemId: "iron-greatsword", name: "Iron Greatsword", chance: 0.2 },
+			{ itemId: "ring-of-focus", name: "Ring of Focus", chance: 0.1 },
+		],
 	},
 	{
 		name: "Distraction Imp",
@@ -131,8 +181,13 @@ export const BOSS_TEMPLATES: BossTemplate[] = [
 		attackPower: 5,
 		xpReward: 75,
 		gpReward: 35,
-		flavor:
-			"A mischievous imp that dances at the edge of your focus, luring you away from what matters.",
+		flavor: "A mischievous imp that dances at the edge of your focus.",
+		abilities: [
+			{ name: "Mirror Image", description: "25% chance to dodge your next attack.", triggerHpPercent: 50, effect: "dodge" },
+		],
+		lootTable: [
+			{ itemId: "lucky-coin", name: "Lucky Coin", chance: 0.3 },
+		],
 	},
 	{
 		name: "Burnout Lich",
@@ -141,8 +196,16 @@ export const BOSS_TEMPLATES: BossTemplate[] = [
 		attackPower: 15,
 		xpReward: 300,
 		gpReward: 150,
-		flavor:
-			"An undead sorcerer born from relentless overwork. It drains your life force when you ignore rest.",
+		flavor: "An undead sorcerer born from relentless overwork.",
+		abilities: [
+			{ name: "Soul Drain", description: "Steals 5% of XP earned per task.", triggerHpPercent: 60, effect: "double_damage" },
+			{ name: "Undying Will", description: "Heals 20% HP at critical health.", triggerHpPercent: 20, effect: "regen" },
+			{ name: "Death's Fury", description: "Attack power doubles at low HP.", triggerHpPercent: 10, effect: "enrage" },
+		],
+		lootTable: [
+			{ itemId: "archmages-staff", name: "Archmage's Staff", chance: 0.08 },
+			{ itemId: "monks-robe", name: "Monk's Robe", chance: 0.15 },
+		],
 	},
 	{
 		name: "Chaos Goblin",
@@ -151,8 +214,14 @@ export const BOSS_TEMPLATES: BossTemplate[] = [
 		attackPower: 8,
 		xpReward: 100,
 		gpReward: 50,
-		flavor:
-			"A creature of pure disorder. It thrives in clutter and crumbles in the face of organization.",
+		flavor: "A creature of pure disorder that thrives on broken routines.",
+		abilities: [
+			{ name: "Scramble", description: "Randomizes damage dealt for 2 tasks.", triggerHpPercent: 40, effect: "dodge" },
+		],
+		lootTable: [
+			{ itemId: "rabbits-foot", name: "Rabbit's Foot", chance: 0.25 },
+			{ itemId: "glass-eye", name: "Glass Eye", chance: 0.2 },
+		],
 	},
 	{
 		name: "Anxiety Wraith",
@@ -161,90 +230,225 @@ export const BOSS_TEMPLATES: BossTemplate[] = [
 		attackPower: 12,
 		xpReward: 180,
 		gpReward: 90,
-		flavor:
-			"A spectral entity that grows from unchecked worries. Only decisive action can banish it.",
+		flavor: "A spectral entity that grows from unchecked worries.",
+		abilities: [
+			{ name: "Dread Aura", description: "Boss attacks deal +50% damage.", triggerHpPercent: 50, effect: "enrage" },
+			{ name: "Phase Shift", description: "Next 2 attacks deal 0 damage.", triggerHpPercent: 25, effect: "dodge" },
+		],
+		lootTable: [
+			{ itemId: "amulet-of-health", name: "Amulet of Health", chance: 0.15 },
+			{ itemId: "beads", name: "Prayer Beads", chance: 0.3 },
+		],
+	},
+	{
+		name: "Perfectionism Golem",
+		icon: "🗿",
+		baseHp: 250,
+		attackPower: 8,
+		xpReward: 350,
+		gpReward: 200,
+		flavor: "A stone colossus that demands flawless execution. Nothing is ever good enough.",
+		abilities: [
+			{ name: "Stone Wall", description: "Reduces incoming damage by 50% for 3 tasks.", triggerHpPercent: 70, effect: "dodge" },
+			{ name: "Crumbling", description: "Takes 2x damage when enraged.", triggerHpPercent: 30, effect: "enrage" },
+		],
+		lootTable: [
+			{ itemId: "chainmail", name: "Chainmail", chance: 0.15 },
+			{ itemId: "knights-plate", name: "Knight's Plate", chance: 0.05 },
+		],
 	},
 ];
 
 // ---------------------------------------------------------------------------
-// Default Dungeon Templates
+// Skill Tree Nodes
 // ---------------------------------------------------------------------------
 
-export interface DungeonTemplate {
-	name: string;
-	icon: string;
-	stages: { name: string; description: string; tasksRequired: number }[];
-	bossTemplate: BossTemplate;
-}
+export const SKILL_TREE_NODES: SkillTreeNode[] = [
+	// ========================= CORE (Center) =========================
+	{ id: "core-1", name: "Awakening", description: "Begin your journey. +5 HP, +2% XP.", cost: 1, icon: "sunrise", branch: "physique", x: 500, y: 400, dependencies: [], modifiers: { hpMax: 5, xpMultiplier: 0.02 } },
 
-export const DUNGEON_TEMPLATES: DungeonTemplate[] = [
+	// ========================= PHYSIQUE BRANCH (Upper Left) =========================
+	{ id: "phy-1", name: "Sturdy Build", description: "+15 Max HP.", cost: 1, icon: "heart", branch: "physique", x: 380, y: 300, dependencies: ["core-1"], modifiers: { hpMax: 15 } },
+	{ id: "phy-2", name: "Iron Fist", description: "+5% Boss Damage.", cost: 2, icon: "sword", branch: "physique", x: 280, y: 220, dependencies: ["phy-1"], modifiers: { damageBonus: 0.05 } },
+	{ id: "phy-3", name: "Thick Skin", description: "+8% Damage Reduction.", cost: 2, icon: "shield", branch: "physique", x: 350, y: 160, dependencies: ["phy-1"], modifiers: { damageReduction: 0.08 } },
+	{ id: "phy-4", name: "Berserker Rage", description: "+12% Boss Damage.", cost: 3, icon: "flame", branch: "physique", x: 180, y: 140, dependencies: ["phy-2"], modifiers: { damageBonus: 0.12 } },
+	{ id: "phy-5", name: "Endurance Ritual", description: "Regen 3 HP per task.", cost: 3, icon: "activity", branch: "physique", x: 420, y: 90, dependencies: ["phy-3"], modifiers: { hpRegen: 3 } },
+	{ id: "phy-6", name: "Warlord's Vigor", description: "+50 Max HP, +5% DR.", cost: 5, icon: "shield-check", branch: "physique", x: 300, y: 60, dependencies: ["phy-4", "phy-5"], attributeThreshold: { attribute: Attribute.STR, level: 8 }, modifiers: { hpMax: 50, damageReduction: 0.05 } },
+	{ id: "phy-7", name: "Colossus", description: "+100 HP, +15% Boss DMG.", cost: 8, icon: "mountain", branch: "physique", x: 200, y: 30, dependencies: ["phy-6"], attributeThreshold: { attribute: Attribute.STR, level: 15 }, modifiers: { hpMax: 100, damageBonus: 0.15 } },
+	{ id: "phy-s1", name: "Battle Hardened", description: "+2% Boss DMG per combo.", cost: 3, icon: "zap", branch: "physique", x: 140, y: 240, dependencies: ["phy-2"], modifiers: { damageBonus: 0.08 } },
+	{ id: "phy-s2", name: "Titan's Grip", description: "+20 HP, +3% XP.", cost: 2, icon: "hand-metal", branch: "physique", x: 460, y: 180, dependencies: ["phy-3"], modifiers: { hpMax: 20, xpMultiplier: 0.03 } },
+
+	// ========================= MIND BRANCH (Upper Right) =========================
+	{ id: "mind-1", name: "Quick Learner", description: "+5% XP Gain.", cost: 1, icon: "book-open", branch: "mind", x: 620, y: 300, dependencies: ["core-1"], modifiers: { xpMultiplier: 0.05 } },
+	{ id: "mind-2", name: "Deep Focus", description: "+8% XP Gain.", cost: 2, icon: "brain", branch: "mind", x: 720, y: 220, dependencies: ["mind-1"], modifiers: { xpMultiplier: 0.08 } },
+	{ id: "mind-3", name: "Speed Reading", description: "+5% Skill XP.", cost: 2, icon: "book", branch: "mind", x: 650, y: 160, dependencies: ["mind-1"], modifiers: { xpMultiplier: 0.05 } },
+	{ id: "mind-4", name: "Analytical Mind", description: "+12% XP Gain.", cost: 3, icon: "microscope", branch: "mind", x: 820, y: 140, dependencies: ["mind-2"], modifiers: { xpMultiplier: 0.12 } },
+	{ id: "mind-5", name: "Polyglot", description: "+8% XP, +3% GP.", cost: 3, icon: "languages", branch: "mind", x: 580, y: 90, dependencies: ["mind-3"], modifiers: { xpMultiplier: 0.08, gpMultiplier: 0.03 } },
+	{ id: "mind-6", name: "Scholar's Mastery", description: "+20% XP Gain.", cost: 5, icon: "graduation-cap", branch: "mind", x: 700, y: 60, dependencies: ["mind-4", "mind-5"], attributeThreshold: { attribute: Attribute.INT, level: 10 }, modifiers: { xpMultiplier: 0.2 } },
+	{ id: "mind-7", name: "Archmage's Insight", description: "+30% XP, +5 INT.", cost: 8, icon: "sparkles", branch: "mind", x: 800, y: 30, dependencies: ["mind-6"], attributeThreshold: { attribute: Attribute.INT, level: 18 }, modifiers: { xpMultiplier: 0.3 } },
+	{ id: "mind-s1", name: "Eidetic Memory", description: "+5% XP per streak day.", cost: 3, icon: "file-text", branch: "mind", x: 860, y: 240, dependencies: ["mind-2"], modifiers: { xpMultiplier: 0.06 } },
+	{ id: "mind-s2", name: "Critical Thinking", description: "+10% XP, +2% Boss DMG.", cost: 2, icon: "lightbulb", branch: "mind", x: 540, y: 180, dependencies: ["mind-3"], modifiers: { xpMultiplier: 0.1, damageBonus: 0.02 } },
+
+	// ========================= SPIRIT BRANCH (Lower Left) =========================
+	{ id: "spi-1", name: "Zen State", description: "+5% Wisdom Save.", cost: 1, icon: "wind", branch: "spirit", x: 380, y: 500, dependencies: ["core-1"], modifiers: { wisdomSave: 0.05 } },
+	{ id: "spi-2", name: "Stoic Resolve", description: "+8% Damage Reduction.", cost: 2, icon: "anchor", branch: "spirit", x: 280, y: 580, dependencies: ["spi-1"], modifiers: { damageReduction: 0.08 } },
+	{ id: "spi-3", name: "Meditation", description: "Daily HP Regen +5.", cost: 2, icon: "moon", branch: "spirit", x: 350, y: 640, dependencies: ["spi-1"], modifiers: { hpRegen: 5 } },
+	{ id: "spi-4", name: "Inner Peace", description: "+15% Wisdom Save.", cost: 3, icon: "sun", branch: "spirit", x: 180, y: 660, dependencies: ["spi-2"], modifiers: { wisdomSave: 0.15 } },
+	{ id: "spi-5", name: "Soul Cleanse", description: "Regen 8 HP/task, +5% WIS.", cost: 3, icon: "droplets", branch: "spirit", x: 420, y: 710, dependencies: ["spi-3"], modifiers: { hpRegen: 8, wisdomSave: 0.05 } },
+	{ id: "spi-6", name: "Tranquil Mind", description: "+25% Wisdom Save, +10% DR.", cost: 5, icon: "shield-half", branch: "spirit", x: 300, y: 740, dependencies: ["spi-4", "spi-5"], attributeThreshold: { attribute: Attribute.WIS, level: 10 }, modifiers: { wisdomSave: 0.25, damageReduction: 0.1 } },
+	{ id: "spi-7", name: "Avatar of Calm", description: "Near immunity to habit damage.", cost: 8, icon: "star", branch: "spirit", x: 200, y: 770, dependencies: ["spi-6"], attributeThreshold: { attribute: Attribute.WIS, level: 18 }, modifiers: { wisdomSave: 0.4, damageReduction: 0.2 } },
+	{ id: "spi-s1", name: "Clarity", description: "+5% XP, +5% Wisdom Save.", cost: 3, icon: "eye", branch: "spirit", x: 140, y: 560, dependencies: ["spi-2"], modifiers: { xpMultiplier: 0.05, wisdomSave: 0.05 } },
+	{ id: "spi-s2", name: "Grounding", description: "+20 HP, +5% WIS Save.", cost: 2, icon: "tree-pine", branch: "spirit", x: 460, y: 620, dependencies: ["spi-3"], modifiers: { hpMax: 20, wisdomSave: 0.05 } },
+
+	// ========================= FORTUNE BRANCH (Lower Right) =========================
+	{ id: "for-1", name: "Bounty Hunter", description: "+8% Gold Gain.", cost: 1, icon: "coins", branch: "fortune", x: 620, y: 500, dependencies: ["core-1"], modifiers: { gpMultiplier: 0.08 } },
+	{ id: "for-2", name: "Lucky Find", description: "+5% Drop Chance.", cost: 2, icon: "clover", branch: "fortune", x: 720, y: 580, dependencies: ["for-1"], modifiers: { dropChance: 0.05 } },
+	{ id: "for-3", name: "Bargain Sense", description: "+10% GP Gain.", cost: 2, icon: "handshake", branch: "fortune", x: 650, y: 640, dependencies: ["for-1"], modifiers: { gpMultiplier: 0.1 } },
+	{ id: "for-4", name: "Treasure Sense", description: "+10% Drop Chance.", cost: 3, icon: "search", branch: "fortune", x: 820, y: 660, dependencies: ["for-2"], modifiers: { dropChance: 0.1 } },
+	{ id: "for-5", name: "Golden Tongue", description: "+15% GP, +5% XP.", cost: 3, icon: "message-circle", branch: "fortune", x: 580, y: 710, dependencies: ["for-3"], modifiers: { gpMultiplier: 0.15, xpMultiplier: 0.05 } },
+	{ id: "for-6", name: "Merchant Prince", description: "+25% GP, +5% Drop.", cost: 5, icon: "crown", branch: "fortune", x: 700, y: 740, dependencies: ["for-4", "for-5"], attributeThreshold: { attribute: Attribute.CHA, level: 10 }, modifiers: { gpMultiplier: 0.25, dropChance: 0.05 } },
+	{ id: "for-7", name: "King Midas", description: "+50% GP, +15% Drop.", cost: 8, icon: "gem", branch: "fortune", x: 800, y: 770, dependencies: ["for-6"], attributeThreshold: { attribute: Attribute.CHA, level: 20 }, modifiers: { gpMultiplier: 0.5, dropChance: 0.15 } },
+	{ id: "for-s1", name: "Scavenger", description: "+8% Drop Chance.", cost: 3, icon: "package", branch: "fortune", x: 860, y: 560, dependencies: ["for-2"], modifiers: { dropChance: 0.08 } },
+	{ id: "for-s2", name: "Charm", description: "+5% GP, +5% WIS.", cost: 2, icon: "heart-handshake", branch: "fortune", x: 540, y: 620, dependencies: ["for-3"], modifiers: { gpMultiplier: 0.05, wisdomSave: 0.05 } },
+
+	// ========================= BRIDGE NODES (Cross-branch synergies) =========================
+	{ id: "bridge-pm", name: "War Scholar", description: "+8% XP, +8% Boss DMG.", cost: 5, icon: "swords", branch: "physique", x: 500, y: 150, dependencies: ["phy-3", "mind-3"], modifiers: { xpMultiplier: 0.08, damageBonus: 0.08 } },
+	{ id: "bridge-sf", name: "Karma", description: "+10% GP, +10% WIS Save.", cost: 5, icon: "scale", branch: "spirit", x: 500, y: 650, dependencies: ["spi-3", "for-3"], modifiers: { gpMultiplier: 0.1, wisdomSave: 0.1 } },
+	{ id: "bridge-ps", name: "Paladin's Oath", description: "+30 HP, +10% WIS Save.", cost: 5, icon: "heart-pulse", branch: "physique", x: 250, y: 420, dependencies: ["phy-1", "spi-1"], modifiers: { hpMax: 30, wisdomSave: 0.1 } },
+	{ id: "bridge-mf", name: "Alchemist", description: "+10% XP, +10% GP.", cost: 5, icon: "flask-conical", branch: "fortune", x: 750, y: 420, dependencies: ["mind-1", "for-1"], modifiers: { xpMultiplier: 0.1, gpMultiplier: 0.1 } },
+];
+
+// ---------------------------------------------------------------------------
+// Expansion: Initial Items (50+ Entries)
+// ---------------------------------------------------------------------------
+
+export const INITIAL_ITEMS: Item[] = [
+	// --- WEAPONS ---
+	{ id: "splintered-staff", name: "Splintered Staff", description: "+5% INT XP.", icon: "assets/items/splintered-staff.png", rarity: ItemRarity.Common, slot: ItemSlot.Weapon, value: 50, modifiers: { xpBonus: 0.05, int: 1 } },
+	{ id: "dull-dagger", name: "Dull Dagger", description: "+5% STR XP.", icon: "assets/items/dull-dagger.png", rarity: ItemRarity.Common, slot: ItemSlot.Weapon, value: 50, modifiers: { xpBonus: 0.05, str: 1 } },
+	{ id: "rusty-blade", name: "Rusty Blade", description: "+5% Boss DMG.", icon: "assets/items/rusty-blade.png", rarity: ItemRarity.Common, slot: ItemSlot.Weapon, value: 50, modifiers: { damageBonus: 0.05 } },
+	{ id: "iron-greatsword", name: "Iron Greatsword", description: "+10% Boss DMG.", icon: "assets/items/iron-greatsword.png", rarity: ItemRarity.Uncommon, slot: ItemSlot.Weapon, value: 450, lockCondition: { type: ConditionType.AttrStr, value: 5, description: "Requires 5 STR" }, modifiers: { damageBonus: 0.1, str: 2 } },
+	{ id: "silver-rapier", name: "Silver Rapier", description: "+15% Boss DMG.", icon: "assets/items/silver-rapier.png", rarity: ItemRarity.Rare, slot: ItemSlot.Weapon, value: 1200, lockCondition: { type: ConditionType.Level, value: 10, description: "Requires Level 10" }, modifiers: { damageBonus: 0.15, str: 4, cha: 2 } },
+	{ id: "archmages-staff", name: "Archmage's Staff", description: "+25% XP Bonus.", icon: "assets/items/archmages-staff.png", rarity: ItemRarity.Epic, slot: ItemSlot.Weapon, value: 5000, lockCondition: { type: ConditionType.AttrInt, value: 15, description: "Requires 15 INT" }, modifiers: { xpBonus: 0.25, int: 10, wis: 5 } },
+	{ id: "dragonslayer-spear", name: "Dragonslayer Spear", description: "+50% Boss DMG.", icon: "assets/items/dragonslayer-spear.png", rarity: ItemRarity.Legendary, slot: ItemSlot.Weapon, value: 15000, lockCondition: { type: ConditionType.BossesDefeated, value: 10, description: "Defeat 10 Bosses" }, modifiers: { damageBonus: 0.5, str: 20 } },
+	{ id: "training-sword", name: "Training Sword", description: "+2% All XP.", icon: "assets/items/training-sword.png", rarity: ItemRarity.Common, slot: ItemSlot.Weapon, value: 30, modifiers: { xpBonus: 0.02 } },
+	{ id: "quartz-wand", name: "Quartz Wand", description: "+10% INT XP.", icon: "assets/items/quartz-wand.png", rarity: ItemRarity.Uncommon, slot: ItemSlot.Weapon, value: 300, modifiers: { xpBonus: 0.1, int: 3 } },
+	{ id: "viking-axe", name: "Viking Axe", description: "+15% STR XP.", icon: "assets/items/viking-axe.png", rarity: ItemRarity.Uncommon, slot: ItemSlot.Weapon, value: 350, modifiers: { xpBonus: 0.15, str: 5 } },
+	{ id: "bloodhound-scythe", name: "Bloodhound Scythe", description: "+20% Boss DMG.", icon: "assets/items/bloodhound-scythe.png", rarity: ItemRarity.Rare, slot: ItemSlot.Weapon, value: 2000, modifiers: { damageBonus: 0.2, str: 8 } },
+	{ id: "sages-staff", name: "Sage's Staff", description: "+30% XP.", icon: "assets/items/sages-staff.png", rarity: ItemRarity.Epic, slot: ItemSlot.Weapon, value: 7500, modifiers: { xpBonus: 0.3, int: 15 } },
+	{ id: "mythic-shard", name: "Excalibur Fragment", description: "+10 All Attributes.", icon: "assets/items/excalibur-fragment.png", rarity: ItemRarity.Legendary, slot: ItemSlot.Weapon, value: 20000, modifiers: { str: 10, int: 10, wis: 10, cha: 10, damageBonus: 0.3 } },
+	{ id: "wooden-bow", name: "Wooden Bow", description: "Standard utility. +2% All XP.", icon: "assets/items/wooden-bow.png", rarity: ItemRarity.Common, slot: ItemSlot.Weapon, value: 40, modifiers: { xpBonus: 0.02 } },
+	{ id: "elven-longbow", name: "Elven Longbow", description: "Precision tool. +10% Boss DMG.", icon: "assets/items/elven-longbow.png", rarity: ItemRarity.Rare, slot: ItemSlot.Weapon, value: 1500, modifiers: { damageBonus: 0.1, wis: 5 } },
+	{ id: "morning-star", name: "Morning Star", description: "Heavy impact. +10% STR XP.", icon: "hammer", rarity: ItemRarity.Uncommon, slot: ItemSlot.Weapon, value: 500, modifiers: { xpBonus: 0.1, str: 6 } },
+	{ id: "cursed-blade", name: "Cursed Blade", description: "+40% Boss DMG but -10 HP.", icon: "skull", rarity: ItemRarity.Rare, slot: ItemSlot.Weapon, value: 2500, modifiers: { damageBonus: 0.4, hpMax: -10 } },
+	
+	// --- ARMOR ---
+	{ id: "rough-tunic", name: "Rough Tunic", description: "+5 HP.", icon: "shirt", rarity: ItemRarity.Common, slot: ItemSlot.Armor, value: 40, modifiers: { hpMax: 5 } },
+	{ id: "boiled-leather", name: "Boiled Leather", description: "+5% DMG Reduction.", icon: "shield-half", rarity: ItemRarity.Common, slot: ItemSlot.Armor, value: 100, modifiers: { damageReduction: 0.05, str: 1 } },
+	{ id: "chainmail", name: "Chainmail", description: "+10% DMG Reduction.", icon: "link", rarity: ItemRarity.Uncommon, slot: ItemSlot.Armor, value: 600, modifiers: { damageReduction: 0.1, hpMax: 25 } },
+	{ id: "knights-plate", name: "Knight's Plate", description: "+15% DMG Reduction.", icon: "shield", rarity: ItemRarity.Rare, slot: ItemSlot.Armor, value: 2500, lockCondition: { type: ConditionType.TasksCompleted, value: 50, description: "Complete 50 Tasks" }, modifiers: { damageReduction: 0.15, hpMax: 20, str: 5 } },
+	{ id: "monks-robe", name: "Monk's Robe", description: "+10% WIS.", icon: "wind", rarity: ItemRarity.Uncommon, slot: ItemSlot.Armor, value: 500, modifiers: { wis: 5, wisdomSave: 0.05 } },
+	{ id: "shadow-cloak", name: "Shadow Cloak", description: "+15% Drop Chance.", icon: "ghost", rarity: ItemRarity.Rare, slot: ItemSlot.Armor, value: 3000, modifiers: { dropChance: 0.15, cha: 5 } },
+	{ id: "dragons-guard", name: "Dragon-Scale Plate", description: "+25% DMG Reduction.", icon: "🐉", rarity: ItemRarity.Epic, slot: ItemSlot.Armor, value: 9000, modifiers: { damageReduction: 0.25, hpMax: 100, str: 15 } },
+	{ id: "celestial-garb", name: "Celestial Garb", description: "+200 HP.", icon: "🌟", rarity: ItemRarity.Legendary, slot: ItemSlot.Armor, value: 25000, modifiers: { hpMax: 200, damageReduction: 0.4 } },
+	{ id: "rags", name: "Beggars Rags", description: "You start somewhere. +1 HP.", icon: "🧵", rarity: ItemRarity.Common, slot: ItemSlot.Armor, value: 10, modifiers: { hpMax: 1 } },
+	{ id: "silk-doublet", name: "Silk Doublet", description: "+5% CHA XP.", icon: "sparkles", rarity: ItemRarity.Uncommon, slot: ItemSlot.Armor, value: 450, modifiers: { xpBonus: 0.05, cha: 4 } },
+	{ id: "plate-boots", name: "Steel Sabatons", description: "+10 HP, +2% DMG Reduction.", icon: "footprints", rarity: ItemRarity.Uncommon, slot: ItemSlot.Armor, value: 350, modifiers: { hpMax: 10, damageReduction: 0.02 } },
+	
+	// --- ACCESSORIES ---
+	{ id: "lucky-coin", name: "Lucky Coin", description: "+5% GP.", icon: "coins", rarity: ItemRarity.Common, slot: ItemSlot.Accessory, value: 150, modifiers: { gpBonus: 0.05, cha: 1 } },
+	{ id: "faded-map", name: "Faded Map", description: "+5% XP.", icon: "map", rarity: ItemRarity.Common, slot: ItemSlot.Accessory, value: 150, modifiers: { xpBonus: 0.05, wis: 1 } },
+	{ id: "ring-of-focus", name: "Ring of Focus", description: "+10% XP.", icon: "circle-dot", rarity: ItemRarity.Uncommon, slot: ItemSlot.Accessory, value: 800, modifiers: { xpBonus: 0.1, int: 5 } },
+	{ id: "amulet-of-health", name: "Amulet of Health", description: "+20 HP.", icon: "heart-pulse", rarity: ItemRarity.Uncommon, slot: ItemSlot.Accessory, value: 700, modifiers: { hpMax: 20 } },
+	{ id: "kings-seal", name: "King's Seal", description: "+20% GP Gain.", icon: "crown", rarity: ItemRarity.Rare, slot: ItemSlot.Accessory, value: 4000, modifiers: { gpBonus: 0.2, cha: 10 } },
+	{ id: "phoenix-feather", name: "Phoenix Feather", description: "+50 HP, Auto-regen.", icon: "🔥", rarity: ItemRarity.Epic, slot: ItemSlot.Accessory, value: 12000, modifiers: { hpMax: 50, hpRegen: 5 } },
+	{ id: "eye-of-the-storm", name: "Eye of the Storm", description: "All Attributes +10.", icon: "👁️", rarity: ItemRarity.Legendary, slot: ItemSlot.Accessory, value: 30000, modifiers: { str: 10, int: 10, wis: 10, cha: 10 } },
+	{ id: "beads", name: "Prayer Beads", description: "+5% Wisdom Save.", icon: "🔮", rarity: ItemRarity.Common, slot: ItemSlot.Accessory, value: 80, modifiers: { wisdomSave: 0.05 } },
+	{ id: "glass-eye", name: "Glass Eye", description: "+2% Drop Chance.", icon: "scan-eye", rarity: ItemRarity.Common, slot: ItemSlot.Accessory, value: 100, modifiers: { dropChance: 0.02 } },
+
+	{ id: "rabbits-foot", name: "Rabbit's Foot", description: "+5% Drop Chance.", icon: "clover", rarity: ItemRarity.Uncommon, slot: ItemSlot.Accessory, value: 400, modifiers: { dropChance: 0.05 } },
+	
+	// --- ADDING MORE TO REACH 50+ (Continuing...) ---
+	{ id: "vial-of-light", name: "Vial of Light", description: "+5% All XP.", icon: "beaker", rarity: ItemRarity.Uncommon, slot: ItemSlot.Accessory, value: 900, modifiers: { xpBonus: 0.05 } },
+	{ id: "merchants-bag", name: "Merchant's Bag", description: "+15% GP Gain.", icon: "briefcase", rarity: ItemRarity.Uncommon, slot: ItemSlot.Accessory, value: 1200, modifiers: { gpBonus: 0.15 } },
+	{ id: "hunters-lens", name: "Hunter's Lens", description: "+10% Boss DMG.", icon: "eye", rarity: ItemRarity.Rare, slot: ItemSlot.Accessory, value: 3500, modifiers: { damageBonus: 0.1 } },
+	{ id: "hero-cape", name: "Hero's Cape", description: "+20 HP, +5% All XP.", icon: "shirt", rarity: ItemRarity.Rare, slot: ItemSlot.Armor, value: 4500, modifiers: { hpMax: 20, xpBonus: 0.05 } },
+	{ id: "mithril-shirt", name: "Mithril Shirt", description: "Light but strong. +15% DR.", icon: "shirt", rarity: ItemRarity.Epic, slot: ItemSlot.Armor, value: 8500, modifiers: { damageReduction: 0.15, hpMax: 50 } },
+	{ id: "valkyrie-helm", name: "Valkyrie Helm", description: "+20% Boss DMG, +20 HP.", icon: "crown", rarity: ItemRarity.Epic, slot: ItemSlot.Armor, value: 10000, modifiers: { damageBonus: 0.2, hpMax: 20 } },
+	{ id: "soul-lantern", name: "Soul Lantern", description: "+25% WIS XP.", icon: "lamp", rarity: ItemRarity.Rare, slot: ItemSlot.Accessory, value: 3800, modifiers: { xpBonus: 0.25, wis: 5 } },
+	{ id: "gladiators-glove", name: "Gladiator's Glove", description: "+10 STR, +5% Boss DMG.", icon: "hand-metal", rarity: ItemRarity.Rare, slot: ItemSlot.Accessory, value: 4200, modifiers: { str: 10, damageBonus: 0.05 } },
+	{ id: "spartan-shield", name: "Spartan Shield", description: "+20% DR.", icon: "shield", rarity: ItemRarity.Epic, slot: ItemSlot.Armor, value: 9500, modifiers: { damageReduction: 0.2, str: 10 } },
+	{ id: "wizard-hat", name: "Wizard's Hat", description: "+15 INT, +10% XP.", icon: "hat", rarity: ItemRarity.Rare, slot: ItemSlot.Armor, value: 5000, modifiers: { int: 15, xpBonus: 0.1 } },
+	{ id: "rogues-hood", name: "Rogue's Hood", description: "+10% Drop Chance, +5 CHA.", icon: "user", rarity: ItemRarity.Uncommon, slot: ItemSlot.Armor, value: 800, modifiers: { dropChance: 0.1, cha: 5 } },
+	{ id: "emerald-ring", name: "Emerald Ring", description: "+5% GP, +5 HP.", icon: "circle", rarity: ItemRarity.Uncommon, slot: ItemSlot.Accessory, value: 650, modifiers: { gpBonus: 0.05, hpMax: 5 } }
+];
+
+// ---------------------------------------------------------------------------
+// Dungeon Templates
+// ---------------------------------------------------------------------------
+
+export const DUNGEON_TEMPLATES = [
 	{
-		name: "The Forge of Focus",
+		id: "noobs-cave",
+		name: "Noob's Cave",
 		icon: "🏔️",
 		stages: [
-			{
-				name: "The Outer Caverns",
-				description: "Clear the path to deep work.",
-				tasksRequired: 3,
-			},
-			{
-				name: "The Ember Halls",
-				description: "Maintain concentration under pressure.",
-				tasksRequired: 5,
-			},
-			{
-				name: "The Inner Sanctum",
-				description: "Achieve flow state mastery.",
-				tasksRequired: 7,
-			},
+			{ name: "Entrance", description: "A dark opening. Something skitters in the shadows.", tasksRequired: 2 },
+			{ name: "Deep Tunnel", description: "Echoes of rodents and dripping water.", tasksRequired: 3 }
 		],
-		bossTemplate: {
-			name: "The Scatter Mind",
-			icon: "🌀",
-			baseHp: 150,
-			attackPower: 12,
-			xpReward: 250,
-			gpReward: 120,
-			flavor:
-				"A vortex of fragmented thoughts that guards the deepest level of focus.",
-		},
+		bossTemplate: BOSS_TEMPLATES[1] // Distraction Imp
 	},
 	{
-		name: "The Library of Lost Time",
-		icon: "📜",
+		id: "shadow-tower",
+		name: "Shadow Tower",
+		icon: "🏰",
 		stages: [
-			{
-				name: "The Dusty Archives",
-				description: "Organize your backlog.",
-				tasksRequired: 4,
-			},
-			{
-				name: "The Forgotten Wing",
-				description: "Tackle long-overdue tasks.",
-				tasksRequired: 6,
-			},
-			{
-				name: "The Forbidden Section",
-				description: "Complete the tasks you've been avoiding.",
-				tasksRequired: 8,
-			},
+			{ name: "Foyer", description: "Dusty and cold. Old banners line the walls.", tasksRequired: 5 },
+			{ name: "Spiral Stairs", description: "Each step groans beneath your weight.", tasksRequired: 5 },
+			{ name: "Top Floor", description: "Wind howls through broken windows.", tasksRequired: 5 }
 		],
-		bossTemplate: {
-			name: "The Chronophage",
-			icon: "⏳",
-			baseHp: 180,
-			attackPower: 14,
-			xpReward: 280,
-			gpReward: 140,
-			flavor: "A time-devouring beast that grows fat on wasted hours.",
-		},
+		bossTemplate: BOSS_TEMPLATES[2] // Burnout Lich
 	},
+	{
+		id: "sunken-library",
+		name: "The Sunken Library",
+		icon: "📚",
+		stages: [
+			{ name: "Flooded Hall", description: "Ankle-deep water covers ancient mosaics.", tasksRequired: 4 },
+			{ name: "Forbidden Stacks", description: "Books whisper secrets from sealed shelves.", tasksRequired: 6 },
+			{ name: "The Archive", description: "A vast chamber of forgotten knowledge.", tasksRequired: 4 },
+			{ name: "The Vault", description: "A sealed door etched with glowing runes.", tasksRequired: 3 }
+		],
+		bossTemplate: BOSS_TEMPLATES[5] // Perfectionism Golem
+	},
+	{
+		id: "chaos-rift",
+		name: "The Chaos Rift",
+		icon: "🌀",
+		stages: [
+			{ name: "Rift Mouth", description: "Reality tears at the edges of perception.", tasksRequired: 3 },
+			{ name: "Shifting Halls", description: "Corridors rearrange themselves endlessly.", tasksRequired: 5 },
+			{ name: "The Core", description: "Pure chaos. Finish tasks to stabilize.", tasksRequired: 7 }
+		],
+		bossTemplate: BOSS_TEMPLATES[3] // Chaos Goblin
+	},
+	{
+		id: "dragons-lair",
+		name: "Dragon's Lair",
+		icon: "🐲",
+		stages: [
+			{ name: "Mountain Pass", description: "The air grows thin. Scorched earth lines the trail.", tasksRequired: 5 },
+			{ name: "Bone Garden", description: "Remains of past challengers.", tasksRequired: 5 },
+			{ name: "Treasure Hoard", description: "Mountains of gold — but the dragon stirs.", tasksRequired: 5 },
+			{ name: "The Roost", description: "The final ascent. No turning back.", tasksRequired: 8 }
+		],
+		bossTemplate: BOSS_TEMPLATES[0] // Procrastination Dragon
+	}
 ];
 
-// ---------------------------------------------------------------------------
-// Utility: Generate unique IDs
-// ---------------------------------------------------------------------------
-
+/**
+ * Generate unique IDs
+ */
 export function generateId(): string {
 	return Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
 }

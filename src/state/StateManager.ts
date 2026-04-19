@@ -4,19 +4,26 @@
 // ============================================================================
 
 import { type Plugin } from "obsidian";
+import { getTodayStr } from "../utils/dateUtils";
 import {
 	type GameState,
 	type Skill,
-	type Habit,
-	type Reward,
-	type EventLogEntry,
-	type Boss,
 	type Dungeon,
 	type CharacterState,
+	type Habit,
+	type Boss,
+	type EventLogEntry,
 	type StateChangeCallback,
 	type PluginSettings,
+	type Item,
+	type Reward,
+	ItemSlot,
+	ItemRarity,
+	RewardCategory,
+	EventType,
 } from "../types";
-import { DEFAULT_GAME_STATE, DEFAULT_SETTINGS, DEFAULT_ATTRIBUTES } from "../constants";
+import { DEFAULT_GAME_STATE, DEFAULT_SETTINGS, DEFAULT_ATTRIBUTES, INITIAL_ITEMS, SKILL_TREE_NODES, generateId } from "../constants";
+import { calculateGlobalModifiers } from "../engine/GameEngine";
 
 /** Deep-merge two objects. Source values override target values. */
 function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>): T {
@@ -88,6 +95,8 @@ export class StateManager {
 		}
 		// Migrate missing character profile info
 		if (!this.state.character.name) this.state.character.name = "Hero";
+		if (!this.state.character.avatarUrl) this.state.character.avatarUrl = "⚔️";
+		
 		if (!this.state.character.classId) {
 			// backwards compat logic
 			if (this.state.character.className) {
@@ -98,13 +107,59 @@ export class StateManager {
 			}
 			this.state.character.className = "Adventurer"; // Deprecated basically
 		}
-		if (!this.state.character.avatarUrl) this.state.character.avatarUrl = "⚔️";
 
 		// Migrate Constitution to Wisdom if necessary
 		if (this.state.character.attributes && this.state.character.attributes.con && !this.state.character.attributes.wis) {
 			this.state.character.attributes.wis = this.state.character.attributes.con;
-			delete this.state.character.attributes.con;
+			delete (this.state.character.attributes as any).con;
 		}
+
+		// Migrate missing equippedItems
+		if (!this.state.character.equippedItems) {
+			this.state.character.equippedItems = {
+				[ItemSlot.Weapon]: null,
+				[ItemSlot.Armor]: null,
+				[ItemSlot.Accessory]: null,
+			};
+		}
+		
+		// Migrate missing inventory/unseen log
+		if (!this.state.inventory) this.state.inventory = [];
+		if (!this.state.unseenLogIds) this.state.unseenLogIds = [];
+		if (this.state.comboCount === undefined) this.state.comboCount = 0;
+
+		// Migrate missing Skill Tree data
+		if (this.state.unspentSkillPoints === undefined) this.state.unspentSkillPoints = 0;
+		if (this.state.unlockedSkillNodes === undefined) this.state.unlockedSkillNodes = [];
+
+		// Migrate missing createdAt for habits
+		for (const habit of this.state.habits) {
+			if (!habit.createdAt) {
+				habit.createdAt = habit.lastCompleted || new Date().toISOString();
+			}
+		}
+
+		// Inject INITIAL_ITEMS into rewards store if they don't exist
+		for (const itemTemplate of INITIAL_ITEMS) {
+			const rewardExists = this.state.rewards.some(r => r.name === itemTemplate.name);
+			if (!rewardExists) {
+				const cost = itemTemplate.rarity === ItemRarity.Common ? 50 : 250; // Increased base cost
+				const reward: Reward = {
+					id: generateId(),
+					name: itemTemplate.name,
+					description: itemTemplate.description,
+					icon: itemTemplate.icon,
+					cost,
+					purchaseCount: 0,
+					category: RewardCategory.Item,
+					item: itemTemplate
+				};
+				this.state.rewards.push(reward);
+			}
+		}
+
+		this.dirty = true;
+		await this.saveImmediate();
 	}
 
 	/** Save state + settings to data.json (debounced) */
@@ -203,6 +258,17 @@ export class StateManager {
 		return { ...this.settings };
 	}
 
+	/** Get the full resource path for a plugin-relative asset */
+	getAssetPath(relativePath: string): string {
+		const adapter = this.plugin.app.vault.adapter as any;
+		const pluginDir = this.plugin.manifest.dir;
+		const fullPath = `${pluginDir}/${relativePath}`;
+		if (adapter.getResourcePath) {
+			return adapter.getResourcePath(fullPath);
+		}
+		return fullPath;
+	}
+
 	/** Get all skills */
 	getSkills(): Skill[] {
 		return this.state.skills.map((s) => ({ ...s }));
@@ -239,6 +305,153 @@ export class StateManager {
 	/** Get the event log */
 	getEventLog(): EventLogEntry[] {
 		return this.state.eventLog.map((e) => ({ ...e }));
+	}
+
+	/** Get unseen log IDs */
+	getUnseenLogIds(): string[] {
+		return [...this.state.unseenLogIds];
+	}
+
+	/** Mark log entries as seen */
+	clearUnseenLogs(): void {
+		this.state.unseenLogIds = [];
+		this.save();
+	}
+
+	/** Track a new unseen event */
+	addUnseenLogId(id: string): void {
+		if (!this.state.unseenLogIds.includes(id)) {
+			this.state.unseenLogIds.push(id);
+			this.save();
+		}
+	}
+
+	// -----------------------------------------------------------------------
+	// Inventory Operations
+	// -----------------------------------------------------------------------
+
+	getInventory(): Item[] {
+		return this.state.inventory.map(i => ({ ...i }));
+	}
+
+	addItem(item: Item): void {
+		this.state.inventory.push({ ...item });
+		this.save();
+	}
+
+	removeItem(itemId: string): void {
+		this.state.inventory = this.state.inventory.filter(i => i.id !== itemId);
+		this.save();
+	}
+
+	equipItem(itemId: string, slot: ItemSlot): void {
+		// Unequip current item in slot if any
+		this.state.character.equippedItems[slot] = itemId;
+		this.save();
+	}
+
+	unequipItem(slot: ItemSlot): void {
+		this.state.character.equippedItems[slot] = null;
+		this.save();
+	}
+
+	getEquippedItem(slot: ItemSlot): Item | null {
+		const itemId = this.state.character.equippedItems[slot];
+		if (!itemId) return null;
+		return this.state.inventory.find(i => i.id === itemId) || null;
+	}
+
+	/** Calculate latest global modifiers */
+	getGlobalModifiers() {
+		return calculateGlobalModifiers(
+			this.state.character,
+			this.state.inventory,
+			this.state.unlockedSkillNodes,
+			SKILL_TREE_NODES
+		);
+	}
+
+	// -----------------------------------------------------------------------
+	// Skill Tree Operations
+	// -----------------------------------------------------------------------
+
+	getSkillPoints(): number {
+		return this.state.unspentSkillPoints;
+	}
+
+	getUnlockedSkillNodes(): string[] {
+		return [...this.state.unlockedSkillNodes];
+	}
+
+	getSkillNodeName(nodeId: string): string {
+		const node = SKILL_TREE_NODES.find(n => n.id === nodeId);
+		return node ? node.name : "Unknown Node";
+	}
+
+	/** Get items available for purchase in store */
+	getStoreItems(): Item[] {
+		// Filter out items already in inventory (unless they are consumables, which we don't distinguish yet)
+		// For now, let's just return the INITIAL_ITEMS that aren't equipped or in inventory
+		return INITIAL_ITEMS.filter(item => !this.state.inventory.some(i => i.name === item.name));
+	}
+
+	unlockSkillNode(nodeId: string): boolean {
+		const node = SKILL_TREE_NODES.find(n => n.id === nodeId);
+		if (!node) return false;
+		if (this.state.unspentSkillPoints < node.cost) return false;
+		if (this.state.unlockedSkillNodes.includes(nodeId)) return false;
+
+		// Check requirements
+		const hasRequirements = node.dependencies.every(id => this.state.unlockedSkillNodes.includes(id));
+		if (!hasRequirements) return false;
+
+		// Check attribute threshold
+		if (node.attributeThreshold) {
+			const attr = this.state.character.attributes[node.attributeThreshold.attribute];
+			if (!attr || attr.level < node.attributeThreshold.level) return false;
+		}
+
+		this.state.unspentSkillPoints -= node.cost;
+		this.state.unlockedSkillNodes.push(nodeId);
+		
+		this.addLogEntry({
+			id: generateId(),
+			timestamp: new Date().toISOString(),
+			type: EventType.SkillNodeUnlocked,
+			message: `🔓 UNLOCKED: **${node.name}**! ${node.description}`,
+			xpDelta: 0,
+			gpDelta: 0,
+			hpDelta: 0,
+		});
+
+		this.save();
+		this.notify();
+		return true;
+	}
+
+	/** Reset Skill Tree (Mirror of Rebirth logic) */
+	respecSkillTree(): void {
+		let totalRefund = 0;
+		for (const nodeId of this.state.unlockedSkillNodes) {
+			const node = SKILL_TREE_NODES.find(n => n.id === nodeId);
+			if (node) totalRefund += node.cost;
+		}
+		
+		this.state.unspentSkillPoints += totalRefund;
+		this.state.unlockedSkillNodes = [];
+		
+		this.addLogEntry({
+			id: generateId(),
+			timestamp: new Date().toISOString(),
+			type: EventType.SkillNodeUnlocked,
+			message: `🔮 SPIRITUAL REBIRTH: Your skill nodes have been returned as points.`,
+			xpDelta: 0,
+			gpDelta: 0,
+			hpDelta: 0,
+		});
+
+		this.save();
+		this.notify();
 	}
 
 
@@ -323,13 +536,20 @@ export class StateManager {
 		if (!habit) return;
 
 		const { applyRetroactiveHabitHistoryChange } = await import("../engine/HabitManager");
+		
+		const modifiers = this.getGlobalModifiers();
+
+		const oldChar = { ...this.state.character };
+		const oldSkills = this.state.skills.map(s => ({ ...s }));
+
 		const result = applyRetroactiveHabitHistoryChange(
 			habit,
 			dateStr,
 			completed,
 			this.state.character,
 			this.state.skills,
-			this.settings
+			this.settings,
+			modifiers
 		);
 
 		// Update all states
@@ -339,6 +559,24 @@ export class StateManager {
 		}
 		this.state.character = result.character;
 		this.state.skills = result.skills;
+
+		// Award SP
+		if (result.spEarned !== 0) {
+			this.addSkillPoints(result.spEarned);
+		}
+
+		// Celebrations
+		if (this.settings.showNotifications) {
+			if (this.state.character.level > oldChar.level) {
+				this.celebrationManager.celebrateLevelUp(this.state.character.level, this.settings.hpPerLevel);
+			}
+			for (const newSkill of this.state.skills) {
+				const oldSkill = oldSkills.find(os => os.id === newSkill.id);
+				if (oldSkill && newSkill.level > oldSkill.level) {
+					this.celebrationManager.celebrateSkillUp(newSkill.name, newSkill.level);
+				}
+			}
+		}
 		
 		// Add logs
 		for (const entry of result.logEntries) {
@@ -378,6 +616,27 @@ export class StateManager {
 	/** Remove a reward by ID */
 	removeReward(id: string): void {
 		this.state.rewards = this.state.rewards.filter((r) => r.id !== id);
+		this.save();
+		this.notify();
+	}
+
+	/** Purchase an item from the armory */
+	purchaseItem(item: Item): void {
+		if (this.state.character.gp < item.value) return;
+
+		this.state.character.gp -= item.value;
+		this.addItem({ ...item, id: generateId() });
+
+		this.addLogEntry({
+			id: generateId(),
+			timestamp: new Date().toISOString(),
+			type: EventType.RewardPurchase,
+			message: `🛡️ Purchased ${item.name} for ${item.value} GP!`,
+			xpDelta: 0,
+			gpDelta: -item.value,
+			hpDelta: 0,
+		});
+
 		this.save();
 		this.notify();
 	}
@@ -470,7 +729,22 @@ export class StateManager {
 
 	/** Update last played date */
 	updateLastPlayedDate(): void {
-		this.state.lastPlayedDate = new Date().toDateString();
+		this.state.lastPlayedDate = getTodayStr();
+		this.save();
+	}
+
+	/** Update metadata fields like comboCount and lastTaskAt */
+	updateMetadata(partial: { comboCount?: number; lastTaskAt?: string | null; lastOverdueCheckDate?: string; unspentSkillPoints?: number }): void {
+		if (partial.comboCount !== undefined) this.state.comboCount = partial.comboCount;
+		if (partial.lastTaskAt !== undefined) this.state.lastTaskAt = partial.lastTaskAt;
+		if (partial.lastOverdueCheckDate !== undefined) this.state.lastOverdueCheckDate = partial.lastOverdueCheckDate;
+		if (partial.unspentSkillPoints !== undefined) this.state.unspentSkillPoints = partial.unspentSkillPoints;
+		this.save();
+	}
+
+	/** Explicitly add skill points to the character */
+	addSkillPoints(amount: number): void {
+		this.state.unspentSkillPoints += amount;
 		this.save();
 	}
 
