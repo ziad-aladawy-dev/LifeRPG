@@ -1395,6 +1395,18 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.life-rpg-subtasks-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-left: 20px;
+  border-left: 2px solid var(--stone-lighter);
+  padding-left: 12px;
+  margin-top: 6px;
 }
 
 .life-rpg-quest-card {
@@ -1404,6 +1416,7 @@
   padding: 10px 12px;
   transition: all var(--t-normal);
   animation: slide-in-up 0.3s ease-out both;
+  min-width: 250px;
 }
 
 .life-rpg-quest-card:hover {
@@ -1418,9 +1431,7 @@
 }
 
 .life-rpg-subtask {
-  margin-left: 16px;
-  border-left: 2px solid var(--stone-lighter);
-  padding-left: 12px;
+  /* Legacy class kept for safety, but primary structural indents are now handled by .life-rpg-subtasks-container */
 }
 
 .life-rpg-quest-header {

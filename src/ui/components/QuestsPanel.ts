@@ -143,7 +143,8 @@ export class QuestsPanel {
 					subtasksContainer = parentEl.createDiv({ cls: "life-rpg-subtasks-container" });
 					subtasksContainer.style.display = "none";
 
-					toggleBtn?.addEventListener("click", () => {
+					toggleBtn?.addEventListener("click", (e) => {
+						e.stopPropagation();
 						if (!subtasksContainer) return;
 						const isHidden = subtasksContainer.style.display === "none";
 						subtasksContainer.style.display = isHidden ? "block" : "none";

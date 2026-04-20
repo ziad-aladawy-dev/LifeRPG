@@ -327,6 +327,42 @@ export class RewardsPanel {
 
 		form.createEl("h3", { text: "Edit Relic", cls: "life-rpg-modal-title" }).style.margin = "0 0 10px 0";
 
+		// Super-sized preview icon
+		const previewContainer = form.createDiv();
+		previewContainer.style.display = "flex";
+		previewContainer.style.justifyContent = "center";
+		previewContainer.style.marginBottom = "10px";
+
+		const previewIconWrapper = previewContainer.createDiv({ cls: "life-rpg-reward-icon" });
+		previewIconWrapper.style.width = "128px";
+		previewIconWrapper.style.height = "128px";
+		previewIconWrapper.style.minWidth = "128px";
+		previewIconWrapper.style.fontSize = "52px";
+		previewIconWrapper.style.boxShadow = "var(--shadow-deep), 0 0 30px var(--gold-ember)";
+
+		const updatePreview = (val: string) => {
+			previewIconWrapper.empty();
+			previewIconWrapper.style.backgroundImage = "none";
+			previewIconWrapper.removeClass("has-custom-img");
+			
+			if (!val) {
+				setIcon(previewIconWrapper, "gift");
+				return;
+			}
+			
+			if (val.startsWith("http://") || val.startsWith("https://")) {
+				previewIconWrapper.style.backgroundImage = `url('${val}')`;
+				previewIconWrapper.addClass("has-custom-img");
+			} else if (val.startsWith("assets/")) {
+				previewIconWrapper.style.backgroundImage = `url('${this.stateManager.getAssetPath(val)}')`;
+				previewIconWrapper.addClass("has-custom-img");
+			} else if (/^[a-z0-9-]+$/.test(val)) {
+				setIcon(previewIconWrapper, val);
+			} else {
+				previewIconWrapper.setText(val);
+			}
+		};
+
 		const nameInput = form.createEl("input", {
 			type: "text",
 			value: reward.name,
@@ -351,6 +387,9 @@ export class RewardsPanel {
 			cls: "life-rpg-input life-rpg-input-small",
 		});
 		iconInput.style.flex = "1";
+		
+		updatePreview(reward.icon);
+		iconInput.addEventListener("input", () => updatePreview(iconInput.value.trim()));
 
 		const costInput = row.createEl("input", {
 			type: "number",
@@ -452,6 +491,43 @@ export class RewardsPanel {
 
 		form.createEl("h3", { text: "Forge Custom Reward", cls: "life-rpg-modal-title" }).style.margin = "0 0 10px 0";
 
+		// Super-sized preview icon
+		const previewContainer = form.createDiv();
+		previewContainer.style.display = "flex";
+		previewContainer.style.justifyContent = "center";
+		previewContainer.style.marginBottom = "10px";
+
+		const previewIconWrapper = previewContainer.createDiv({ cls: "life-rpg-reward-icon" });
+		previewIconWrapper.style.width = "96px";
+		previewIconWrapper.style.height = "96px";
+		previewIconWrapper.style.minWidth = "96px";
+		previewIconWrapper.style.fontSize = "52px";
+		previewIconWrapper.style.boxShadow = "var(--shadow-deep), 0 0 30px var(--gold-ember)";
+
+		const updatePreview = (val: string) => {
+			previewIconWrapper.empty();
+			previewIconWrapper.style.backgroundImage = "none";
+			previewIconWrapper.removeClass("has-custom-img");
+			
+			if (!val) {
+				setIcon(previewIconWrapper, "gift");
+				return;
+			}
+			
+			if (val.startsWith("http://") || val.startsWith("https://")) {
+				previewIconWrapper.style.backgroundImage = `url('${val}')`;
+				previewIconWrapper.addClass("has-custom-img");
+			} else if (val.startsWith("assets/")) {
+				previewIconWrapper.style.backgroundImage = `url('${this.stateManager.getAssetPath(val)}')`;
+				previewIconWrapper.addClass("has-custom-img");
+			} else if (/^[a-z0-9-]+$/.test(val)) {
+				setIcon(previewIconWrapper, val);
+			} else {
+				previewIconWrapper.setText(val);
+			}
+		};
+		updatePreview("");
+
 		const nameInput = form.createEl("input", {
 			type: "text",
 			placeholder: "Reward name (e.g., 1 Hour Gaming)",
@@ -475,6 +551,8 @@ export class RewardsPanel {
 		});
 		iconInput.style.flex = "1";
 		iconInput.title = "Can be an emoji or a Lucide icon";
+
+		iconInput.addEventListener("input", () => updatePreview(iconInput.value.trim()));
 
 		const costInput = row.createEl("input", {
 			type: "number",
