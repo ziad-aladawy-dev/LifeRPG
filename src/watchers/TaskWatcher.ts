@@ -221,13 +221,37 @@ export class TaskWatcher {
 			return allFiles;
 		}
 
-		// If not scanning all, only scan daily notes folder
+		// If not scanning all, filter by folder and optional format
+		return allFiles.filter((f) => this.isValidDailyNoteFile(f, settings));
+	}
+
+	/**
+	 * Check if a file is a valid daily note based on settings.
+	 * Only checks folder and template format.
+	 */
+	private isValidDailyNoteFile(file: TFile, settings: PluginSettings): boolean {
+		// 1. Folder check
 		const dailyFolder = this.getDailyNotesFolder(settings);
 		if (dailyFolder) {
-			return allFiles.filter((f) => f.path.startsWith(dailyFolder));
+			// Ensure path starts with folder + slash, or is exactly the folder (unlikely for a file)
+			const normalizedFolder = dailyFolder.endsWith("/") ? dailyFolder : dailyFolder + "/";
+			if (!file.path.startsWith(normalizedFolder)) {
+				return false;
+			}
 		}
 
-		return allFiles;
+		// 2. Format check (optional)
+		if (!settings.dailyNoteFormat) {
+			return true; // No format specified = accept all in folder
+		}
+
+		// Convert {{date}} template to a YYYY-MM-DD regex pattern
+		const pattern = settings.dailyNoteFormat
+			.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') // Escape regex chars
+			.replace(/\\\{\\\{date\\\}\\\}/g, "\\d{4}-\\d{2}-\\d{2}"); // Replace {{date}} with date regex
+		
+		const regex = new RegExp(`^${pattern}$`);
+		return regex.test(file.basename);
 	}
 
 	/**
@@ -281,10 +305,9 @@ export class TaskWatcher {
 		if (!settings.enableTaskWatcher) return;
 		if (file.extension !== "md") return;
 
-		// If not scanning all files, check if file is in a relevant folder
+		// If not scanning all files, check if file is in a relevant folder/format
 		if (!settings.scanAllFiles) {
-			const dailyFolder = this.getDailyNotesFolder(settings);
-			if (dailyFolder && !file.path.startsWith(dailyFolder)) {
+			if (!this.isValidDailyNoteFile(file, settings)) {
 				return;
 			}
 		}

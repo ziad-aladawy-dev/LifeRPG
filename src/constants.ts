@@ -47,6 +47,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	maxLogEntries: 500,
 	enableTaskWatcher: true,
 	dailyNotesFolder: "",
+	dailyNoteFormat: "",
 	scanAllFiles: true,
 	showNotifications: true,
 	skillToAttributeRatio: 0.2,

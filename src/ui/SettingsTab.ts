@@ -360,6 +360,26 @@ export class LifeRpgSettingsTab extends PluginSettingTab {
 					})
 			);
 
+		new Setting(containerEl)
+			.setName("Daily note filename pattern")
+			.setDesc(
+				"Optional: Restrict tasks to files matching this pattern. " +
+				"Use {{date}} for YYYY-MM-DD. Example: 'Journal-{{date}}'. " +
+				"Only used when 'Scan all files' is disabled."
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder("e.g. {{date}}")
+					.setValue(
+						this.plugin.stateManager.getSettings().dailyNoteFormat
+					)
+					.onChange(async (value) => {
+						this.plugin.stateManager.updateSettings({
+							dailyNoteFormat: value.trim(),
+						});
+					})
+			);
+
 		// ---------------------------------------------------------------
 		// Notifications & Log
 		// ---------------------------------------------------------------

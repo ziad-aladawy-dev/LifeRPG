@@ -417,6 +417,7 @@ export interface PluginSettings {
 
 	// Daily Notes integration
 	dailyNotesFolder: string;
+	dailyNoteFormat: string;
 	scanAllFiles: boolean;
 
 	// General

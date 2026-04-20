@@ -50,9 +50,30 @@ export class HabitsPanel {
 		
 		const diffDays = Math.round((todayTime - anchorTime) / (1000 * 60 * 60 * 24));
 		
-		if (diffDays >= 0 && diffDays % habit.recurrenceDays === 0) return true;
+	if (diffDays >= 0 && diffDays % habit.recurrenceDays === 0) return true;
 		
 		return false;
+	}
+
+	private calculateNextDueDate(habit: Habit): Date {
+		const recurrence = habit.recurrenceDays || 1;
+		const anchorDateStr = habit.startDate || habit.createdAt.split("T")[0];
+		const [ay, am, ad] = anchorDateStr.split("-").map(Number);
+		const anchorDate = new Date(ay, am - 1, ad);
+		
+		const todayParsed = new Date();
+		const todayTime = new Date(todayParsed.getFullYear(), todayParsed.getMonth(), todayParsed.getDate()).getTime();
+		const anchorTime = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), anchorDate.getDate()).getTime();
+		
+		const diffDays = Math.round((todayTime - anchorTime) / (1000 * 60 * 60 * 24));
+		
+		if (diffDays < 0) return anchorDate;
+		
+		// Find the next multiple of recurrence strictly greater than diffDays
+		// unless it's due today, in which case we might still want to show today or the one after.
+		// Since this is used for cards NOT due today, we find the next one.
+		const nextDueOffset = Math.ceil((diffDays + 0.1) / recurrence) * recurrence;
+		return new Date(anchorTime + (nextDueOffset * 24 * 60 * 60 * 1000));
 	}
 
 	render(habits: Habit[], skills: Skill[]): void {
@@ -284,6 +305,13 @@ export class HabitsPanel {
 		} else if (this.isHabitDue(habit)) {
 			// If it's due today but not done, or has backlog
 			dateContainer.setText(`🗓️ Today`);
+		} else if (habit.recurrenceDays && habit.recurrenceDays > 1) {
+			const nextDue = this.calculateNextDueDate(habit);
+			const dateStr = nextDue.toLocaleDateString(undefined, {
+				month: "short",
+				day: "numeric",
+			});
+			dateContainer.setText(`🗓️ Next: ${dateStr}`);
 		} else if (habit.lastCompleted) {
 			const dateStr = new Date(habit.lastCompleted).toLocaleDateString(undefined, {
 				month: "short",
