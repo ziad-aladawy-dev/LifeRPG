@@ -35,11 +35,22 @@ export class HabitsPanel {
 		// 2. Daily is always due
 		if ((habit.recurrenceDays || 1) <= 1) return true;
 		
-		// 3. Cycle day matches today
-		if (habit.lastEvaluatedDate === today) return true;
-		
-		// 4. Completed today (so user can see their success)
+		// 3. Completed today (so user can see their success inside the main list)
 		if (habit.lastCompleted && habit.lastCompleted.startsWith(today)) return true;
+		
+		// 4. Calculate if mathematically due today based on start date anchor
+		const anchorDateStr = habit.startDate || habit.createdAt.split("T")[0];
+		const [ay, am, ad] = anchorDateStr.split("-").map(Number);
+		const anchorDate = new Date(ay, am - 1, ad);
+		
+		const todayParsed = new Date();
+		// Strip time for clean day diff
+		const anchorTime = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), anchorDate.getDate()).getTime();
+		const todayTime = new Date(todayParsed.getFullYear(), todayParsed.getMonth(), todayParsed.getDate()).getTime();
+		
+		const diffDays = Math.round((todayTime - anchorTime) / (1000 * 60 * 60 * 24));
+		
+		if (diffDays >= 0 && diffDays % habit.recurrenceDays === 0) return true;
 		
 		return false;
 	}
@@ -188,61 +199,49 @@ export class HabitsPanel {
 
 		const baseReward = calculateHabitReward(habit.type, habit.difficulty, settings, character.attributes, modifiers);
 
-		// --- Streak Badge (for both good & bad habits) ---
+		// --- Entire Card Intense Streak System ---
 		if (liveStreak > 0) {
-			// --- Granular streak tiers with fire (good) vs frost (bad) ---
 			let streakTier: string;
-			let streakIcon: string;
 			const streakLabel = habit.type === "good" ? "streak" : "resisted";
 
 			if (habit.type === "good") {
-				// FIRE progression: spark → flame → blaze → inferno → supernova
-				if (liveStreak >= 100) {
-					streakTier = "fire-supernova"; streakIcon = "☀️";
-				} else if (liveStreak >= 60) {
-					streakTier = "fire-inferno"; streakIcon = "🌋";
-				} else if (liveStreak >= 30) {
-					streakTier = "fire-blaze"; streakIcon = "🔥";
-				} else if (liveStreak >= 14) {
-					streakTier = "fire-flame"; streakIcon = "🔥";
-				} else if (liveStreak >= 7) {
-					streakTier = "fire-kindle"; streakIcon = "✨";
-				} else if (liveStreak >= 3) {
-					streakTier = "fire-spark"; streakIcon = "✨";
-				} else {
-					streakTier = "fire-ember"; streakIcon = "🕯️";
-				}
+				if (liveStreak >= 365) { streakTier = "fire-ascendant"; }
+				else if (liveStreak >= 250) { streakTier = "fire-quasar"; }
+				else if (liveStreak >= 180) { streakTier = "fire-hypernova"; }
+				else if (liveStreak >= 100) { streakTier = "fire-supernova"; }
+				else if (liveStreak >= 60) { streakTier = "fire-inferno"; }
+				else if (liveStreak >= 30) { streakTier = "fire-blaze"; }
+				else if (liveStreak >= 14) { streakTier = "fire-flame"; }
+				else if (liveStreak >= 7) { streakTier = "fire-kindle"; }
+				else if (liveStreak >= 3) { streakTier = "fire-spark"; }
+				else { streakTier = "fire-ember"; }
 			} else {
-				// FROST progression: chill → frost → glacial → permafrost → absolute-zero
-				if (liveStreak >= 100) {
-					streakTier = "frost-absolute"; streakIcon = "💎";
-				} else if (liveStreak >= 60) {
-					streakTier = "frost-permafrost"; streakIcon = "🧊";
-				} else if (liveStreak >= 30) {
-					streakTier = "frost-glacial"; streakIcon = "❄️";
-				} else if (liveStreak >= 14) {
-					streakTier = "frost-frozen"; streakIcon = "❄️";
-				} else if (liveStreak >= 7) {
-					streakTier = "frost-cold"; streakIcon = "🌬️";
-				} else if (liveStreak >= 3) {
-					streakTier = "frost-chill"; streakIcon = "🌬️";
-				} else {
-					streakTier = "frost-cool"; streakIcon = "🙏";
-				}
+				if (liveStreak >= 365) { streakTier = "frost-stasis"; }
+				else if (liveStreak >= 250) { streakTier = "frost-void"; }
+				else if (liveStreak >= 180) { streakTier = "frost-absolute"; }
+				else if (liveStreak >= 100) { streakTier = "frost-permafrost"; }
+				else if (liveStreak >= 60) { streakTier = "frost-glacial"; }
+				else if (liveStreak >= 30) { streakTier = "frost-frozen"; }
+				else if (liveStreak >= 14) { streakTier = "frost-cold"; }
+				else if (liveStreak >= 7) { streakTier = "frost-chill"; }
+				else if (liveStreak >= 3) { streakTier = "frost-cool"; }
+				else { streakTier = "frost-calm"; }
 			}
 
-			const streakBadge = infoRow.createEl("span", {
-				text: `${streakIcon} ${liveStreak} ${streakLabel}`,
-				cls: `life-rpg-streak-badge life-rpg-streak-${streakTier}`,
-			});
+			// Add the intensity tier DIRECTLY to the overall card wrapper
+			card.addClass(`intensity-${streakTier}`);
 
-			// Add bonus multiplier indicator for good habits with decent streak
+			// Replace tiny pill badge with an intense thematic stat block
+			const intenseStat = cardContent.createEl("div", {
+				cls: `life-rpg-intense-streak life-rpg-intense-${habit.type}`,
+			});
+			
+			intenseStat.createEl("span", { text: `${liveStreak}`, cls: "streak-big-number" });
+			intenseStat.createEl("span", { text: ` ${streakLabel}`, cls: "streak-big-label" });
+
 			if (habit.type === "good" && liveStreak >= 7) {
 				const bonus = streakBonusMultiplier(liveStreak);
-				streakBadge.title = `${bonus.toFixed(1)}x streak bonus active!`;
-			}
-			if (habit.type === "bad" && liveStreak >= 7) {
-				streakBadge.title = `${liveStreak} days of iron will!`;
+				intenseStat.title = `${bonus.toFixed(1)}x streak bonus active!`;
 			}
 		}
 

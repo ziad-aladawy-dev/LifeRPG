@@ -794,28 +794,31 @@ export function recalculateHabitStreak(habit: Habit): number {
 		const mostRecentStr = historyKeys[0];
 		const mostRecentTime = parseLocalDate(mostRecentStr).getTime();
 		
-		// 2. Check if the gap is valid (Recurrence + Backlog)
+		// 2. Check if the gap from today to most recent is valid
 		const diffDays = Math.floor((todayTime - mostRecentTime) / (1000 * 60 * 60 * 24));
 		const backlogDays = (habit.outstandingDays || 0) * recurrence;
 		const maxAllowedGap = recurrence + backlogDays;
 
 		if (diffDays > maxAllowedGap) {
-			return 0; // Streak broken
+			return 0; // Streak broken because it's been too long since last logged
 		}
 
-		// 3. Count backwards from the most recent completion
-		let streak = 0;
-		let checkDate = parseLocalDate(mostRecentStr);
+		// 3. Count backwards through actual completions
+		// Start at 1 because we have at least one valid completion that hasn't decayed
+		let streak = 1;
 		
-		while (true) {
-			const dateStr = formatDate(checkDate);
-			if (history[dateStr] || (habit.lastCompleted && habit.lastCompleted.startsWith(dateStr))) {
+		for (let i = 0; i < historyKeys.length - 1; i++) {
+			const currTime = parseLocalDate(historyKeys[i]).getTime();
+			const prevTime = parseLocalDate(historyKeys[i + 1]).getTime();
+			
+			const gap = Math.floor((currTime - prevTime) / (1000 * 60 * 60 * 24));
+			
+			// As long as the gap between consecutive completions is <= recurrence,
+			// the chain is unbroken. (Allowing early completions)
+			if (gap <= recurrence) {
 				streak++;
-				checkDate.setDate(checkDate.getDate() - recurrence);
-				
-				// Stop if we go before creation/start or too far back
-				if (checkDate.getTime() < anchorTime - 43200000) break; 
 			} else {
+				// The gap was too large, chain was broken in the past
 				break;
 			}
 		}

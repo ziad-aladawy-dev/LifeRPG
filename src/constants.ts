@@ -265,57 +265,57 @@ export const BOSS_TEMPLATES: BossTemplate[] = [
 
 export const SKILL_TREE_NODES: SkillTreeNode[] = [
 	// ========================= CORE (Center) =========================
-	{ id: "core-1", name: "Awakening", description: "Begin your journey. +5 HP, +2% XP.", cost: 1, icon: "sunrise", branch: "physique", x: 500, y: 400, dependencies: [], modifiers: { hpMax: 5, xpMultiplier: 0.02 } },
+	{ id: "core-1", name: "Awakening", description: "Begin your journey. +5 HP, +2% XP.", cost: 1, icon: "sunrise", branch: "physique", x: 800, y: 640, dependencies: [], modifiers: { hpMax: 5, xpMultiplier: 0.02 } },
 
 	// ========================= PHYSIQUE BRANCH (Upper Left) =========================
-	{ id: "phy-1", name: "Sturdy Build", description: "+15 Max HP.", cost: 1, icon: "heart", branch: "physique", x: 380, y: 300, dependencies: ["core-1"], modifiers: { hpMax: 15 } },
-	{ id: "phy-2", name: "Iron Fist", description: "+5% Boss Damage.", cost: 2, icon: "sword", branch: "physique", x: 280, y: 220, dependencies: ["phy-1"], modifiers: { damageBonus: 0.05 } },
-	{ id: "phy-3", name: "Thick Skin", description: "+8% Damage Reduction.", cost: 2, icon: "shield", branch: "physique", x: 350, y: 160, dependencies: ["phy-1"], modifiers: { damageReduction: 0.08 } },
-	{ id: "phy-4", name: "Berserker Rage", description: "+12% Boss Damage.", cost: 3, icon: "flame", branch: "physique", x: 180, y: 140, dependencies: ["phy-2"], modifiers: { damageBonus: 0.12 } },
-	{ id: "phy-5", name: "Endurance Ritual", description: "Regen 3 HP per task.", cost: 3, icon: "activity", branch: "physique", x: 420, y: 90, dependencies: ["phy-3"], modifiers: { hpRegen: 3 } },
-	{ id: "phy-6", name: "Warlord's Vigor", description: "+50 Max HP, +5% DR.", cost: 5, icon: "shield-check", branch: "physique", x: 300, y: 60, dependencies: ["phy-4", "phy-5"], attributeThreshold: { attribute: Attribute.STR, level: 8 }, modifiers: { hpMax: 50, damageReduction: 0.05 } },
-	{ id: "phy-7", name: "Colossus", description: "+100 HP, +15% Boss DMG.", cost: 8, icon: "mountain", branch: "physique", x: 200, y: 30, dependencies: ["phy-6"], attributeThreshold: { attribute: Attribute.STR, level: 15 }, modifiers: { hpMax: 100, damageBonus: 0.15 } },
-	{ id: "phy-s1", name: "Battle Hardened", description: "+2% Boss DMG per combo.", cost: 3, icon: "zap", branch: "physique", x: 140, y: 240, dependencies: ["phy-2"], modifiers: { damageBonus: 0.08 } },
-	{ id: "phy-s2", name: "Titan's Grip", description: "+20 HP, +3% XP.", cost: 2, icon: "hand-metal", branch: "physique", x: 460, y: 180, dependencies: ["phy-3"], modifiers: { hpMax: 20, xpMultiplier: 0.03 } },
+	{ id: "phy-1", name: "Sturdy Build", description: "+15 Max HP.", cost: 1, icon: "heart", branch: "physique", x: 608, y: 480, dependencies: ["core-1"], modifiers: { hpMax: 15 } },
+	{ id: "phy-2", name: "Iron Fist", description: "+5% Boss Damage.", cost: 2, icon: "sword", branch: "physique", x: 448, y: 352, dependencies: ["phy-1"], modifiers: { damageBonus: 0.05 } },
+	{ id: "phy-3", name: "Thick Skin", description: "+8% Damage Reduction.", cost: 2, icon: "shield", branch: "physique", x: 560, y: 256, dependencies: ["phy-1"], modifiers: { damageReduction: 0.08 } },
+	{ id: "phy-4", name: "Berserker Rage", description: "+12% Boss Damage.", cost: 3, icon: "flame", branch: "physique", x: 288, y: 224, dependencies: ["phy-2"], modifiers: { damageBonus: 0.12 } },
+	{ id: "phy-5", name: "Endurance Ritual", description: "Regen 3 HP per task.", cost: 3, icon: "activity", branch: "physique", x: 672, y: 144, dependencies: ["phy-3"], modifiers: { hpRegen: 3 } },
+	{ id: "phy-6", name: "Warlord's Vigor", description: "+50 Max HP, +5% DR.", cost: 5, icon: "shield-check", branch: "physique", x: 480, y: 96, dependencies: ["phy-4", "phy-5"], attributeThreshold: { attribute: Attribute.STR, level: 8 }, modifiers: { hpMax: 50, damageReduction: 0.05 } },
+	{ id: "phy-7", name: "Colossus", description: "+100 HP, +15% Boss DMG.", cost: 8, icon: "mountain", branch: "physique", x: 320, y: 48, dependencies: ["phy-6"], attributeThreshold: { attribute: Attribute.STR, level: 15 }, modifiers: { hpMax: 100, damageBonus: 0.15 } },
+	{ id: "phy-s1", name: "Battle Hardened", description: "+2% Boss DMG per combo.", cost: 3, icon: "zap", branch: "physique", x: 224, y: 384, dependencies: ["phy-2"], modifiers: { damageBonus: 0.08 } },
+	{ id: "phy-s2", name: "Titan's Grip", description: "+20 HP, +3% XP.", cost: 2, icon: "hand-metal", branch: "physique", x: 736, y: 288, dependencies: ["phy-3"], modifiers: { hpMax: 20, xpMultiplier: 0.03 } },
 
 	// ========================= MIND BRANCH (Upper Right) =========================
-	{ id: "mind-1", name: "Quick Learner", description: "+5% XP Gain.", cost: 1, icon: "book-open", branch: "mind", x: 620, y: 300, dependencies: ["core-1"], modifiers: { xpMultiplier: 0.05 } },
-	{ id: "mind-2", name: "Deep Focus", description: "+8% XP Gain.", cost: 2, icon: "brain", branch: "mind", x: 720, y: 220, dependencies: ["mind-1"], modifiers: { xpMultiplier: 0.08 } },
-	{ id: "mind-3", name: "Speed Reading", description: "+5% Skill XP.", cost: 2, icon: "book", branch: "mind", x: 650, y: 160, dependencies: ["mind-1"], modifiers: { xpMultiplier: 0.05 } },
-	{ id: "mind-4", name: "Analytical Mind", description: "+12% XP Gain.", cost: 3, icon: "microscope", branch: "mind", x: 820, y: 140, dependencies: ["mind-2"], modifiers: { xpMultiplier: 0.12 } },
-	{ id: "mind-5", name: "Polyglot", description: "+8% XP, +3% GP.", cost: 3, icon: "languages", branch: "mind", x: 580, y: 90, dependencies: ["mind-3"], modifiers: { xpMultiplier: 0.08, gpMultiplier: 0.03 } },
-	{ id: "mind-6", name: "Scholar's Mastery", description: "+20% XP Gain.", cost: 5, icon: "graduation-cap", branch: "mind", x: 700, y: 60, dependencies: ["mind-4", "mind-5"], attributeThreshold: { attribute: Attribute.INT, level: 10 }, modifiers: { xpMultiplier: 0.2 } },
-	{ id: "mind-7", name: "Archmage's Insight", description: "+30% XP, +5 INT.", cost: 8, icon: "sparkles", branch: "mind", x: 800, y: 30, dependencies: ["mind-6"], attributeThreshold: { attribute: Attribute.INT, level: 18 }, modifiers: { xpMultiplier: 0.3 } },
-	{ id: "mind-s1", name: "Eidetic Memory", description: "+5% XP per streak day.", cost: 3, icon: "file-text", branch: "mind", x: 860, y: 240, dependencies: ["mind-2"], modifiers: { xpMultiplier: 0.06 } },
-	{ id: "mind-s2", name: "Critical Thinking", description: "+10% XP, +2% Boss DMG.", cost: 2, icon: "lightbulb", branch: "mind", x: 540, y: 180, dependencies: ["mind-3"], modifiers: { xpMultiplier: 0.1, damageBonus: 0.02 } },
+	{ id: "mind-1", name: "Quick Learner", description: "+5% XP Gain.", cost: 1, icon: "book-open", branch: "mind", x: 992, y: 480, dependencies: ["core-1"], modifiers: { xpMultiplier: 0.05 } },
+	{ id: "mind-2", name: "Deep Focus", description: "+8% XP Gain.", cost: 2, icon: "brain", branch: "mind", x: 1152, y: 352, dependencies: ["mind-1"], modifiers: { xpMultiplier: 0.08 } },
+	{ id: "mind-3", name: "Speed Reading", description: "+5% Skill XP.", cost: 2, icon: "book", branch: "mind", x: 1040, y: 256, dependencies: ["mind-1"], modifiers: { xpMultiplier: 0.05 } },
+	{ id: "mind-4", name: "Analytical Mind", description: "+12% XP Gain.", cost: 3, icon: "microscope", branch: "mind", x: 1312, y: 224, dependencies: ["mind-2"], modifiers: { xpMultiplier: 0.12 } },
+	{ id: "mind-5", name: "Polyglot", description: "+8% XP, +3% GP.", cost: 3, icon: "languages", branch: "mind", x: 928, y: 144, dependencies: ["mind-3"], modifiers: { xpMultiplier: 0.08, gpMultiplier: 0.03 } },
+	{ id: "mind-6", name: "Scholar's Mastery", description: "+20% XP Gain.", cost: 5, icon: "graduation-cap", branch: "mind", x: 1120, y: 96, dependencies: ["mind-4", "mind-5"], attributeThreshold: { attribute: Attribute.INT, level: 10 }, modifiers: { xpMultiplier: 0.2 } },
+	{ id: "mind-7", name: "Archmage's Insight", description: "+30% XP, +5 INT.", cost: 8, icon: "sparkles", branch: "mind", x: 1280, y: 48, dependencies: ["mind-6"], attributeThreshold: { attribute: Attribute.INT, level: 18 }, modifiers: { xpMultiplier: 0.3 } },
+	{ id: "mind-s1", name: "Eidetic Memory", description: "+5% XP per streak day.", cost: 3, icon: "file-text", branch: "mind", x: 1376, y: 384, dependencies: ["mind-2"], modifiers: { xpMultiplier: 0.06 } },
+	{ id: "mind-s2", name: "Critical Thinking", description: "+10% XP, +2% Boss DMG.", cost: 2, icon: "lightbulb", branch: "mind", x: 864, y: 288, dependencies: ["mind-3"], modifiers: { xpMultiplier: 0.1, damageBonus: 0.02 } },
 
 	// ========================= SPIRIT BRANCH (Lower Left) =========================
-	{ id: "spi-1", name: "Zen State", description: "+5% Wisdom Save.", cost: 1, icon: "wind", branch: "spirit", x: 380, y: 500, dependencies: ["core-1"], modifiers: { wisdomSave: 0.05 } },
-	{ id: "spi-2", name: "Stoic Resolve", description: "+8% Damage Reduction.", cost: 2, icon: "anchor", branch: "spirit", x: 280, y: 580, dependencies: ["spi-1"], modifiers: { damageReduction: 0.08 } },
-	{ id: "spi-3", name: "Meditation", description: "Daily HP Regen +5.", cost: 2, icon: "moon", branch: "spirit", x: 350, y: 640, dependencies: ["spi-1"], modifiers: { hpRegen: 5 } },
-	{ id: "spi-4", name: "Inner Peace", description: "+15% Wisdom Save.", cost: 3, icon: "sun", branch: "spirit", x: 180, y: 660, dependencies: ["spi-2"], modifiers: { wisdomSave: 0.15 } },
-	{ id: "spi-5", name: "Soul Cleanse", description: "Regen 8 HP/task, +5% WIS.", cost: 3, icon: "droplets", branch: "spirit", x: 420, y: 710, dependencies: ["spi-3"], modifiers: { hpRegen: 8, wisdomSave: 0.05 } },
-	{ id: "spi-6", name: "Tranquil Mind", description: "+25% Wisdom Save, +10% DR.", cost: 5, icon: "shield-half", branch: "spirit", x: 300, y: 740, dependencies: ["spi-4", "spi-5"], attributeThreshold: { attribute: Attribute.WIS, level: 10 }, modifiers: { wisdomSave: 0.25, damageReduction: 0.1 } },
-	{ id: "spi-7", name: "Avatar of Calm", description: "Near immunity to habit damage.", cost: 8, icon: "star", branch: "spirit", x: 200, y: 770, dependencies: ["spi-6"], attributeThreshold: { attribute: Attribute.WIS, level: 18 }, modifiers: { wisdomSave: 0.4, damageReduction: 0.2 } },
-	{ id: "spi-s1", name: "Clarity", description: "+5% XP, +5% Wisdom Save.", cost: 3, icon: "eye", branch: "spirit", x: 140, y: 560, dependencies: ["spi-2"], modifiers: { xpMultiplier: 0.05, wisdomSave: 0.05 } },
-	{ id: "spi-s2", name: "Grounding", description: "+20 HP, +5% WIS Save.", cost: 2, icon: "tree-pine", branch: "spirit", x: 460, y: 620, dependencies: ["spi-3"], modifiers: { hpMax: 20, wisdomSave: 0.05 } },
+	{ id: "spi-1", name: "Zen State", description: "+5% Wisdom Save.", cost: 1, icon: "wind", branch: "spirit", x: 608, y: 800, dependencies: ["core-1"], modifiers: { wisdomSave: 0.05 } },
+	{ id: "spi-2", name: "Stoic Resolve", description: "+8% Damage Reduction.", cost: 2, icon: "anchor", branch: "spirit", x: 448, y: 928, dependencies: ["spi-1"], modifiers: { damageReduction: 0.08 } },
+	{ id: "spi-3", name: "Meditation", description: "Daily HP Regen +5.", cost: 2, icon: "moon", branch: "spirit", x: 560, y: 1024, dependencies: ["spi-1"], modifiers: { hpRegen: 5 } },
+	{ id: "spi-4", name: "Inner Peace", description: "+15% Wisdom Save.", cost: 3, icon: "sun", branch: "spirit", x: 288, y: 1056, dependencies: ["spi-2"], modifiers: { wisdomSave: 0.15 } },
+	{ id: "spi-5", name: "Soul Cleanse", description: "Regen 8 HP/task, +5% WIS.", cost: 3, icon: "droplets", branch: "spirit", x: 672, y: 1136, dependencies: ["spi-3"], modifiers: { hpRegen: 8, wisdomSave: 0.05 } },
+	{ id: "spi-6", name: "Tranquil Mind", description: "+25% Wisdom Save, +10% DR.", cost: 5, icon: "shield-half", branch: "spirit", x: 480, y: 1184, dependencies: ["spi-4", "spi-5"], attributeThreshold: { attribute: Attribute.WIS, level: 10 }, modifiers: { wisdomSave: 0.25, damageReduction: 0.1 } },
+	{ id: "spi-7", name: "Avatar of Calm", description: "Near immunity to habit damage.", cost: 8, icon: "star", branch: "spirit", x: 320, y: 1232, dependencies: ["spi-6"], attributeThreshold: { attribute: Attribute.WIS, level: 18 }, modifiers: { wisdomSave: 0.4, damageReduction: 0.2 } },
+	{ id: "spi-s1", name: "Clarity", description: "+5% XP, +5% Wisdom Save.", cost: 3, icon: "eye", branch: "spirit", x: 224, y: 896, dependencies: ["spi-2"], modifiers: { xpMultiplier: 0.05, wisdomSave: 0.05 } },
+	{ id: "spi-s2", name: "Grounding", description: "+20 HP, +5% WIS Save.", cost: 2, icon: "tree-pine", branch: "spirit", x: 736, y: 992, dependencies: ["spi-3"], modifiers: { hpMax: 20, wisdomSave: 0.05 } },
 
 	// ========================= FORTUNE BRANCH (Lower Right) =========================
-	{ id: "for-1", name: "Bounty Hunter", description: "+8% Gold Gain.", cost: 1, icon: "coins", branch: "fortune", x: 620, y: 500, dependencies: ["core-1"], modifiers: { gpMultiplier: 0.08 } },
-	{ id: "for-2", name: "Lucky Find", description: "+5% Drop Chance.", cost: 2, icon: "clover", branch: "fortune", x: 720, y: 580, dependencies: ["for-1"], modifiers: { dropChance: 0.05 } },
-	{ id: "for-3", name: "Bargain Sense", description: "+10% GP Gain.", cost: 2, icon: "handshake", branch: "fortune", x: 650, y: 640, dependencies: ["for-1"], modifiers: { gpMultiplier: 0.1 } },
-	{ id: "for-4", name: "Treasure Sense", description: "+10% Drop Chance.", cost: 3, icon: "search", branch: "fortune", x: 820, y: 660, dependencies: ["for-2"], modifiers: { dropChance: 0.1 } },
-	{ id: "for-5", name: "Golden Tongue", description: "+15% GP, +5% XP.", cost: 3, icon: "message-circle", branch: "fortune", x: 580, y: 710, dependencies: ["for-3"], modifiers: { gpMultiplier: 0.15, xpMultiplier: 0.05 } },
-	{ id: "for-6", name: "Merchant Prince", description: "+25% GP, +5% Drop.", cost: 5, icon: "crown", branch: "fortune", x: 700, y: 740, dependencies: ["for-4", "for-5"], attributeThreshold: { attribute: Attribute.CHA, level: 10 }, modifiers: { gpMultiplier: 0.25, dropChance: 0.05 } },
-	{ id: "for-7", name: "King Midas", description: "+50% GP, +15% Drop.", cost: 8, icon: "gem", branch: "fortune", x: 800, y: 770, dependencies: ["for-6"], attributeThreshold: { attribute: Attribute.CHA, level: 20 }, modifiers: { gpMultiplier: 0.5, dropChance: 0.15 } },
-	{ id: "for-s1", name: "Scavenger", description: "+8% Drop Chance.", cost: 3, icon: "package", branch: "fortune", x: 860, y: 560, dependencies: ["for-2"], modifiers: { dropChance: 0.08 } },
-	{ id: "for-s2", name: "Charm", description: "+5% GP, +5% WIS.", cost: 2, icon: "heart-handshake", branch: "fortune", x: 540, y: 620, dependencies: ["for-3"], modifiers: { gpMultiplier: 0.05, wisdomSave: 0.05 } },
+	{ id: "for-1", name: "Bounty Hunter", description: "+8% Gold Gain.", cost: 1, icon: "coins", branch: "fortune", x: 992, y: 800, dependencies: ["core-1"], modifiers: { gpMultiplier: 0.08 } },
+	{ id: "for-2", name: "Lucky Find", description: "+5% Drop Chance.", cost: 2, icon: "clover", branch: "fortune", x: 1152, y: 928, dependencies: ["for-1"], modifiers: { dropChance: 0.05 } },
+	{ id: "for-3", name: "Bargain Sense", description: "+10% GP Gain.", cost: 2, icon: "handshake", branch: "fortune", x: 1040, y: 1024, dependencies: ["for-1"], modifiers: { gpMultiplier: 0.1 } },
+	{ id: "for-4", name: "Treasure Sense", description: "+10% Drop Chance.", cost: 3, icon: "search", branch: "fortune", x: 1312, y: 1056, dependencies: ["for-2"], modifiers: { dropChance: 0.1 } },
+	{ id: "for-5", name: "Golden Tongue", description: "+15% GP, +5% XP.", cost: 3, icon: "message-circle", branch: "fortune", x: 928, y: 1136, dependencies: ["for-3"], modifiers: { gpMultiplier: 0.15, xpMultiplier: 0.05 } },
+	{ id: "for-6", name: "Merchant Prince", description: "+25% GP, +5% Drop.", cost: 5, icon: "crown", branch: "fortune", x: 1120, y: 1184, dependencies: ["for-4", "for-5"], attributeThreshold: { attribute: Attribute.CHA, level: 10 }, modifiers: { gpMultiplier: 0.25, dropChance: 0.05 } },
+	{ id: "for-7", name: "King Midas", description: "+50% GP, +15% Drop.", cost: 8, icon: "gem", branch: "fortune", x: 1280, y: 1232, dependencies: ["for-6"], attributeThreshold: { attribute: Attribute.CHA, level: 20 }, modifiers: { gpMultiplier: 0.5, dropChance: 0.15 } },
+	{ id: "for-s1", name: "Scavenger", description: "+8% Drop Chance.", cost: 3, icon: "package", branch: "fortune", x: 1376, y: 896, dependencies: ["for-2"], modifiers: { dropChance: 0.08 } },
+	{ id: "for-s2", name: "Charm", description: "+5% GP, +5% WIS.", cost: 2, icon: "heart-handshake", branch: "fortune", x: 864, y: 992, dependencies: ["for-3"], modifiers: { gpMultiplier: 0.05, wisdomSave: 0.05 } },
 
 	// ========================= BRIDGE NODES (Cross-branch synergies) =========================
-	{ id: "bridge-pm", name: "War Scholar", description: "+8% XP, +8% Boss DMG.", cost: 5, icon: "swords", branch: "physique", x: 500, y: 150, dependencies: ["phy-3", "mind-3"], modifiers: { xpMultiplier: 0.08, damageBonus: 0.08 } },
-	{ id: "bridge-sf", name: "Karma", description: "+10% GP, +10% WIS Save.", cost: 5, icon: "scale", branch: "spirit", x: 500, y: 650, dependencies: ["spi-3", "for-3"], modifiers: { gpMultiplier: 0.1, wisdomSave: 0.1 } },
-	{ id: "bridge-ps", name: "Paladin's Oath", description: "+30 HP, +10% WIS Save.", cost: 5, icon: "heart-pulse", branch: "physique", x: 250, y: 420, dependencies: ["phy-1", "spi-1"], modifiers: { hpMax: 30, wisdomSave: 0.1 } },
-	{ id: "bridge-mf", name: "Alchemist", description: "+10% XP, +10% GP.", cost: 5, icon: "flask-conical", branch: "fortune", x: 750, y: 420, dependencies: ["mind-1", "for-1"], modifiers: { xpMultiplier: 0.1, gpMultiplier: 0.1 } },
+	{ id: "bridge-pm", name: "War Scholar", description: "+8% XP, +8% Boss DMG.", cost: 5, icon: "swords", branch: "physique", x: 800, y: 240, dependencies: ["phy-3", "mind-3"], modifiers: { xpMultiplier: 0.08, damageBonus: 0.08 } },
+	{ id: "bridge-sf", name: "Karma", description: "+10% GP, +10% WIS Save.", cost: 5, icon: "scale", branch: "spirit", x: 800, y: 1040, dependencies: ["spi-3", "for-3"], modifiers: { gpMultiplier: 0.1, wisdomSave: 0.1 } },
+	{ id: "bridge-ps", name: "Paladin's Oath", description: "+30 HP, +10% WIS Save.", cost: 5, icon: "heart-pulse", branch: "physique", x: 400, y: 672, dependencies: ["phy-1", "spi-1"], modifiers: { hpMax: 30, wisdomSave: 0.1 } },
+	{ id: "bridge-mf", name: "Alchemist", description: "+10% XP, +10% GP.", cost: 5, icon: "flask-conical", branch: "fortune", x: 1200, y: 672, dependencies: ["mind-1", "for-1"], modifiers: { xpMultiplier: 0.1, gpMultiplier: 0.1 } },
 ];
 
 // ---------------------------------------------------------------------------
@@ -324,63 +324,99 @@ export const SKILL_TREE_NODES: SkillTreeNode[] = [
 
 export const INITIAL_ITEMS: Item[] = [
 	// --- WEAPONS ---
-	{ id: "splintered-staff", name: "Splintered Staff", description: "+5% INT XP.", icon: "assets/items/splintered-staff.png", rarity: ItemRarity.Common, slot: ItemSlot.Weapon, value: 50, modifiers: { xpBonus: 0.05, int: 1 } },
 	{ id: "dull-dagger", name: "Dull Dagger", description: "+5% STR XP.", icon: "assets/items/dull-dagger.png", rarity: ItemRarity.Common, slot: ItemSlot.Weapon, value: 50, modifiers: { xpBonus: 0.05, str: 1 } },
-	{ id: "rusty-blade", name: "Rusty Blade", description: "+5% Boss DMG.", icon: "assets/items/rusty-blade.png", rarity: ItemRarity.Common, slot: ItemSlot.Weapon, value: 50, modifiers: { damageBonus: 0.05 } },
-	{ id: "iron-greatsword", name: "Iron Greatsword", description: "+10% Boss DMG.", icon: "assets/items/iron-greatsword.png", rarity: ItemRarity.Uncommon, slot: ItemSlot.Weapon, value: 450, lockCondition: { type: ConditionType.AttrStr, value: 5, description: "Requires 5 STR" }, modifiers: { damageBonus: 0.1, str: 2 } },
-	{ id: "silver-rapier", name: "Silver Rapier", description: "+15% Boss DMG.", icon: "assets/items/silver-rapier.png", rarity: ItemRarity.Rare, slot: ItemSlot.Weapon, value: 1200, lockCondition: { type: ConditionType.Level, value: 10, description: "Requires Level 10" }, modifiers: { damageBonus: 0.15, str: 4, cha: 2 } },
-	{ id: "archmages-staff", name: "Archmage's Staff", description: "+25% XP Bonus.", icon: "assets/items/archmages-staff.png", rarity: ItemRarity.Epic, slot: ItemSlot.Weapon, value: 5000, lockCondition: { type: ConditionType.AttrInt, value: 15, description: "Requires 15 INT" }, modifiers: { xpBonus: 0.25, int: 10, wis: 5 } },
-	{ id: "dragonslayer-spear", name: "Dragonslayer Spear", description: "+50% Boss DMG.", icon: "assets/items/dragonslayer-spear.png", rarity: ItemRarity.Legendary, slot: ItemSlot.Weapon, value: 15000, lockCondition: { type: ConditionType.BossesDefeated, value: 10, description: "Defeat 10 Bosses" }, modifiers: { damageBonus: 0.5, str: 20 } },
 	{ id: "training-sword", name: "Training Sword", description: "+2% All XP.", icon: "assets/items/training-sword.png", rarity: ItemRarity.Common, slot: ItemSlot.Weapon, value: 30, modifiers: { xpBonus: 0.02 } },
-	{ id: "quartz-wand", name: "Quartz Wand", description: "+10% INT XP.", icon: "assets/items/quartz-wand.png", rarity: ItemRarity.Uncommon, slot: ItemSlot.Weapon, value: 300, modifiers: { xpBonus: 0.1, int: 3 } },
-	{ id: "viking-axe", name: "Viking Axe", description: "+15% STR XP.", icon: "assets/items/viking-axe.png", rarity: ItemRarity.Uncommon, slot: ItemSlot.Weapon, value: 350, modifiers: { xpBonus: 0.15, str: 5 } },
-	{ id: "bloodhound-scythe", name: "Bloodhound Scythe", description: "+20% Boss DMG.", icon: "assets/items/bloodhound-scythe.png", rarity: ItemRarity.Rare, slot: ItemSlot.Weapon, value: 2000, modifiers: { damageBonus: 0.2, str: 8 } },
-	{ id: "sages-staff", name: "Sage's Staff", description: "+30% XP.", icon: "assets/items/sages-staff.png", rarity: ItemRarity.Epic, slot: ItemSlot.Weapon, value: 7500, modifiers: { xpBonus: 0.3, int: 15 } },
-	{ id: "mythic-shard", name: "Excalibur Fragment", description: "+10 All Attributes.", icon: "assets/items/excalibur-fragment.png", rarity: ItemRarity.Legendary, slot: ItemSlot.Weapon, value: 20000, modifiers: { str: 10, int: 10, wis: 10, cha: 10, damageBonus: 0.3 } },
-	{ id: "wooden-bow", name: "Wooden Bow", description: "Standard utility. +2% All XP.", icon: "assets/items/wooden-bow.png", rarity: ItemRarity.Common, slot: ItemSlot.Weapon, value: 40, modifiers: { xpBonus: 0.02 } },
-	{ id: "elven-longbow", name: "Elven Longbow", description: "Precision tool. +10% Boss DMG.", icon: "assets/items/elven-longbow.png", rarity: ItemRarity.Rare, slot: ItemSlot.Weapon, value: 1500, modifiers: { damageBonus: 0.1, wis: 5 } },
-	{ id: "morning-star", name: "Morning Star", description: "Heavy impact. +10% STR XP.", icon: "hammer", rarity: ItemRarity.Uncommon, slot: ItemSlot.Weapon, value: 500, modifiers: { xpBonus: 0.1, str: 6 } },
-	{ id: "cursed-blade", name: "Cursed Blade", description: "+40% Boss DMG but -10 HP.", icon: "skull", rarity: ItemRarity.Rare, slot: ItemSlot.Weapon, value: 2500, modifiers: { damageBonus: 0.4, hpMax: -10 } },
+	{ id: "wooden-bow", name: "Wooden Bow", description: "Standard utility. +2% All XP.", icon: "assets/items/wooden-bow.png", rarity: ItemRarity.Common, slot: ItemSlot.Weapon, value: 40, lockCondition: { type: ConditionType.Level, value: 2, description: "Requires Level 2" }, modifiers: { xpBonus: 0.02 } },
+	{ id: "rusty-blade", name: "Rusty Blade", description: "+5% Boss DMG.", icon: "assets/items/rusty-blade.png", rarity: ItemRarity.Common, slot: ItemSlot.Weapon, value: 50, lockCondition: { type: ConditionType.Level, value: 3, description: "Requires Level 3" }, modifiers: { damageBonus: 0.05 } },
+	{ id: "splintered-staff", name: "Splintered Staff", description: "+5% INT XP.", icon: "assets/items/splintered-staff.png", rarity: ItemRarity.Common, slot: ItemSlot.Weapon, value: 50, lockCondition: { type: ConditionType.Level, value: 4, description: "Requires Level 4" }, modifiers: { xpBonus: 0.05, int: 1 } },
+	{ id: "iron-greatsword", name: "Iron Greatsword", description: "+10% Boss DMG.", icon: "assets/items/iron-greatsword.png", rarity: ItemRarity.Uncommon, slot: ItemSlot.Weapon, value: 450, lockCondition: { type: ConditionType.AttrStr, value: 5, description: "Requires 5 STR" }, modifiers: { damageBonus: 0.1, str: 2 } },
+	{ id: "quartz-wand", name: "Quartz Wand", description: "+10% INT XP.", icon: "assets/items/quartz-wand.png", rarity: ItemRarity.Uncommon, slot: ItemSlot.Weapon, value: 300, lockCondition: { type: ConditionType.AttrInt, value: 5, description: "Requires 5 INT" }, modifiers: { xpBonus: 0.1, int: 3 } },
+	{ id: "viking-axe", name: "Viking Axe", description: "+15% STR XP.", icon: "assets/items/viking-axe.png", rarity: ItemRarity.Uncommon, slot: ItemSlot.Weapon, value: 350, lockCondition: { type: ConditionType.AttrStr, value: 10, description: "Requires 10 STR" }, modifiers: { xpBonus: 0.15, str: 5 } },
+	{ id: "silver-rapier", name: "Silver Rapier", description: "+15% Boss DMG.", icon: "assets/items/silver-rapier.png", rarity: ItemRarity.Rare, slot: ItemSlot.Weapon, value: 1200, lockCondition: { type: ConditionType.Level, value: 10, description: "Requires Level 10" }, modifiers: { damageBonus: 0.15, str: 4, cha: 2 } },
+	{ id: "elven-longbow", name: "Elven Longbow", description: "Precision tool. +10% Boss DMG.", icon: "assets/items/elven-longbow.png", rarity: ItemRarity.Rare, slot: ItemSlot.Weapon, value: 1500, lockCondition: { type: ConditionType.AttrWis, value: 10, description: "Requires 10 WIS" }, modifiers: { damageBonus: 0.1, wis: 5 } },
+	{ id: "morning-star", name: "Morning Star", description: "Heavy impact. +10% STR XP.", icon: "hammer", rarity: ItemRarity.Uncommon, slot: ItemSlot.Weapon, value: 500, lockCondition: { type: ConditionType.AttrStr, value: 15, description: "Requires 15 STR" }, modifiers: { xpBonus: 0.1, str: 6 } },
+	{ id: "cursed-blade", name: "Cursed Blade", description: "+40% Boss DMG but -10 HP.", icon: "skull", rarity: ItemRarity.Rare, slot: ItemSlot.Weapon, value: 2500, lockCondition: { type: ConditionType.BossesDefeated, value: 3, description: "Defeat 3 Bosses" }, modifiers: { damageBonus: 0.4, hpMax: -10 } },
+	{ id: "bloodhound-scythe", name: "Bloodhound Scythe", description: "+20% Boss DMG.", icon: "assets/items/bloodhound-scythe.png", rarity: ItemRarity.Rare, slot: ItemSlot.Weapon, value: 2000, lockCondition: { type: ConditionType.BossesDefeated, value: 1, description: "Defeat 1 Boss" }, modifiers: { damageBonus: 0.2, str: 8 } },
+	{ id: "archmages-staff", name: "Archmage's Staff", description: "+25% XP Bonus.", icon: "assets/items/archmages-staff.png", rarity: ItemRarity.Epic, slot: ItemSlot.Weapon, value: 5000, lockCondition: { type: ConditionType.AttrInt, value: 15, description: "Requires 15 INT" }, modifiers: { xpBonus: 0.25, int: 10, wis: 5 } },
+	{ id: "sages-staff", name: "Sage's Staff", description: "+30% XP.", icon: "assets/items/sages-staff.png", rarity: ItemRarity.Epic, slot: ItemSlot.Weapon, value: 7500, lockCondition: { type: ConditionType.AttrInt, value: 20, description: "Requires 20 INT" }, modifiers: { xpBonus: 0.3, int: 15 } },
+	{ id: "dragonslayer-spear", name: "Dragonslayer Spear", description: "+50% Boss DMG.", icon: "assets/items/dragonslayer-spear.png", rarity: ItemRarity.Legendary, slot: ItemSlot.Weapon, value: 15000, lockCondition: { type: ConditionType.BossesDefeated, value: 10, description: "Defeat 10 Bosses" }, modifiers: { damageBonus: 0.5, str: 20 } },
+	{ id: "mythic-shard", name: "Excalibur Fragment", description: "+10 All Attributes.", icon: "assets/items/excalibur-fragment.png", rarity: ItemRarity.Legendary, slot: ItemSlot.Weapon, value: 20000, lockCondition: { type: ConditionType.TasksCompleted, value: 100, description: "Complete 100 Tasks" }, modifiers: { str: 10, int: 10, wis: 10, cha: 10, damageBonus: 0.3 } },
 	
 	// --- ARMOR ---
-	{ id: "rough-tunic", name: "Rough Tunic", description: "+5 HP.", icon: "shirt", rarity: ItemRarity.Common, slot: ItemSlot.Armor, value: 40, modifiers: { hpMax: 5 } },
-	{ id: "boiled-leather", name: "Boiled Leather", description: "+5% DMG Reduction.", icon: "shield-half", rarity: ItemRarity.Common, slot: ItemSlot.Armor, value: 100, modifiers: { damageReduction: 0.05, str: 1 } },
-	{ id: "chainmail", name: "Chainmail", description: "+10% DMG Reduction.", icon: "link", rarity: ItemRarity.Uncommon, slot: ItemSlot.Armor, value: 600, modifiers: { damageReduction: 0.1, hpMax: 25 } },
-	{ id: "knights-plate", name: "Knight's Plate", description: "+15% DMG Reduction.", icon: "shield", rarity: ItemRarity.Rare, slot: ItemSlot.Armor, value: 2500, lockCondition: { type: ConditionType.TasksCompleted, value: 50, description: "Complete 50 Tasks" }, modifiers: { damageReduction: 0.15, hpMax: 20, str: 5 } },
-	{ id: "monks-robe", name: "Monk's Robe", description: "+10% WIS.", icon: "wind", rarity: ItemRarity.Uncommon, slot: ItemSlot.Armor, value: 500, modifiers: { wis: 5, wisdomSave: 0.05 } },
-	{ id: "shadow-cloak", name: "Shadow Cloak", description: "+15% Drop Chance.", icon: "ghost", rarity: ItemRarity.Rare, slot: ItemSlot.Armor, value: 3000, modifiers: { dropChance: 0.15, cha: 5 } },
-	{ id: "dragons-guard", name: "Dragon-Scale Plate", description: "+25% DMG Reduction.", icon: "🐉", rarity: ItemRarity.Epic, slot: ItemSlot.Armor, value: 9000, modifiers: { damageReduction: 0.25, hpMax: 100, str: 15 } },
-	{ id: "celestial-garb", name: "Celestial Garb", description: "+200 HP.", icon: "🌟", rarity: ItemRarity.Legendary, slot: ItemSlot.Armor, value: 25000, modifiers: { hpMax: 200, damageReduction: 0.4 } },
 	{ id: "rags", name: "Beggars Rags", description: "You start somewhere. +1 HP.", icon: "🧵", rarity: ItemRarity.Common, slot: ItemSlot.Armor, value: 10, modifiers: { hpMax: 1 } },
-	{ id: "silk-doublet", name: "Silk Doublet", description: "+5% CHA XP.", icon: "sparkles", rarity: ItemRarity.Uncommon, slot: ItemSlot.Armor, value: 450, modifiers: { xpBonus: 0.05, cha: 4 } },
-	{ id: "plate-boots", name: "Steel Sabatons", description: "+10 HP, +2% DMG Reduction.", icon: "footprints", rarity: ItemRarity.Uncommon, slot: ItemSlot.Armor, value: 350, modifiers: { hpMax: 10, damageReduction: 0.02 } },
+	{ id: "rough-tunic", name: "Rough Tunic", description: "+5 HP.", icon: "shirt", rarity: ItemRarity.Common, slot: ItemSlot.Armor, value: 40, lockCondition: { type: ConditionType.Level, value: 2, description: "Requires Level 2" }, modifiers: { hpMax: 5 } },
+	{ id: "boiled-leather", name: "Boiled Leather", description: "+5% DMG Reduction.", icon: "shield-half", rarity: ItemRarity.Common, slot: ItemSlot.Armor, value: 100, lockCondition: { type: ConditionType.Level, value: 3, description: "Requires Level 3" }, modifiers: { damageReduction: 0.05, str: 1 } },
+	{ id: "chainmail", name: "Chainmail", description: "+10% DMG Reduction.", icon: "link", rarity: ItemRarity.Uncommon, slot: ItemSlot.Armor, value: 600, lockCondition: { type: ConditionType.Level, value: 5, description: "Requires Level 5" }, modifiers: { damageReduction: 0.1, hpMax: 25 } },
+	{ id: "plate-boots", name: "Steel Sabatons", description: "+10 HP, +2% DMG Reduction.", icon: "footprints", rarity: ItemRarity.Uncommon, slot: ItemSlot.Armor, value: 350, lockCondition: { type: ConditionType.TasksCompleted, value: 10, description: "Complete 10 Tasks" }, modifiers: { hpMax: 10, damageReduction: 0.02 } },
+	{ id: "silk-doublet", name: "Silk Doublet", description: "+5% CHA XP.", icon: "sparkles", rarity: ItemRarity.Uncommon, slot: ItemSlot.Armor, value: 450, lockCondition: { type: ConditionType.AttrCha, value: 5, description: "Requires 5 CHA" }, modifiers: { xpBonus: 0.05, cha: 4 } },
+	{ id: "rogues-hood", name: "Rogue's Hood", description: "+10% Drop Chance, +5 CHA.", icon: "user", rarity: ItemRarity.Uncommon, slot: ItemSlot.Armor, value: 800, lockCondition: { type: ConditionType.AttrCha, value: 6, description: "Requires 6 CHA" }, modifiers: { dropChance: 0.1, cha: 5 } },
+	{ id: "monks-robe", name: "Monk's Robe", description: "+10% WIS.", icon: "wind", rarity: ItemRarity.Uncommon, slot: ItemSlot.Armor, value: 500, lockCondition: { type: ConditionType.AttrWis, value: 5, description: "Requires 5 WIS" }, modifiers: { wis: 5, wisdomSave: 0.05 } },
+	{ id: "wizard-hat", name: "Wizard's Hat", description: "+15 INT, +10% XP.", icon: "hat", rarity: ItemRarity.Rare, slot: ItemSlot.Armor, value: 5000, lockCondition: { type: ConditionType.AttrInt, value: 10, description: "Requires 10 INT" }, modifiers: { int: 15, xpBonus: 0.1 } },
+	{ id: "shadow-cloak", name: "Shadow Cloak", description: "+15% Drop Chance.", icon: "ghost", rarity: ItemRarity.Rare, slot: ItemSlot.Armor, value: 3000, lockCondition: { type: ConditionType.AttrCha, value: 10, description: "Requires 10 CHA" }, modifiers: { dropChance: 0.15, cha: 5 } },
+	{ id: "hero-cape", name: "Hero's Cape", description: "+20 HP, +5% All XP.", icon: "shirt", rarity: ItemRarity.Rare, slot: ItemSlot.Armor, value: 4500, lockCondition: { type: ConditionType.Level, value: 15, description: "Requires Level 15" }, modifiers: { hpMax: 20, xpBonus: 0.05 } },
+	{ id: "knights-plate", name: "Knight's Plate", description: "+15% DMG Reduction.", icon: "shield", rarity: ItemRarity.Rare, slot: ItemSlot.Armor, value: 2500, lockCondition: { type: ConditionType.TasksCompleted, value: 50, description: "Complete 50 Tasks" }, modifiers: { damageReduction: 0.15, hpMax: 20, str: 5 } },
+	{ id: "mithril-shirt", name: "Mithril Shirt", description: "Light but strong. +15% DR.", icon: "shirt", rarity: ItemRarity.Epic, slot: ItemSlot.Armor, value: 8500, lockCondition: { type: ConditionType.Level, value: 25, description: "Requires Level 25" }, modifiers: { damageReduction: 0.15, hpMax: 50 } },
+	{ id: "spartan-shield", name: "Spartan Shield", description: "+20% DR.", icon: "shield", rarity: ItemRarity.Epic, slot: ItemSlot.Armor, value: 9500, lockCondition: { type: ConditionType.TasksCompleted, value: 75, description: "Complete 75 Tasks" }, modifiers: { damageReduction: 0.2, str: 10 } },
+	{ id: "valkyrie-helm", name: "Valkyrie Helm", description: "+20% Boss DMG, +20 HP.", icon: "crown", rarity: ItemRarity.Epic, slot: ItemSlot.Armor, value: 10000, lockCondition: { type: ConditionType.Level, value: 30, description: "Requires Level 30" }, modifiers: { damageBonus: 0.2, hpMax: 20 } },
+	{ id: "dragons-guard", name: "Dragon-Scale Plate", description: "+25% DMG Reduction.", icon: "🐉", rarity: ItemRarity.Epic, slot: ItemSlot.Armor, value: 9000, lockCondition: { type: ConditionType.AttrStr, value: 20, description: "Requires 20 STR" }, modifiers: { damageReduction: 0.25, hpMax: 100, str: 15 } },
+	{ id: "celestial-garb", name: "Celestial Garb", description: "+200 HP.", icon: "🌟", rarity: ItemRarity.Legendary, slot: ItemSlot.Armor, value: 25000, lockCondition: { type: ConditionType.BossesDefeated, value: 7, description: "Defeat 7 Bosses" }, modifiers: { hpMax: 200, damageReduction: 0.4 } },
 	
 	// --- ACCESSORIES ---
-	{ id: "lucky-coin", name: "Lucky Coin", description: "+5% GP.", icon: "coins", rarity: ItemRarity.Common, slot: ItemSlot.Accessory, value: 150, modifiers: { gpBonus: 0.05, cha: 1 } },
 	{ id: "faded-map", name: "Faded Map", description: "+5% XP.", icon: "map", rarity: ItemRarity.Common, slot: ItemSlot.Accessory, value: 150, modifiers: { xpBonus: 0.05, wis: 1 } },
-	{ id: "ring-of-focus", name: "Ring of Focus", description: "+10% XP.", icon: "circle-dot", rarity: ItemRarity.Uncommon, slot: ItemSlot.Accessory, value: 800, modifiers: { xpBonus: 0.1, int: 5 } },
-	{ id: "amulet-of-health", name: "Amulet of Health", description: "+20 HP.", icon: "heart-pulse", rarity: ItemRarity.Uncommon, slot: ItemSlot.Accessory, value: 700, modifiers: { hpMax: 20 } },
-	{ id: "kings-seal", name: "King's Seal", description: "+20% GP Gain.", icon: "crown", rarity: ItemRarity.Rare, slot: ItemSlot.Accessory, value: 4000, modifiers: { gpBonus: 0.2, cha: 10 } },
-	{ id: "phoenix-feather", name: "Phoenix Feather", description: "+50 HP, Auto-regen.", icon: "🔥", rarity: ItemRarity.Epic, slot: ItemSlot.Accessory, value: 12000, modifiers: { hpMax: 50, hpRegen: 5 } },
-	{ id: "eye-of-the-storm", name: "Eye of the Storm", description: "All Attributes +10.", icon: "👁️", rarity: ItemRarity.Legendary, slot: ItemSlot.Accessory, value: 30000, modifiers: { str: 10, int: 10, wis: 10, cha: 10 } },
-	{ id: "beads", name: "Prayer Beads", description: "+5% Wisdom Save.", icon: "🔮", rarity: ItemRarity.Common, slot: ItemSlot.Accessory, value: 80, modifiers: { wisdomSave: 0.05 } },
-	{ id: "glass-eye", name: "Glass Eye", description: "+2% Drop Chance.", icon: "scan-eye", rarity: ItemRarity.Common, slot: ItemSlot.Accessory, value: 100, modifiers: { dropChance: 0.02 } },
+	{ id: "lucky-coin", name: "Lucky Coin", description: "+5% GP.", icon: "coins", rarity: ItemRarity.Common, slot: ItemSlot.Accessory, value: 150, modifiers: { gpBonus: 0.05, cha: 1 } },
+	{ id: "beads", name: "Prayer Beads", description: "+5% Wisdom Save.", icon: "🔮", rarity: ItemRarity.Common, slot: ItemSlot.Accessory, value: 80, lockCondition: { type: ConditionType.AttrWis, value: 3, description: "Requires 3 WIS" }, modifiers: { wisdomSave: 0.05 } },
+	{ id: "glass-eye", name: "Glass Eye", description: "+2% Drop Chance.", icon: "scan-eye", rarity: ItemRarity.Common, slot: ItemSlot.Accessory, value: 100, lockCondition: { type: ConditionType.TasksCompleted, value: 5, description: "Complete 5 Tasks" }, modifiers: { dropChance: 0.02 } },
+	{ id: "emerald-ring", name: "Emerald Ring", description: "+5% GP, +5 HP.", icon: "circle", rarity: ItemRarity.Uncommon, slot: ItemSlot.Accessory, value: 650, lockCondition: { type: ConditionType.Level, value: 4, description: "Requires Level 4" }, modifiers: { gpBonus: 0.05, hpMax: 5 } },
+	{ id: "amulet-of-health", name: "Amulet of Health", description: "+20 HP.", icon: "heart-pulse", rarity: ItemRarity.Uncommon, slot: ItemSlot.Accessory, value: 700, lockCondition: { type: ConditionType.Level, value: 5, description: "Requires Level 5" }, modifiers: { hpMax: 20 } },
+	{ id: "ring-of-focus", name: "Ring of Focus", description: "+10% XP.", icon: "circle-dot", rarity: ItemRarity.Uncommon, slot: ItemSlot.Accessory, value: 800, lockCondition: { type: ConditionType.AttrInt, value: 5, description: "Requires 5 INT" }, modifiers: { xpBonus: 0.1, int: 5 } },
+	{ id: "vial-of-light", name: "Vial of Light", description: "+5% All XP.", icon: "beaker", rarity: ItemRarity.Uncommon, slot: ItemSlot.Accessory, value: 900, lockCondition: { type: ConditionType.Level, value: 8, description: "Requires Level 8" }, modifiers: { xpBonus: 0.05 } },
+	{ id: "merchants-bag", name: "Merchant's Bag", description: "+15% GP Gain.", icon: "briefcase", rarity: ItemRarity.Uncommon, slot: ItemSlot.Accessory, value: 1200, lockCondition: { type: ConditionType.AttrCha, value: 8, description: "Requires 8 CHA" }, modifiers: { gpBonus: 0.15 } },
+	{ id: "rabbits-foot", name: "Rabbit's Foot", description: "+5% Drop Chance.", icon: "clover", rarity: ItemRarity.Uncommon, slot: ItemSlot.Accessory, value: 400, lockCondition: { type: ConditionType.TasksCompleted, value: 15, description: "Complete 15 Tasks" }, modifiers: { dropChance: 0.05 } },
+	{ id: "gladiators-glove", name: "Gladiator's Glove", description: "+10 STR, +5% Boss DMG.", icon: "hand-metal", rarity: ItemRarity.Rare, slot: ItemSlot.Accessory, value: 4200, lockCondition: { type: ConditionType.AttrStr, value: 12, description: "Requires 12 STR" }, modifiers: { str: 10, damageBonus: 0.05 } },
+	{ id: "soul-lantern", name: "Soul Lantern", description: "+25% WIS XP.", icon: "lamp", rarity: ItemRarity.Rare, slot: ItemSlot.Accessory, value: 3800, lockCondition: { type: ConditionType.AttrWis, value: 15, description: "Requires 15 WIS" }, modifiers: { xpBonus: 0.25, wis: 5 } },
+	{ id: "hunters-lens", name: "Hunter's Lens", description: "+10% Boss DMG.", icon: "eye", rarity: ItemRarity.Rare, slot: ItemSlot.Accessory, value: 3500, lockCondition: { type: ConditionType.TasksCompleted, value: 30, description: "Complete 30 Tasks" }, modifiers: { damageBonus: 0.1 } },
+	{ id: "kings-seal", name: "King's Seal", description: "+20% GP Gain.", icon: "crown", rarity: ItemRarity.Rare, slot: ItemSlot.Accessory, value: 4000, lockCondition: { type: ConditionType.AttrCha, value: 15, description: "Requires 15 CHA" }, modifiers: { gpBonus: 0.2, cha: 10 } },
+	{ id: "phoenix-feather", name: "Phoenix Feather", description: "+50 HP, Auto-regen.", icon: "🔥", rarity: ItemRarity.Epic, slot: ItemSlot.Accessory, value: 12000, lockCondition: { type: ConditionType.Level, value: 20, description: "Requires Level 20" }, modifiers: { hpMax: 50, hpRegen: 5 } },
+	{ id: "eye-of-the-storm", name: "Eye of the Storm", description: "All Attributes +10.", icon: "👁️", rarity: ItemRarity.Legendary, slot: ItemSlot.Accessory, value: 30000, lockCondition: { type: ConditionType.BossesDefeated, value: 15, description: "Defeat 15 Bosses" }, modifiers: { str: 10, int: 10, wis: 10, cha: 10 } },
 
-	{ id: "rabbits-foot", name: "Rabbit's Foot", description: "+5% Drop Chance.", icon: "clover", rarity: ItemRarity.Uncommon, slot: ItemSlot.Accessory, value: 400, modifiers: { dropChance: 0.05 } },
 	
-	// --- ADDING MORE TO REACH 50+ (Continuing...) ---
-	{ id: "vial-of-light", name: "Vial of Light", description: "+5% All XP.", icon: "beaker", rarity: ItemRarity.Uncommon, slot: ItemSlot.Accessory, value: 900, modifiers: { xpBonus: 0.05 } },
-	{ id: "merchants-bag", name: "Merchant's Bag", description: "+15% GP Gain.", icon: "briefcase", rarity: ItemRarity.Uncommon, slot: ItemSlot.Accessory, value: 1200, modifiers: { gpBonus: 0.15 } },
-	{ id: "hunters-lens", name: "Hunter's Lens", description: "+10% Boss DMG.", icon: "eye", rarity: ItemRarity.Rare, slot: ItemSlot.Accessory, value: 3500, modifiers: { damageBonus: 0.1 } },
-	{ id: "hero-cape", name: "Hero's Cape", description: "+20 HP, +5% All XP.", icon: "shirt", rarity: ItemRarity.Rare, slot: ItemSlot.Armor, value: 4500, modifiers: { hpMax: 20, xpBonus: 0.05 } },
-	{ id: "mithril-shirt", name: "Mithril Shirt", description: "Light but strong. +15% DR.", icon: "shirt", rarity: ItemRarity.Epic, slot: ItemSlot.Armor, value: 8500, modifiers: { damageReduction: 0.15, hpMax: 50 } },
-	{ id: "valkyrie-helm", name: "Valkyrie Helm", description: "+20% Boss DMG, +20 HP.", icon: "crown", rarity: ItemRarity.Epic, slot: ItemSlot.Armor, value: 10000, modifiers: { damageBonus: 0.2, hpMax: 20 } },
-	{ id: "soul-lantern", name: "Soul Lantern", description: "+25% WIS XP.", icon: "lamp", rarity: ItemRarity.Rare, slot: ItemSlot.Accessory, value: 3800, modifiers: { xpBonus: 0.25, wis: 5 } },
-	{ id: "gladiators-glove", name: "Gladiator's Glove", description: "+10 STR, +5% Boss DMG.", icon: "hand-metal", rarity: ItemRarity.Rare, slot: ItemSlot.Accessory, value: 4200, modifiers: { str: 10, damageBonus: 0.05 } },
-	{ id: "spartan-shield", name: "Spartan Shield", description: "+20% DR.", icon: "shield", rarity: ItemRarity.Epic, slot: ItemSlot.Armor, value: 9500, modifiers: { damageReduction: 0.2, str: 10 } },
-	{ id: "wizard-hat", name: "Wizard's Hat", description: "+15 INT, +10% XP.", icon: "hat", rarity: ItemRarity.Rare, slot: ItemSlot.Armor, value: 5000, modifiers: { int: 15, xpBonus: 0.1 } },
-	{ id: "rogues-hood", name: "Rogue's Hood", description: "+10% Drop Chance, +5 CHA.", icon: "user", rarity: ItemRarity.Uncommon, slot: ItemSlot.Armor, value: 800, modifiers: { dropChance: 0.1, cha: 5 } },
-	{ id: "emerald-ring", name: "Emerald Ring", description: "+5% GP, +5 HP.", icon: "circle", rarity: ItemRarity.Uncommon, slot: ItemSlot.Accessory, value: 650, modifiers: { gpBonus: 0.05, hpMax: 5 } }
+	// --- SEALED / ENDGAME GEAR ---
+	{ 
+		id: "crown-ascendant", name: "Crown of the Ascendant", description: "Worn by those who conquered mortality. +20% All Stats.", 
+		icon: "👑", rarity: ItemRarity.Legendary, slot: ItemSlot.Armor, value: 50000, 
+		modifiers: { str: 20, int: 20, wis: 20, cha: 20, hpMax: 500, xpBonus: 0.5 },
+		lockCondition: { type: ConditionType.Level, value: 50, description: "Requires Level 50 to unlock" }
+	},
+	{ 
+		id: "demons-heart", name: "Demon's Heart", description: "Beating with raw, untamed power. +50% Boss DMG.", 
+		icon: "❤️‍🔥", rarity: ItemRarity.Epic, slot: ItemSlot.Accessory, value: 20000, 
+		modifiers: { damageBonus: 0.5, hpRegen: 15 },
+		lockCondition: { type: ConditionType.BossesDefeated, value: 5, description: "Defeat 5 Bosses to unseal" }
+	},
+	{ 
+		id: "tome-endless", name: "Tome of Endless Thoughts", description: "Knowledge unbound. +30% XP.", 
+		icon: "📖", rarity: ItemRarity.Legendary, slot: ItemSlot.Accessory, value: 15000, 
+		modifiers: { xpBonus: 0.3, int: 25 },
+		lockCondition: { type: ConditionType.AttrInt, value: 20, description: "Requires INT Level 20" }
+	},
+	{ 
+		id: "unyielding-seal", name: "Seal of the Unyielding", description: "+50% DMG Reduction, +300 HP.", 
+		icon: "🛡️", rarity: ItemRarity.Epic, slot: ItemSlot.Accessory, value: 18000, 
+		modifiers: { damageReduction: 0.5, hpMax: 300, wisdomSave: 0.5 },
+		lockCondition: { type: ConditionType.AttrWis, value: 25, description: "Requires WIS Level 25" }
+	},
+	{ 
+		id: "gilded-mirror", name: "Gilded Mirror of Vanity", description: "+50% GP Gain, +30 CHA.", 
+		icon: "🪞", rarity: ItemRarity.Epic, slot: ItemSlot.Accessory, value: 22000, 
+		modifiers: { gpBonus: 0.5, cha: 30 },
+		lockCondition: { type: ConditionType.AttrCha, value: 20, description: "Requires CHA Level 20" }
+	},
+	{ 
+		id: "abyssal-blade", name: "Abyssal Greatblade", description: "Heavy and destructive. +40 STR.", 
+		icon: "🗡️", rarity: ItemRarity.Legendary, slot: ItemSlot.Weapon, value: 35000, 
+		modifiers: { str: 40, damageBonus: 0.4 },
+		lockCondition: { type: ConditionType.AttrStr, value: 30, description: "Requires STR Level 30" }
+	}
 ];
 
 // ---------------------------------------------------------------------------
@@ -452,3 +488,4 @@ export const DUNGEON_TEMPLATES = [
 export function generateId(): string {
 	return Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
 }
+

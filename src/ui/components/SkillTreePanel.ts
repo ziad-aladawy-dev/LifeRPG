@@ -206,6 +206,42 @@ export class SkillTreePanel {
 			el.scrollLeft = scrollLeft - walkX;
 			el.scrollTop = scrollTop - walkY;
 		});
+
+		const workspace = el.querySelector(".life-rpg-tree-workspace") as HTMLElement;
+		if (workspace) {
+			let scale = 1;
+			workspace.style.transformOrigin = "0 0";
+			
+			el.addEventListener("wheel", (e) => {
+				if (e.ctrlKey || e.metaKey || !e.shiftKey) { 
+					// Allow standard vertical scroll if shift is held, otherwise zoom
+					e.preventDefault();
+					
+					// Find mouse position relative to workspace
+					const rect = workspace.getBoundingClientRect();
+					const mouseX = e.clientX - rect.left;
+					const mouseY = e.clientY - rect.top;
+					
+					const zoomSpeed = 0.0015;
+					const delta = -e.deltaY * zoomSpeed;
+					
+					const oldScale = scale;
+					scale = Math.max(0.4, Math.min(scale + delta, 2.5));
+					
+					// Adjust scroll position to keep the mouse point stationary
+					if (scale !== oldScale) {
+						workspace.style.transform = `scale(${scale})`;
+						
+						const scaleRatio = scale / oldScale;
+						const dx = mouseX * (scaleRatio - 1);
+						const dy = mouseY * (scaleRatio - 1);
+						
+						el.scrollLeft += dx;
+						el.scrollTop += dy;
+					}
+				}
+			}, { passive: false });
+		}
 	}
 
 	destroy(): void {
