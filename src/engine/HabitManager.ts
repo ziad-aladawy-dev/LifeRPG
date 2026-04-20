@@ -825,20 +825,22 @@ export function recalculateHabitStreak(habit: Habit): number {
 		}
 
 		let streak = 0;
-		const backlogDays = (habit.outstandingDays || 0) * recurrence;
 		let checkDate = parseLocalDate(todayStr);
-		checkDate.setDate(checkDate.getDate() - backlogDays - 1); // Start before backlog
 		
-		const maxLookback = 365;
-		for (let i = 0; i < maxLookback; i++) {
+		// Loop back day by day starting from today until we hit the start date
+		while (true) {
 			// HARD STOP: Don't count before the ritual start date!
-			if (checkDate.getTime() < anchorTime - 43200000) break;
+			// We use a small buffer (12 hours = 43200000ms) to avoid timezone/daylight saving time boundary issues.
+			if (checkDate.getTime() < anchorTime - 43200000) {
+				break;
+			}
 
 			const dateStr = formatDate(checkDate);
 			if (!history[dateStr]) {
 				streak++;
 				checkDate.setDate(checkDate.getDate() - 1);
 			} else {
+				// Hit a day where the bad habit was done (logged), which breaks the resisted streak.
 				break;
 			}
 		}
