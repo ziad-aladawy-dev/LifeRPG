@@ -426,6 +426,10 @@ export interface PluginSettings {
 
 	// Boss enrage timer (hours before boss enrages)
 	bossEnrageHours: number;
+
+	// Image Caching
+	imageCacheSizeCap: number; // in MB
+	lastImageCachePrune: string;
 }
 
 // ---------------------------------------------------------------------------

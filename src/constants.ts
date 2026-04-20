@@ -52,6 +52,8 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	showNotifications: true,
 	skillToAttributeRatio: 0.2,
 	bossEnrageHours: 48,
+	imageCacheSizeCap: 100,
+	lastImageCachePrune: new Date().toISOString(),
 };
 
 // ---------------------------------------------------------------------------

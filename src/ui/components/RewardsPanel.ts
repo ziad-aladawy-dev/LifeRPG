@@ -8,7 +8,8 @@ import { type StateManager } from "../../state/StateManager";
 import { processGpSpend } from "../../engine/GameEngine";
 import { generateId } from "../../constants";
 import { formatNumber } from "../../utils/formatter";
-import { type Reward, type Item, ConditionType, type CharacterAttributes, RewardCategory, EventType, type CharacterState } from "../../types";
+import { type Reward, type Item, ConditionType, type CharacterAttributes, RewardCategory, EventType, type CharacterState, ItemRarity, ItemSlot } from "../../types";
+import { ImageCacheManager } from "../../utils/ImageCacheManager";
 
 export class RewardsPanel {
 	private containerEl: HTMLElement;
@@ -187,6 +188,13 @@ export class RewardsPanel {
 		if (reward.icon.startsWith("http://") || reward.icon.startsWith("https://")) {
 			iconEl.style.backgroundImage = `url('${reward.icon}')`;
 			iconEl.addClass("has-custom-img");
+
+			// Asynchronously resolve cached version for offline support
+			ImageCacheManager.getInstance((this.stateManager as any).plugin.app)
+				.getCachedUrl(reward.icon)
+				.then(cached => {
+					if (cached) iconEl.style.backgroundImage = `url('${cached}')`;
+				});
 		} else if (reward.icon.startsWith("assets/")) {
 			iconEl.style.backgroundImage = `url('${this.stateManager.getAssetPath(reward.icon)}')`;
 			iconEl.addClass("has-custom-img");
@@ -353,6 +361,13 @@ export class RewardsPanel {
 			if (val.startsWith("http://") || val.startsWith("https://")) {
 				previewIconWrapper.style.backgroundImage = `url('${val}')`;
 				previewIconWrapper.addClass("has-custom-img");
+
+				// Resolve cached version
+				ImageCacheManager.getInstance((this.stateManager as any).plugin.app)
+					.getCachedUrl(val)
+					.then(cached => {
+						if (cached) previewIconWrapper.style.backgroundImage = `url('${cached}')`;
+					});
 			} else if (val.startsWith("assets/")) {
 				previewIconWrapper.style.backgroundImage = `url('${this.stateManager.getAssetPath(val)}')`;
 				previewIconWrapper.addClass("has-custom-img");
@@ -517,6 +532,13 @@ export class RewardsPanel {
 			if (val.startsWith("http://") || val.startsWith("https://")) {
 				previewIconWrapper.style.backgroundImage = `url('${val}')`;
 				previewIconWrapper.addClass("has-custom-img");
+
+				// Resolve cached version
+				ImageCacheManager.getInstance((this.stateManager as any).plugin.app)
+					.getCachedUrl(val)
+					.then(cached => {
+						if (cached) previewIconWrapper.style.backgroundImage = `url('${cached}')`;
+					});
 			} else if (val.startsWith("assets/")) {
 				previewIconWrapper.style.backgroundImage = `url('${this.stateManager.getAssetPath(val)}')`;
 				previewIconWrapper.addClass("has-custom-img");

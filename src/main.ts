@@ -9,6 +9,7 @@ import { getTodayStr } from "./utils/dateUtils";
 import { evaluateDailyHabits } from "./engine/HabitManager";
 import { EventType, ItemSlot } from "./types";
 import { LifeRpgSettingsTab } from "./ui/SettingsTab";
+import { ImageCacheManager } from "./utils/ImageCacheManager";
 
 export default class LifeRpgPlugin extends Plugin {
 	public stateManager: StateManager;
@@ -23,6 +24,9 @@ export default class LifeRpgPlugin extends Plugin {
 		// ---------------------------------------------------------------
 		this.stateManager = new StateManager(this);
 		await this.stateManager.load();
+
+		// Initialize Image Cache
+		await ImageCacheManager.getInstance(this.app).initialize();
 
 		// Add Settings Tab
 		this.addSettingTab(new LifeRpgSettingsTab(this.app, this));

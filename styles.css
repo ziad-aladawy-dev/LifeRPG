@@ -686,8 +686,8 @@
 }
 
 .life-rpg-stats-avatar {
-  width: 60px;
-  height: 60px;
+  width: 120px;
+  height: 120px;
   border-radius: 50%;
   background: var(--stone-mid);
   border: 2px solid var(--gold-mid);
@@ -1029,8 +1029,8 @@
 
 /* Avatar preview */
 .life-rpg-profile-avatar-preview {
-  width: 80px;
-  height: 80px;
+  width: 180px;
+  height: 180px;
   border-radius: 50%;
   background: var(--stone-mid);
   border: 3px solid var(--gold-mid);
@@ -4363,5 +4363,154 @@
 
 /* ╔═════════════════════════════════════════════════════════════════════════════╗
    ║  END — Oathbound Dark Fantasy Theme                                       ║
-   ║  ~3600 lines of cinematic, Elden Ring / BG3 inspired styling              ║
+   ║  ~4300 lines of cinematic, Elden Ring / BG3 inspired styling              ║
    ╚═════════════════════════════════════════════════════════════════════════════╝ */
+
+/* ============================================================================
+   §24  MOBILE OPTIMIZATION — iPhone 12 mini & General iOS
+   ============================================================================ */
+
+@media screen and (max-width: 600px) {
+  .life-rpg-container {
+    zoom: 1 !important; /* Disable power-scaling on mobile to prevent overflow */
+    padding: 0 !important;
+    font-size: 11px;
+  }
+
+  .life-rpg-tab-content {
+    padding: 8px;
+  }
+
+  /* ── Ribbon ── */
+  .life-rpg-ribbon {
+    padding: 6px 8px;
+    gap: 4px;
+    justify-content: flex-start;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+  }
+
+  .life-rpg-ribbon::-webkit-scrollbar {
+    display: none;
+  }
+
+  .life-rpg-ribbon-item {
+    padding: 4px 6px;
+    flex-shrink: 0;
+  }
+
+  /* ── Profile / Stats ── */
+  .life-rpg-stats-profile {
+    flex-direction: column;
+    text-align: center;
+    padding: 16px 12px;
+    gap: 10px;
+  }
+
+  .life-rpg-stats-avatar {
+    width: 80px !important;
+    height: 80px !important;
+    font-size: 24px;
+  }
+
+  .life-rpg-stats-name {
+    font-size: 16px;
+  }
+
+  /* ── Grids ── */
+  .life-rpg-rewards-grid,
+  .life-rpg-boss-grid,
+  .life-rpg-dungeon-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
+    gap: 8px;
+  }
+
+  .life-rpg-reward-card {
+    padding: 10px;
+  }
+
+  .life-rpg-reward-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 24px;
+  }
+
+  /* ── Forms & Modals ── */
+  .life-rpg-add-reward-form,
+  .life-rpg-form {
+    width: 92% !important;
+    padding: 16px !important;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .life-rpg-modal-overlay {
+    position: fixed !important; /* Fix for mobile scrolling issues */
+    z-index: 1000;
+  }
+
+  .life-rpg-input,
+  .life-rpg-select,
+  .life-rpg-btn {
+    min-height: 36px; /* Larger touch targets */
+    font-size: 13px !important;
+  }
+
+  /* ── Skill Tree ── */
+  .life-rpg-tree-scroll-area {
+    max-height: 400px;
+  }
+
+  /* ── Boss Panel ── */
+  .life-rpg-boss-card {
+    padding: 12px;
+  }
+
+  .life-rpg-boss-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+  }
+
+  .life-rpg-boss-timer {
+    font-size: 9px;
+  }
+
+  /* ── Tab Navigation ── */
+  .life-rpg-tab-btn {
+    padding: 8px 12px; /* Better thumb hit-area */
+  }
+}
+
+/* Extra small devices (iPhone 12 mini portrait) */
+@media screen and (max-width: 380px) {
+  .life-rpg-rewards-grid {
+    grid-template-columns: 1fr 1fr !important; /* Force 2 columns */
+  }
+
+  .life-rpg-epic-title {
+    font-size: 14px;
+    letter-spacing: 3px;
+  }
+
+  .life-rpg-hp-regen-info {
+    font-size: 9px;
+  }
+
+  .life-rpg-form-row {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 4px;
+  }
+
+  .life-rpg-form-row label {
+    font-size: 10px;
+  }
+
+  .life-rpg-form-row input, 
+  .life-rpg-form-row select {
+    width: 100% !important;
+  }
+}
+

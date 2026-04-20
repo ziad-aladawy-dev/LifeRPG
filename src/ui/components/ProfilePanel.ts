@@ -1,7 +1,6 @@
-import { setIcon } from "obsidian";
-import { type CharacterState } from "../../types";
 import { type StateManager } from "../../state/StateManager";
 import { CHARACTER_CLASSES } from "../../engine/ClassSystem";
+import { ImageCacheManager } from "../../utils/ImageCacheManager";
 
 export class ProfilePanel {
 	private containerEl: HTMLElement;
@@ -24,10 +23,19 @@ export class ProfilePanel {
 
 		const avatarPreview = form.createDiv({ cls: "life-rpg-profile-avatar-preview" });
 		if (character.avatarUrl && (character.avatarUrl.startsWith("http") || character.avatarUrl.startsWith("data:image/"))) {
-			avatarPreview.createEl("img", {
+			const img = avatarPreview.createEl("img", {
 				attr: { src: character.avatarUrl, alt: "Avatar" },
 				cls: "life-rpg-char-avatar-img"
 			});
+
+			// Asynchronously resolve cached version for offline support
+			if (character.avatarUrl.startsWith("http")) {
+				ImageCacheManager.getInstance((this.stateManager as any).plugin.app)
+					.getCachedUrl(character.avatarUrl)
+					.then(cached => {
+						if (cached) img.src = cached;
+					});
+			}
 		} else {
 			avatarPreview.setText(character.avatarUrl || "⚔️");
 		}

@@ -6,6 +6,7 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type LifeRpgPlugin from "../main";
 import { Difficulty } from "../types";
+import { ImageCacheManager } from "../utils/ImageCacheManager";
 
 export class LifeRpgSettingsTab extends PluginSettingTab {
 	plugin: LifeRpgPlugin;
@@ -424,6 +425,57 @@ export class LifeRpgSettingsTab extends PluginSettingTab {
 						}
 					})
 			);
+
+		// ---------------------------------------------------------------
+		// Image Cache
+		// ---------------------------------------------------------------
+		containerEl.createEl("h2", { text: "🖼️ Image Cache" });
+
+		new Setting(containerEl)
+			.setName("Download and cache portal images")
+			.setDesc("Automatically download external image URLs for offline use.")
+			.addToggle((toggle) => toggle.setValue(true).setDisabled(true).setDesc("Always enabled for best experience"));
+
+		new Setting(containerEl)
+			.setName("Cache size cap (MB)")
+			.setDesc("Maximum space allowed for cached images. Oldest images are deleted when full.")
+			.addText((text) =>
+				text
+					.setPlaceholder("100")
+					.setValue(
+						this.plugin.stateManager.getSettings().imageCacheSizeCap.toString()
+					)
+					.onChange(async (value) => {
+						const num = parseInt(value, 10);
+						if (!isNaN(num) && num > 0) {
+							this.plugin.stateManager.updateSettings({
+								imageCacheSizeCap: num,
+							});
+						}
+					})
+			);
+
+		const cacheSetting = new Setting(containerEl)
+			.setName("Clear image cache")
+			.setDesc("Checking storage usage...")
+			.addButton((btn) =>
+				btn
+					.setButtonText("Clear Cache")
+					.setWarning()
+					.onClick(async () => {
+						const confirmed = confirm("Are you sure you want to delete all cached images? They will be re-downloaded if you visit the store/profile while online.");
+						if (confirmed) {
+							await ImageCacheManager.getInstance(this.app).clearCache();
+							new Notice("Image cache cleared.");
+							this.display(); // Refresh
+						}
+					})
+			);
+
+		// Update cache size display
+		ImageCacheManager.getInstance(this.app).getCacheSizeMB().then(size => {
+			cacheSetting.setDesc(`Current usage: ${size} MB. Click to delete all cached image files.`);
+		});
 
 		// ---------------------------------------------------------------
 		// Danger Zone

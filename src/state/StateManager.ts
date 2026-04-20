@@ -24,6 +24,7 @@ import {
 } from "../types";
 import { DEFAULT_GAME_STATE, DEFAULT_SETTINGS, DEFAULT_ATTRIBUTES, INITIAL_ITEMS, SKILL_TREE_NODES, generateId } from "../constants";
 import { calculateGlobalModifiers } from "../engine/GameEngine";
+import { ImageCacheManager } from "../utils/ImageCacheManager";
 
 /** Deep-merge two objects. Source values override target values. */
 function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>): T {
@@ -463,6 +464,12 @@ export class StateManager {
 	/** Update character fields */
 	updateCharacter(partial: Partial<CharacterState>): void {
 		this.state.character = { ...this.state.character, ...partial };
+		
+		// If avatar URL changed and is external, trigger cache
+		if (partial.avatarUrl && partial.avatarUrl.startsWith("http")) {
+			ImageCacheManager.getInstance(this.plugin.app).cacheImage(partial.avatarUrl, this.settings);
+		}
+
 		this.save();
 		this.notify();
 	}
@@ -608,6 +615,12 @@ export class StateManager {
 		const idx = this.state.rewards.findIndex((r) => r.id === id);
 		if (idx !== -1) {
 			this.state.rewards[idx] = { ...this.state.rewards[idx], ...partial };
+			
+			// If icon changed and is external, trigger cache
+			if (partial.icon && partial.icon.startsWith("http")) {
+				ImageCacheManager.getInstance(this.plugin.app).cacheImage(partial.icon, this.settings);
+			}
+
 			this.save();
 			this.notify();
 		}
