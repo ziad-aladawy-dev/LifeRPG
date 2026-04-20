@@ -311,7 +311,12 @@ export function evaluateDailyHabits(
 		}
 
 		// 3. Recalculate dynamic status
-		h.outstandingDays = calculateOutstandingDates(h).length;
+		// Bad habits should NEVER accumulate outstanding days — the goal is to NOT do them.
+		if (h.type === "good") {
+			h.outstandingDays = calculateOutstandingDates(h).length;
+		} else {
+			h.outstandingDays = 0;
+		}
 		h.lastEvaluatedDate = todayStr;
 		h.streak = recalculateHabitStreak(h);
 

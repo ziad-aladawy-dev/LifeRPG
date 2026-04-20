@@ -190,21 +190,59 @@ export class HabitsPanel {
 
 		// --- Streak Badge (for both good & bad habits) ---
 		if (liveStreak > 0) {
-			const streakTier = liveStreak >= 30 ? "legendary" : liveStreak >= 14 ? "epic" : liveStreak >= 7 ? "rare" : liveStreak >= 3 ? "uncommon" : "common";
-			const streakIcon = habit.type === "good"
-				? (liveStreak >= 30 ? "🌟" : liveStreak >= 14 ? "💎" : liveStreak >= 7 ? "🔥" : "✨")
-				: (liveStreak >= 7 ? "🛡️" : liveStreak >= 3 ? "💪" : "🙏");
+			// --- Granular streak tiers with fire (good) vs frost (bad) ---
+			let streakTier: string;
+			let streakIcon: string;
 			const streakLabel = habit.type === "good" ? "streak" : "resisted";
+
+			if (habit.type === "good") {
+				// FIRE progression: spark → flame → blaze → inferno → supernova
+				if (liveStreak >= 100) {
+					streakTier = "fire-supernova"; streakIcon = "☀️";
+				} else if (liveStreak >= 60) {
+					streakTier = "fire-inferno"; streakIcon = "🌋";
+				} else if (liveStreak >= 30) {
+					streakTier = "fire-blaze"; streakIcon = "🔥";
+				} else if (liveStreak >= 14) {
+					streakTier = "fire-flame"; streakIcon = "🔥";
+				} else if (liveStreak >= 7) {
+					streakTier = "fire-kindle"; streakIcon = "✨";
+				} else if (liveStreak >= 3) {
+					streakTier = "fire-spark"; streakIcon = "✨";
+				} else {
+					streakTier = "fire-ember"; streakIcon = "🕯️";
+				}
+			} else {
+				// FROST progression: chill → frost → glacial → permafrost → absolute-zero
+				if (liveStreak >= 100) {
+					streakTier = "frost-absolute"; streakIcon = "💎";
+				} else if (liveStreak >= 60) {
+					streakTier = "frost-permafrost"; streakIcon = "🧊";
+				} else if (liveStreak >= 30) {
+					streakTier = "frost-glacial"; streakIcon = "❄️";
+				} else if (liveStreak >= 14) {
+					streakTier = "frost-frozen"; streakIcon = "❄️";
+				} else if (liveStreak >= 7) {
+					streakTier = "frost-cold"; streakIcon = "🌬️";
+				} else if (liveStreak >= 3) {
+					streakTier = "frost-chill"; streakIcon = "🌬️";
+				} else {
+					streakTier = "frost-cool"; streakIcon = "🙏";
+				}
+			}
 
 			const streakBadge = infoRow.createEl("span", {
 				text: `${streakIcon} ${liveStreak} ${streakLabel}`,
-				cls: `life-rpg-streak-badge life-rpg-streak-${streakTier} ${habit.type === "bad" ? "life-rpg-streak-resist" : ""}`,
+				cls: `life-rpg-streak-badge life-rpg-streak-${streakTier}`,
 			});
 
 			// Add bonus multiplier indicator for good habits with decent streak
 			if (habit.type === "good" && liveStreak >= 7) {
 				const bonus = streakBonusMultiplier(liveStreak);
 				streakBadge.title = `${bonus.toFixed(1)}x streak bonus active!`;
+			}
+			if (habit.type === "bad" && liveStreak >= 7) {
+				streakBadge.title = `${liveStreak} days of iron will!`;
 			}
 		}
 
@@ -260,8 +298,8 @@ export class HabitsPanel {
 		// Action buttons row
 		const actions = card.createDiv({ cls: "life-rpg-habit-actions" });
 
-		if ((habit.outstandingDays || 0) > 0) {
-			// Outstanding Backlog State
+		if (habit.type === "good" && (habit.outstandingDays || 0) > 0) {
+			// Outstanding Backlog State (ONLY for good habits)
 			const outstandingContainer = actions.createDiv({ cls: "life-rpg-outstanding-actions" });
 			outstandingContainer.createEl("span", { 
 				text: `🚨 ${habit.outstandingDays} Owed: `, 

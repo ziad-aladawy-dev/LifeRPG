@@ -70,11 +70,12 @@ export class SkillTreePanel {
 	}
 
 	private drawConnector(svg: SVGSVGElement, from: SkillTreeNode, to: SkillTreeNode, active: boolean): void {
+		const HALF = 26; // half of 52px node
 		const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-		line.setAttribute("x1", (from.x + 40).toString());
-		line.setAttribute("y1", (from.y + 40).toString());
-		line.setAttribute("x2", (to.x + 40).toString());
-		line.setAttribute("y2", (to.y + 40).toString());
+		line.setAttribute("x1", (from.x + HALF).toString());
+		line.setAttribute("y1", (from.y + HALF).toString());
+		line.setAttribute("x2", (to.x + HALF).toString());
+		line.setAttribute("y2", (to.y + HALF).toString());
 		line.setAttribute("class", active ? "line-active" : "line-inactive");
 		svg.appendChild(line);
 	}
@@ -88,13 +89,17 @@ export class SkillTreePanel {
 		const canUnlock = !isUnlocked && hasDeps && attrOk && sp >= node.cost;
 		
 		const nodeEl = parent.createDiv({ 
-			cls: `life-rpg-skill-node ${isUnlocked ? "is-unlocked" : (canUnlock ? "can-unlock" : "is-locked")} branch-${node.branch}`
+			cls: `life-rpg-skill-node constellation-node ${isUnlocked ? "is-unlocked" : (canUnlock ? "can-unlock" : "is-locked")} branch-${node.branch}`
 		});
 		
 		nodeEl.style.left = `${node.x}px`;
 		nodeEl.style.top = `${node.y}px`;
 
+		// Outer aura ring (subtle glow around the star)
 		const aura = nodeEl.createDiv({ cls: "node-aura" });
+		// Star core (the bright center point)
+		const starCore = nodeEl.createDiv({ cls: "star-core" });
+		// Icon inside star
 		const iconBox = nodeEl.createDiv({ cls: "node-icon" });
 		if (/^[a-z0-9-]+$/.test(node.icon)) {
 			setIcon(iconBox, node.icon);
@@ -102,7 +107,7 @@ export class SkillTreePanel {
 			iconBox.setText(node.icon);
 		}
 
-		// Node name label below icon
+		// Node name label below
 		nodeEl.createDiv({ cls: "life-rpg-node-label", text: node.name });
 
 		// Click to unlock
