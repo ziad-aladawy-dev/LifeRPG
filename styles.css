@@ -5193,9 +5193,51 @@
   opacity: 0.15;
 }
 
+
 /* ── Priority Badges ── */
 .life-rpg-badge-priority-highest { color: var(--blood-bright); text-shadow: 0 0 8px var(--blood-glow); border: 1px solid var(--blood-mid); background: hsla(0, 70%, 20%, 0.3); }
 .life-rpg-badge-priority-high { color: var(--ember-bright); border: 1px solid var(--ember-mid); background: hsla(15, 70%, 20%, 0.2); }
 .life-rpg-badge-priority-medium { color: var(--gold-bright); border: 1px solid var(--gold-mid); background: hsla(40, 60%, 20%, 0.2); }
 .life-rpg-badge-priority-low { color: var(--nature-bright); border: 1px solid var(--nature-mid); background: hsla(140, 50%, 20%, 0.15); }
 .life-rpg-badge-priority-lowest { color: var(--text-muted); border: 1px solid var(--border-subtle); background: var(--stone-dark); }
+
+/* ── Quest Card Overhaul ── */
+.life-rpg-quest-card {
+  position: relative; /* For absolute positioning of actions */
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.life-rpg-quest-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: -2px;
+  margin-bottom: 4px;
+  padding-left: 32px; /* Align under the title text, past the icon */
+}
+
+.life-rpg-quest-reward {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--nature-bright);
+  text-shadow: 0 0 8px hsla(140, 60%, 45%, 0.2);
+}
+
+.life-rpg-quest-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  opacity: 0.3;
+  transition: opacity var(--t-normal);
+}
+
+
+.life-rpg-quest-card:hover .life-rpg-quest-actions {
+  opacity: 1;
+}
+
+
+

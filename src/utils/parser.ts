@@ -162,16 +162,25 @@ export function isTaskCompleted(line: string): boolean {
  * Extract the task text content (without the checkbox and metadata).
  */
 export function getTaskText(line: string): string {
-	// Remove checkbox prefix
+	// 1. Remove checkbox prefix
 	let text = line.replace(/^[\s]*[-*]\s\[[ xX]\]\s*/, "");
-	// Remove inline metadata brackets
-	text = text.replace(/\[(?:difficulty|diff|d|skill|s|deadline|due|dl|id|m|mental|p|physical|w|willpower)\s*:[^\]]*\]/gi, "");
-	// Remove priority emojis 
-	text = text.replace(/[🔺⏫🔼🔽⏬⏺️]/g, "");
-	// Remove TickTickSync metadata (dataview inline syntax) 
-	text = text.replace(/\[ticktick_id::[^\]]+\]/gi, "");
-	// Remove Obsidian comments 
+	
+	// 2. Remove Obsidian comments (%%...%%) - handles inline TickTick IDs
 	text = text.replace(/%%.*?%%/g, "");
 	
-	return text.trim();
+	// 3. Remove inline metadata brackets (LifeRPG fields)
+	// We use a more inclusive regex for the content inside brackets to catch all metadata fields
+	text = text.replace(/\[(?:difficulty|diff|d|skill|s|deadline|due|dl|id|m|mental|p|physical|w|willpower)\s*:[^\]]*\]/gi, "");
+	
+	// 4. Remove Dataview-style inline fields (including lone ticktick_id)
+	text = text.replace(/\[[a-z0-9_]+\s*::\s*[^\]]*\]/gi, "");
+	
+	// 5. Remove priority emojis 
+	text = text.replace(/[🔺⏫🔼🔽⏬⏺️]/g, "");
+	
+	// 6. Remove hashtags (#tag) - handles cases like #ticktick
+	text = text.replace(/(^|\s)#[a-zA-Z0-9_\-]+/g, "$1");
+	
+	// 7. Final cleanup: collapse extra spaces and trim
+	return text.replace(/\s{2,}/g, " ").trim();
 }

@@ -105,12 +105,16 @@ export class QuestsPanel {
 					toggleBtn = headerRow.createEl("button", { cls: "life-rpg-subtask-toggle", text: "▶" });
 				}
 
-				// Highlight text containing #tags
-				const nameEl = headerRow.createEl("span", { cls: "life-rpg-quest-name" });
-				nameEl.innerHTML = taskText.replace(
-					/(^|\s)(#[a-zA-Z0-9_\-]+)/g, 
-					'$1<span class="life-rpg-tag">$2</span>'
-				);
+				// Display name
+				const nameEl = headerRow.createEl("span", { text: taskText, cls: "life-rpg-quest-name" });
+
+				// Rewards Info Row (Beautifully written under title)
+				const reward = calculateTaskReward(metadata, settings, character.attributes, globalModifiers, task.isSubtask);
+				const infoRow = card.createDiv({ cls: "life-rpg-quest-info" });
+				infoRow.createEl("span", { 
+					text: `+${reward.xp} XP, +${reward.gp} GP`, 
+					cls: "life-rpg-quest-reward" 
+				});
 
 				const badgesRow = card.createDiv({ cls: "life-rpg-quest-badges" });
 				
@@ -148,10 +152,7 @@ export class QuestsPanel {
 					badgesRow.createEl("span", { text: skillName, cls: `life-rpg-quest-badge life-rpg-badge-skill` });
 				}
 				
-				// Reward Preview
-				const reward = calculateTaskReward(metadata, settings, character.attributes, globalModifiers, task.isSubtask);
-				badgesRow.createEl("span", { text: `+${reward.xp} XP`, cls: `life-rpg-quest-badge life-rpg-habit-reward` });
-				badgesRow.createEl("span", { text: `+${reward.gp} GP`, cls: `life-rpg-quest-badge life-rpg-habit-reward` });
+
 
 				// --- Action Buttons ---
 				const actionButtons = card.createDiv({ cls: "life-rpg-quest-actions" });
@@ -160,7 +161,7 @@ export class QuestsPanel {
 					cls: "life-rpg-btn-icon",
 					title: "Edit Quest Settings"
 				});
-				setIcon(editBtn, "pencil");
+				setIcon(editBtn, "settings");
 				editBtn.addEventListener("click", (e) => {
 					e.stopPropagation();
 					new QuestEditModal(

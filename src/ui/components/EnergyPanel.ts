@@ -2,6 +2,7 @@ import { setIcon, TFile, WorkspaceLeaf } from "obsidian";
 import { type StateManager } from "../../state/StateManager";
 import { type GameState, type TrackedTask } from "../../types";
 import { getTodayStr } from "../../utils/dateUtils";
+import { getTaskText } from "../../utils/parser";
 
 export class EnergyPanel {
 	private containerEl: HTMLElement;
@@ -61,7 +62,7 @@ export class EnergyPanel {
 			if (dates.includes(today)) {
 				const loadVal = (meta.energyM || 0) + (meta.energyP || 0) + (meta.energyW || 0);
 				const task = activeTasks.find(t => t.questId === qId);
-				const taskText = task ? task.text.replace(/\[id: [a-z0-9]+\]/g, "").replace(/^[\s]*[-*]\s\[[ xX]\]\s*/, "") : `Quest ${qId}`;
+				const taskText = task ? getTaskText(task.text) : `Quest ${qId}`;
 				this.renderContributor(list, "Quest", taskText, loadVal, meta, task);
 			}
 		}
