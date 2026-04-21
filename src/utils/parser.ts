@@ -22,6 +22,15 @@ export function parseTaskMetadata(lineText: string): TaskMetadata {
 }
 
 /**
+ * Extract sticky Quest ID from inline text.
+ * Matches: [id: a1b2]
+ */
+export function parseQuestId(lineText: string): string | null {
+	const match = lineText.match(/\[id\s*:\s*([a-z0-9]+)\]/i);
+	return match ? match[1] : null;
+}
+
+/**
  * Extract difficulty from inline text.
  * Matches: [difficulty: easy], [diff: medium], [d: hard]
  * Default: Medium
@@ -92,7 +101,7 @@ export function getTaskText(line: string): string {
 	// Remove checkbox prefix
 	let text = line.replace(/^[\s]*[-*]\s\[[ xX]\]\s*/, "");
 	// Remove inline metadata brackets
-	text = text.replace(/\[(?:difficulty|diff|d|skill|s|deadline|due|dl)\s*:[^\]]*\]/gi, "");
+	text = text.replace(/\[(?:difficulty|diff|d|skill|s|deadline|due|dl|id)\s*:[^\]]*\]/gi, "");
 	// Remove TickTickSync metadata (dataview inline syntax) 
 	text = text.replace(/\[ticktick_id::[^\]]+\]/gi, "");
 	// Remove Obsidian comments 

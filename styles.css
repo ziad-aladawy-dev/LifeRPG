@@ -4529,3 +4529,30 @@
   }
 }
 
+/* ── Editor Ghosting for Sticky IDs ── */
+/* This targets the raw text in the editor if it matches the pattern [id: ...] */
+/* Note: For full invisibility, a CodeMirror extension is used, but this provides a fallback */
+.cm-line span.cm-life-rpg-quest-id {
+  opacity: 0.25;
+  font-size: 0.8em;
+  filter: blur(0.5px);
+  transition: opacity 0.3s ease;
+}
+
+.cm-line:hover span.cm-life-rpg-quest-id {
+  opacity: 0.8;
+  filter: none;
+}
+
+/* ── Editor Ghosting for Sticky IDs ── */
+/* This targets the raw text in the editor if it matches the pattern [id: ...] */
+.cm-line span.cm-life-rpg-quest-id,
+.cm-line span.cm-meta:has(+ span:contains("id:")) {
+  opacity: 0.1 !important;
+  font-size: 0.8em;
+  transition: opacity 0.3s ease;
+}
+
+.cm-line:hover span.cm-life-rpg-quest-id {
+  opacity: 0.8 !important;
+}

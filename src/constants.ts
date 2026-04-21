@@ -140,6 +140,7 @@ export const DEFAULT_GAME_STATE: GameState = {
 	lastOverdueCheckDate: "",
 	totalTasksCompleted: 0,
 	totalHabitsCompleted: 0,
+	questRegistry: {},
 };
 
 // ---------------------------------------------------------------------------

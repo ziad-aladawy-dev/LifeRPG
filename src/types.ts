@@ -234,13 +234,19 @@ export interface EventLogEntry {
 export interface TaskMetadata {
 	difficulty: Difficulty;
 	skillId: string | null;
-	deadline: string | null; // ISO date string
+	deadline: string | null; // ISO date string (Legacy support)
+	startDate?: string | null; // ISO string
+	endDate?: string | null; // ISO string
+	includeTime?: boolean;
+	penalizedAt?: string | null; // ISO timestamp of last penalty trigger
 }
 
 /** Represents a tracked task's checkbox state for change detection */
 export interface TrackedTask {
 	/** Unique deterministic ID for this task instance */
 	id: string;
+	/** The unique ID for metadata lookup (Sticky ID) */
+	questId?: string | null;
 	/** The line number in the file */
 	line: number;
 	/** The full text content of the task line */
@@ -385,6 +391,9 @@ export interface GameState {
 	lastOverdueCheckDate: string; // ISO date string
 	totalTasksCompleted: number;
 	totalHabitsCompleted: number;
+
+	// Quest Registry
+	questRegistry: Record<string, TaskMetadata>;
 }
 
 // ---------------------------------------------------------------------------

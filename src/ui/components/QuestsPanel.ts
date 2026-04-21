@@ -3,17 +3,22 @@
 // Displays all currently tracked active (unchecked) tasks.
 // ============================================================================
 
+import { setIcon } from "obsidian";
 import { type TrackedTask, type PluginSettings, type CharacterState, Difficulty, ItemSlot } from "../../types";
 import { parseTaskMetadata, getTaskText } from "../../utils/parser";
 import { calculateTaskReward, calculateGlobalModifiers } from "../../engine/GameEngine";
+import { type StateManager } from "../../state/StateManager";
+import { QuestEditModal } from "../modals/QuestEditModal";
 
 export class QuestsPanel {
 	private app: any;
 	private containerEl: HTMLElement;
+	private stateManager: StateManager;
 
-	constructor(parentEl: HTMLElement, app: any) {
+	constructor(parentEl: HTMLElement, app: any, stateManager: StateManager) {
 		this.containerEl = parentEl.createDiv({ cls: "life-rpg-quests-panel" });
 		this.app = app;
+		this.stateManager = stateManager;
 	}
 
 	render(activeTasks: TrackedTask[], settings: PluginSettings, character: CharacterState, globalModifiers: ReturnType<typeof calculateGlobalModifiers>): void {
@@ -63,7 +68,15 @@ export class QuestsPanel {
 			}
 
 			const renderTaskNode = (parentEl: HTMLElement, task: TrackedTask) => {
-				const metadata = parseTaskMetadata(task.text);
+				// 1. Get Metadata (Registry Priority)
+				let metadata = parseTaskMetadata(task.text);
+				if (task.questId) {
+					const registeredMeta = this.stateManager.getQuestMetadata(task.questId);
+					if (registeredMeta) {
+						metadata = { ...metadata, ...registeredMeta };
+					}
+				}
+
 				const taskText = getTaskText(task.text);
 
 				const card = parentEl.createDiv({ cls: "life-rpg-quest-card" });
@@ -123,18 +136,47 @@ export class QuestsPanel {
 				badgesRow.createEl("span", { text: `+${reward.xp} XP`, cls: `life-rpg-quest-badge life-rpg-habit-reward` });
 				badgesRow.createEl("span", { text: `+${reward.gp} GP`, cls: `life-rpg-quest-badge life-rpg-habit-reward` });
 
-				if (metadata.deadline) {
-					const dlDateObj = new Date(metadata.deadline);
+				// --- Action Buttons ---
+				const actionButtons = card.createDiv({ cls: "life-rpg-quest-actions" });
+				
+				const editBtn = actionButtons.createEl("button", { 
+					cls: "life-rpg-btn-icon",
+					title: "Edit Quest Settings"
+				});
+				setIcon(editBtn, "pencil");
+				editBtn.addEventListener("click", (e) => {
+					e.stopPropagation();
+					new QuestEditModal(
+						this.app, 
+						task, 
+						this.stateManager, 
+						this.stateManager.getSkills(),
+						() => {
+							// Refresh will happen via state manager notify
+						}
+					).open();
+				});
+
+				if (metadata.deadline || metadata.endDate) {
+					const dlStr = metadata.endDate || metadata.deadline;
+					const dlDateObj = new Date(dlStr!);
 					const dlDate = dlDateObj.toLocaleDateString(undefined, {month:'short', day:'numeric'});
-					
+					const now = new Date();
 					const today = new Date().toISOString().split("T")[0];
-					const isOverdue = metadata.deadline < today;
+					
+					let isOverdue = false;
+					if (metadata.includeTime) {
+						isOverdue = now.getTime() > dlDateObj.getTime();
+					} else {
+						const dlDay = dlStr!.split("T")[0];
+						isOverdue = dlDay < today;
+					}
 
 					if (isOverdue) {
 						card.addClass("life-rpg-quest-card-overdue");
 						badgesRow.createEl("span", { text: `🚨 OVERDUE: ${dlDate}`, cls: `life-rpg-quest-badge life-rpg-badge-overdue` });
 					} else {
-						badgesRow.createEl("span", { text: `📅 ${dlDate}`, cls: `life-rpg-quest-badge life-rpg-badge-deadline` });
+						badgesRow.createEl("span", { text: `📅 Due: ${dlDate}`, cls: `life-rpg-quest-badge life-rpg-badge-deadline` });
 					}
 				}
 

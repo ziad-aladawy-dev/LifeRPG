@@ -226,7 +226,7 @@ export class CharacterSheetView extends ItemView {
 				break;
 
 			case "quests": {
-				this.questsPanel = new QuestsPanel(this.tabContentEl, this.app);
+				this.questsPanel = new QuestsPanel(this.tabContentEl as HTMLElement, this.app, this.stateManager);
 				const plugin = (this.stateManager as any).plugin;
 				
 				const modifiers = this.stateManager.getGlobalModifiers();

@@ -13,6 +13,7 @@ import {
 	isTaskLine,
 	isTaskCompleted,
 	getTaskText,
+	parseQuestId,
 } from "../utils/parser";
 import { processTaskCompletion, processTaskUncompletion, processXpGain, processGpGain, processHpDamage } from "../engine/GameEngine";
 import {
@@ -140,11 +141,7 @@ export class TaskWatcher {
 	private async processOverdueTasks(settings: PluginSettings): Promise<void> {
 		const state = this.stateManager.getState();
 		const today = getTodayStr();
-
-		if (state.lastOverdueCheckDate === today) return;
-
-		// Immediately mark as checked to prevent re-entrant calls from state change listeners
-		this.stateManager.updateLastOverdueCheckDate(today);
+		const now = new Date();
 
 		let char = this.stateManager.getCharacter();
 		const boss = this.stateManager.getActiveBoss();
@@ -155,21 +152,69 @@ export class TaskWatcher {
 		let overdueCount = 0;
 		const logEntries: any[] = [];
 		let died = false;
+		const processedQuestIds: string[] = [];
 
 		for (const task of activeTasks) {
-			const meta = parseTaskMetadata(task.text);
-			if (meta.deadline && meta.deadline < today) {
+			// 1. Resolve Metadata
+			let meta = parseTaskMetadata(task.text);
+			if (task.questId) {
+				const registeredMeta = this.stateManager.getQuestMetadata(task.questId);
+				if (registeredMeta) {
+					meta = { ...meta, ...registeredMeta };
+				}
+			}
+
+			// 2. Check Overdue Status
+			const deadline = meta.endDate || meta.deadline;
+			if (!deadline) continue;
+
+			let isOverdue = false;
+			if (meta.includeTime) {
+				// Exact time check
+				const deadlineTime = deadline ? new Date(deadline).getTime() : 0;
+				isOverdue = deadlineTime > 0 && now.getTime() > deadlineTime;
+			} else {
+				// Day-based check: Normalize ISO strings to YYYY-MM-DD
+				const deadlineDay = deadline!.includes("T") ? deadline!.split("T")[0] : deadline!;
+				isOverdue = deadlineDay < today;
+			}
+
+			// 3. Avoid duplicate penalties
+			// If it's a day-based deadline and we already checked today, skip it (unless it's a new task)
+			if (!meta.includeTime && state.lastOverdueCheckDate === today) continue;
+
+			// If it has been penalized recently, skip
+			if (meta.penalizedAt) {
+				const lastPenalized = new Date(meta.penalizedAt).getTime();
+				// If day-based, wait 24h. If time-based, wait until tomorrow? 
+				// Actually, once penalized, a task should stay penalized until completed or edited.
+				continue; 
+			}
+
+			if (isOverdue) {
 				overdueCount++;
 				
 				if (settings.bossEnabled && boss) {
-					// Use specific boss attack logic (factors in ATK power, WIS, and Enrage)
 					const attack = bossAttacksPlayer(boss, char.attributes, modifiers, settings);
 					damageDealt += attack.damage;
 				} else {
-					// Fallback to setting or flat damage if no boss active
 					damageDealt += settings.bossDamageOnMissedDeadline || 5;
 				}
+
+				// Mark task as penalized in memory/registry
+				if (task.questId) {
+					processedQuestIds.push(task.questId);
+					this.stateManager.setQuestMetadata(task.questId, {
+						...meta,
+						penalizedAt: now.toISOString()
+					});
+				}
 			}
+		}
+
+		// Update the daily check timestamp only if we checked the non-timed ones
+		if (state.lastOverdueCheckDate !== today) {
+			this.stateManager.updateLastOverdueCheckDate(today);
 		}
 
 		if (overdueCount > 0) {
@@ -183,7 +228,7 @@ export class TaskWatcher {
 			const dmgSource = (settings.bossEnabled && boss) ? `${boss.name} attacked you` : "You took damage";
 			logEntries.push({
 				id: generateId(),
-				timestamp: new Date().toISOString(),
+				timestamp: now.toISOString(),
 				type: "boss-damage-taken",
 				message: `🚨 OVERDUE: ${dmgSource} for ${damageDealt} HP because of ${overdueCount} missed deadline(s)!`,
 				xpDelta: 0,
@@ -191,7 +236,6 @@ export class TaskWatcher {
 				hpDelta: -damageDealt,
 			});
 
-			// If death happened, push the death log
 			if (died) {
 				logEntries.push(...hpResult.logEntries);
 			}
@@ -408,9 +452,11 @@ export class TaskWatcher {
 
 				// The ID uses standard logic representing the exact file context so it's extremely robust
 				const id = `${filePath}_line_${i}`;
+				const questId = parseQuestId(line);
 
 				const task: TrackedTask = {
 					id,
+					questId,
 					line: i,
 					text: line,
 					completed: isTaskCompleted(line),
@@ -524,7 +570,15 @@ export class TaskWatcher {
 		task: TrackedTask,
 		settings: PluginSettings
 	): Promise<void> {
-		const metadata = parseTaskMetadata(task.text);
+		// 1. Get Metadata (Registry Priority)
+		let metadata = parseTaskMetadata(task.text);
+		if (task.questId) {
+			const registeredMeta = this.stateManager.getQuestMetadata(task.questId);
+			if (registeredMeta) {
+				metadata = { ...metadata, ...registeredMeta };
+			}
+		}
+
 		const taskText = getTaskText(task.text);
 
 		// Skip empty task text

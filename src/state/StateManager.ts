@@ -136,8 +136,12 @@ export class StateManager {
 		// Migrate missing createdAt for habits
 		for (const habit of this.state.habits) {
 			if (!habit.createdAt) {
-				habit.createdAt = habit.lastCompleted || new Date().toISOString();
 			}
+		}
+
+		// Migrate missing quest registry
+		if (!this.state.questRegistry) {
+			this.state.questRegistry = {};
 		}
 
 		// Inject INITIAL_ITEMS into rewards store if they don't exist
@@ -771,6 +775,7 @@ export class StateManager {
 	// Settings Mutations
 	// -----------------------------------------------------------------------
 
+
 	/** Update settings */
 	updateSettings(partial: Partial<PluginSettings>): void {
 		this.settings = { ...this.settings, ...partial };
@@ -782,8 +787,38 @@ export class StateManager {
 	// Utilities
 	// -----------------------------------------------------------------------
 
-	/** Deep clone game state */
 	private cloneState(state: GameState): GameState {
 		return JSON.parse(JSON.stringify(state));
+	}
+
+	// -----------------------------------------------------------------------
+	// Quest Registry
+	// -----------------------------------------------------------------------
+
+	getQuestMetadata(questId: string): TaskMetadata | null {
+		return this.state.questRegistry[questId] || null;
+	}
+
+	setQuestMetadata(qId: string, metadata: TaskMetadata): void {
+		const oldMeta = this.state.questRegistry[qId];
+		
+		// Reset penalty if the deadline has changed
+		if (oldMeta && (oldMeta.deadline !== metadata.deadline || oldMeta.endDate !== metadata.endDate)) {
+			metadata.penalizedAt = null;
+		}
+
+		this.state.questRegistry[qId] = metadata;
+		this.save();
+		this.notify();
+	}
+
+	generateQuestId(): string {
+		let id: string;
+		let attempts = 0;
+		do {
+			id = Math.random().toString(36).substring(2, 6);
+			attempts++;
+		} while (this.state.questRegistry[id] && attempts < 100);
+		return id;
 	}
 }
