@@ -3,7 +3,7 @@
 // Parses inline annotations from task markdown lines.
 // ============================================================================
 
-import { Difficulty, type TaskMetadata } from "../types";
+import { Difficulty, TaskPriority, type TaskMetadata } from "../types";
 
 /**
  * Parse inline task metadata from a markdown task line.
@@ -18,6 +18,7 @@ export function parseTaskMetadata(lineText: string): TaskMetadata {
 		difficulty: parseDifficulty(lineText),
 		skillId: parseSkillId(lineText),
 		deadline: parseDeadline(lineText),
+		priority: parsePriority(lineText),
 	};
 }
 
@@ -80,6 +81,17 @@ function parseDeadline(text: string): string | null {
 }
 
 /**
+ * Extract Obsidian Tasks priority emoji.
+ */
+function parsePriority(text: string): TaskPriority {
+	if (text.includes("⏫")) return TaskPriority.Highest;
+	if (text.includes("🔼")) return TaskPriority.High;
+	if (text.includes("🔽")) return TaskPriority.Low;
+	if (text.includes("⏬")) return TaskPriority.Lowest;
+	return TaskPriority.Medium;
+}
+
+/**
  * Check if a markdown line is a task (checkbox) line.
  * Matches: "- [ ]", "- [x]", "- [X]", "* [ ]", etc.
  */
@@ -102,6 +114,8 @@ export function getTaskText(line: string): string {
 	let text = line.replace(/^[\s]*[-*]\s\[[ xX]\]\s*/, "");
 	// Remove inline metadata brackets
 	text = text.replace(/\[(?:difficulty|diff|d|skill|s|deadline|due|dl|id)\s*:[^\]]*\]/gi, "");
+	// Remove priority emojis 
+	text = text.replace(/[⏫🔼🔽⏬⏺️]/g, "");
 	// Remove TickTickSync metadata (dataview inline syntax) 
 	text = text.replace(/\[ticktick_id::[^\]]+\]/gi, "");
 	// Remove Obsidian comments 

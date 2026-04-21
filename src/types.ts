@@ -23,6 +23,15 @@ export enum ItemRarity {
 	Legendary = "legendary",
 }
 
+/** Obsidian Tasks Priority Levels */
+export enum TaskPriority {
+	Highest = 4,
+	High = 3,
+	Medium = 2,
+	Low = 1,
+	Lowest = 0,
+}
+
 /** Inventory Slots */
 export enum ItemSlot {
 	Weapon = "weapon",
@@ -238,6 +247,7 @@ export interface TaskMetadata {
 	startDate?: string | null; // ISO string
 	endDate?: string | null; // ISO string
 	includeTime?: boolean;
+	priority?: TaskPriority;
 	penalizedAt?: string | null; // ISO timestamp of last penalty trigger
 }
 

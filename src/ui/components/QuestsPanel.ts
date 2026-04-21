@@ -4,7 +4,7 @@
 // ============================================================================
 
 import { setIcon } from "obsidian";
-import { type TrackedTask, type PluginSettings, type CharacterState, Difficulty, ItemSlot } from "../../types";
+import { Difficulty, TaskPriority, type TrackedTask, type PluginSettings, type CharacterState, type CharacterAttributes, type TaskMetadata } from "../../types";
 import { parseTaskMetadata, getTaskText } from "../../utils/parser";
 import { calculateTaskReward, calculateGlobalModifiers } from "../../engine/GameEngine";
 import { type StateManager } from "../../state/StateManager";
@@ -126,6 +126,21 @@ export class QuestsPanel {
 				}
 				
 				badgesRow.createEl("span", { text: diffText, cls: `life-rpg-quest-badge ${diffClass}` });
+				
+				// Priority Badge (Obsidian Tasks compatibility)
+				if (metadata.priority !== undefined && metadata.priority !== TaskPriority.Medium) {
+					let prioText = "Medium";
+					let prioClass = "";
+					switch(metadata.priority) {
+						case TaskPriority.Highest: prioText = "Highest"; prioClass = "life-rpg-badge-priority-highest"; break;
+						case TaskPriority.High: prioText = "High"; prioClass = "life-rpg-badge-priority-high"; break;
+						case TaskPriority.Low: prioText = "Low"; prioClass = "life-rpg-badge-priority-low"; break;
+						case TaskPriority.Lowest: prioText = "Lowest"; prioClass = "life-rpg-badge-priority-lowest"; break;
+					}
+					if (prioClass) {
+						badgesRow.createEl("span", { text: prioText, cls: `life-rpg-quest-badge ${prioClass}` });
+					}
+				}
 				
 				if (metadata.skillId) {
 					const skill = this.stateManager.getSkill(metadata.skillId);

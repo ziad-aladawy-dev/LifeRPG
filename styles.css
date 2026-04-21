@@ -4556,3 +4556,79 @@
 .cm-line:hover span.cm-life-rpg-quest-id {
   opacity: 0.8 !important;
 }
+
+/* ── Task Priority Badges ── */
+.life-rpg-badge-priority-highest {
+  background: linear-gradient(135deg, var(--ember-dark) 0%, var(--blood-dark) 100%) !important;
+  border-color: var(--ember-bright) !important;
+  color: var(--ember-bright) !important;
+  box-shadow: 0 0 10px var(--ember-glow) !important;
+  font-weight: 700 !important;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.life-rpg-badge-priority-high {
+  background: linear-gradient(135deg, var(--gold-dark) 0%, var(--gold-mid) 100%) !important;
+  border-color: var(--gold-bright) !important;
+  color: var(--gold-light) !important;
+  box-shadow: 0 0 8px var(--gold-glow) !important;
+}
+
+.life-rpg-badge-priority-low {
+  background: linear-gradient(135deg, var(--frost-dark) 0%, var(--stone-dark) 100%) !important;
+  border-color: var(--frost-mid) !important;
+  color: var(--frost-light) !important;
+  opacity: 0.8;
+}
+
+.life-rpg-badge-priority-lowest {
+  background: var(--stone-darker) !important;
+  border-color: var(--stone-light) !important;
+  color: var(--text-faint) !important;
+  opacity: 0.6;
+}
+
+/* ── Skill Group Headers ── */
+.life-rpg-skill-group-header {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+  margin: 20px 0 12px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+  position: relative;
+}
+
+.life-rpg-skill-group-header::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 60px;
+  height: 2px;
+  background: var(--gold-mid);
+  box-shadow: 0 0 8px var(--gold-glow);
+}
+
+.life-rpg-group-icon {
+  font-size: 1.2em;
+  filter: drop-shadow(0 0 5px var(--gold-glow));
+}
+
+.life-rpg-group-name {
+  font-family: var(--font-fancy);
+  font-size: 1.1em;
+  font-weight: 600;
+  color: var(--text-bright);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+/* Attribute Specific Header Accents */
+.life-rpg-skill-group-str::after { background: var(--rpg-str); box-shadow: 0 0 8px hsla(0, 70%, 50%, 0.4); }
+.life-rpg-skill-group-int::after { background: var(--rpg-int); box-shadow: 0 0 8px hsla(220, 70%, 50%, 0.4); }
+.life-rpg-skill-group-wis::after { background: var(--rpg-wis); box-shadow: 0 0 8px hsla(195, 70%, 50%, 0.4); }
+.life-rpg-skill-group-cha::after { background: var(--rpg-cha); box-shadow: 0 0 8px hsla(40, 70%, 50%, 0.4); }
+
+.life-rpg-skill-group-other::after { background: var(--text-muted); box-shadow: none; }
