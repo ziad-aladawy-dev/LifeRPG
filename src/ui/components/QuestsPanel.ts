@@ -128,7 +128,9 @@ export class QuestsPanel {
 				badgesRow.createEl("span", { text: diffText, cls: `life-rpg-quest-badge ${diffClass}` });
 				
 				if (metadata.skillId) {
-					badgesRow.createEl("span", { text: `★ ${metadata.skillId}`, cls: `life-rpg-quest-badge life-rpg-badge-skill` });
+					const skill = this.stateManager.getSkill(metadata.skillId);
+					const skillName = skill ? `${skill.icon} ${skill.name}` : metadata.skillId;
+					badgesRow.createEl("span", { text: skillName, cls: `life-rpg-quest-badge life-rpg-badge-skill` });
 				}
 				
 				// Reward Preview
@@ -157,26 +159,48 @@ export class QuestsPanel {
 					).open();
 				});
 
-				if (metadata.deadline || metadata.endDate) {
-					const dlStr = metadata.endDate || metadata.deadline;
-					const dlDateObj = new Date(dlStr!);
-					const dlDate = dlDateObj.toLocaleDateString(undefined, {month:'short', day:'numeric'});
+				// Date Badges (Range & Time support)
+				if (metadata.startDate || metadata.endDate || metadata.deadline) {
+					const startStr = metadata.startDate;
+					const endStr = metadata.endDate || metadata.deadline;
+					const includeTime = !!metadata.includeTime;
+
+					const format = (iso: string) => {
+						const d = new Date(iso);
+						const ds = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+						if (!includeTime) return ds;
+						const ts = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+						return `${ds} ${ts}`;
+					};
+
 					const now = new Date();
 					const today = new Date().toISOString().split("T")[0];
-					
+					let dateText = "";
 					let isOverdue = false;
-					if (metadata.includeTime) {
-						isOverdue = now.getTime() > dlDateObj.getTime();
-					} else {
-						const dlDay = dlStr!.split("T")[0];
-						isOverdue = dlDay < today;
+
+					if (startStr && endStr) {
+						dateText = `${format(startStr)} - ${format(endStr)}`;
+					} else if (endStr) {
+						dateText = `Due: ${format(endStr)}`;
+					} else if (startStr) {
+						dateText = `Starts: ${format(startStr)}`;
+					}
+
+					if (endStr) {
+						const dlDateObj = new Date(endStr);
+						if (includeTime) {
+							isOverdue = now.getTime() > dlDateObj.getTime();
+						} else {
+							const dlDay = endStr.split("T")[0];
+							isOverdue = dlDay < today;
+						}
 					}
 
 					if (isOverdue) {
 						card.addClass("life-rpg-quest-card-overdue");
-						badgesRow.createEl("span", { text: `🚨 OVERDUE: ${dlDate}`, cls: `life-rpg-quest-badge life-rpg-badge-overdue` });
+						badgesRow.createEl("span", { text: `🚨 OVERDUE: ${dateText}`, cls: `life-rpg-quest-badge life-rpg-badge-overdue` });
 					} else {
-						badgesRow.createEl("span", { text: `📅 Due: ${dlDate}`, cls: `life-rpg-quest-badge life-rpg-badge-deadline` });
+						badgesRow.createEl("span", { text: `📅 ${dateText}`, cls: `life-rpg-quest-badge life-rpg-badge-deadline` });
 					}
 				}
 

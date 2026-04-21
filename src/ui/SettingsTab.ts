@@ -324,6 +324,19 @@ export class LifeRpgSettingsTab extends PluginSettingTab {
 						}
 					})
 			);
+		
+		new Setting(containerEl)
+			.setName("Enable editor suggestions")
+			.setDesc("Show autocomplete dropdown when typing '[' on a task line (e.g. [difficulty: hard]).")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.stateManager.getSettings().enableEditorSuggestions)
+					.onChange(async (value) => {
+						this.plugin.stateManager.updateSettings({
+							enableEditorSuggestions: value,
+						});
+					})
+			);
 
 		new Setting(containerEl)
 			.setName("Scan all files")

@@ -37,7 +37,8 @@ export class TaskModifierSuggest extends EditorSuggest<SuggestionItem> {
 		file: TFile | null
 	): EditorSuggestTriggerInfo | null {
 		// Only trigger if we are inside a markdown file and task watcher is enabled
-		if (!this.plugin.stateManager.getSettings().enableTaskWatcher) return null;
+		const settings = this.plugin.stateManager.getSettings();
+		if (!settings.enableTaskWatcher || !settings.enableEditorSuggestions) return null;
 
 		const lineToCursor = editor.getLine(cursor.line).substring(0, cursor.ch);
 

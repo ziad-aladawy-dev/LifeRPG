@@ -442,6 +442,9 @@ export interface PluginSettings {
 	// Image Caching
 	imageCacheSizeCap: number; // in MB
 	lastImageCachePrune: string;
+
+	// Editor
+	enableEditorSuggestions: boolean;
 }
 
 // ---------------------------------------------------------------------------

@@ -55,6 +55,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	bossEnrageHours: 48,
 	imageCacheSizeCap: 100,
 	lastImageCachePrune: new Date().toISOString(),
+	enableEditorSuggestions: true,
 };
 
 // ---------------------------------------------------------------------------
