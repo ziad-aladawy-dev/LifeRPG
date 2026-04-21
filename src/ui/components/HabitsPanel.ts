@@ -11,6 +11,7 @@ import { calculateHabitReward, streakBonusMultiplier } from "../../engine/GameEn
 import { generateId } from "../../constants";
 import { HabitDetailModal } from "../modals/HabitDetailModal";
 import { HabitHistoryModal } from "../modals/HabitHistoryModal";
+import { renderIcon } from "../../utils/uiUtils";
 
 export class HabitsPanel {
 	private containerEl: HTMLElement;
@@ -161,12 +162,7 @@ export class HabitsPanel {
 		const iconEl = nameRow.createEl("span", {
 			cls: "life-rpg-habit-icon",
 		});
-		// Check if it's an obsidian icon (doesn't contain emoji/special char)
-		if (/^[a-z0-9-]+$/.test(habit.icon)) {
-			setIcon(iconEl, habit.icon);
-		} else {
-			iconEl.setText(habit.icon);
-		}
+		renderIcon(iconEl, habit.icon);
 
 		const habitNameEl = nameRow.createEl("span", {
 			text: habit.name,

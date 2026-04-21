@@ -9,6 +9,7 @@ import { parseTaskMetadata, getTaskText } from "../../utils/parser";
 import { calculateTaskReward, calculateGlobalModifiers } from "../../engine/GameEngine";
 import { type StateManager } from "../../state/StateManager";
 import { QuestEditModal } from "../modals/QuestEditModal";
+import { renderBadge } from "../../utils/uiUtils";
 
 export class QuestsPanel {
 	private app: any;
@@ -109,7 +110,14 @@ export class QuestsPanel {
 				const nameEl = headerRow.createEl("span", { text: taskText, cls: "life-rpg-quest-name" });
 
 				// Rewards Info Row (Beautifully written under title)
-				const reward = calculateTaskReward(metadata, settings, character.attributes, globalModifiers, task.isSubtask);
+				let parentIsHeading = false;
+				if (task.isSubtask && task.parentId) {
+					const parent = tasks.find(t => t.id === task.parentId);
+					if (parent && parent.questId) {
+						parentIsHeading = this.stateManager.getQuestMetadata(parent.questId)?.isHeading || false;
+					}
+				}
+				const reward = calculateTaskReward(metadata, settings, character.attributes, globalModifiers, task.isSubtask, parentIsHeading);
 				
 				if (reward.xp > 0 || reward.gp > 0) {
 					const infoRow = card.createDiv({ cls: "life-rpg-quest-info" });
@@ -155,8 +163,11 @@ export class QuestsPanel {
 				
 				if (metadata.skillId) {
 					const skill = this.stateManager.getSkill(metadata.skillId);
-					const skillName = skill ? `${skill.icon} ${skill.name}` : metadata.skillId;
-					badgesRow.createEl("span", { text: skillName, cls: `life-rpg-quest-badge life-rpg-badge-skill` });
+					if (skill) {
+						renderBadge(badgesRow, skill.name, skill.icon, "life-rpg-badge-skill");
+					} else {
+						renderBadge(badgesRow, metadata.skillId, undefined, "life-rpg-badge-skill");
+					}
 				}
 				
 

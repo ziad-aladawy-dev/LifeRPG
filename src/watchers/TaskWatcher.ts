@@ -605,6 +605,16 @@ export class TaskWatcher {
 		const skills = this.stateManager.getSkills();
 		const modifiers = this.stateManager.getGlobalModifiers();
 
+		// Determine if parent is a heading
+		let parentIsHeading = false;
+		if (task.isSubtask && task.parentId) {
+			const siblings = this.taskCache.get(task.filePath) || [];
+			const parent = siblings.find(t => t.id === task.parentId);
+			if (parent && parent.questId) {
+				parentIsHeading = this.stateManager.getQuestMetadata(parent.questId)?.isHeading || false;
+			}
+		}
+
 		// Process the task through the GameEngine
 		const result = processTaskCompletion(
 			character,
@@ -614,6 +624,7 @@ export class TaskWatcher {
 			settings,
 			modifiers,
 			task.isSubtask,
+			parentIsHeading,
 			comboCount
 		);
 
@@ -721,15 +732,26 @@ export class TaskWatcher {
 		const skills = this.stateManager.getSkills();
 		const modifiers = this.stateManager.getGlobalModifiers();
 
+		// Determine if parent is a heading
+		let parentIsHeading = false;
+		if (task.isSubtask && task.parentId) {
+			const siblings = this.taskCache.get(task.filePath) || [];
+			const parent = siblings.find(t => t.id === task.parentId);
+			if (parent && parent.questId) {
+				parentIsHeading = this.stateManager.getQuestMetadata(parent.questId)?.isHeading || false;
+			}
+		}
+
 		// Revert completion
 		const result = processTaskUncompletion(
 			character,
 			skills,
 			metadata,
-			taskText,
 			settings,
 			modifiers,
-			task.isSubtask
+			task.isSubtask,
+			taskText,
+			parentIsHeading
 		);
 
 		// Revert SP if lost

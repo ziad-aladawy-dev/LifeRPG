@@ -472,6 +472,11 @@ export interface PluginSettings {
 	// Editor
 	enableEditorSuggestions: boolean;
 	dailyEnergyCap: number; // The "Rule of 30"
+	energyWeights: {
+		mental: number;
+		physical: number;
+		willpower: number;
+	};
 }
 
 // ---------------------------------------------------------------------------

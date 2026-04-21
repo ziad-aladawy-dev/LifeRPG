@@ -59,6 +59,11 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	lastImageCachePrune: new Date().toISOString(),
 	enableEditorSuggestions: true,
 	dailyEnergyCap: 30,
+	energyWeights: {
+		mental: 0.2,
+		physical: 0.2,
+		willpower: 0.2,
+	},
 };
 
 // ---------------------------------------------------------------------------

@@ -8,6 +8,7 @@ import { type Skill, Attribute } from "../../types";
 import { formatNumber, percentage } from "../../utils/formatter";
 import { generateId, xpThresholdForSkillLevel } from "../../constants";
 import { type StateManager } from "../../state/StateManager";
+import { renderIcon } from "../../utils/uiUtils";
 
 export class SkillsPanel {
 	private containerEl: HTMLElement;
@@ -103,11 +104,7 @@ export class SkillsPanel {
 			cls: "life-rpg-skill-name",
 		});
 		const iconEl = nameSpan.createEl("span", { cls: "life-rpg-skill-icon" });
-		if (/^[a-z0-9-]+$/.test(skill.icon)) {
-			setIcon(iconEl, skill.icon);
-		} else {
-			iconEl.setText(skill.icon);
-		}
+		renderIcon(iconEl, skill.icon);
 		nameSpan.createEl("span", { text: ` ${skill.name}` });
 		
 		const attrDisplayMap: Record<string, string> = {

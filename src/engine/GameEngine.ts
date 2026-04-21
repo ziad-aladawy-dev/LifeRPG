@@ -103,6 +103,7 @@ export function calculateTaskReward(
 	attributes: CharacterAttributes,
 	globalModifiers: ReturnType<typeof calculateGlobalModifiers>,
 	isSubtask?: boolean,
+	parentIsHeading: boolean = false,
 	comboCount: number = 0
 ): { xp: number; gp: number } {
 	// 0. Headings award no inherent rewards
@@ -110,17 +111,22 @@ export function calculateTaskReward(
 		return { xp: 0, gp: 0 };
 	}
 
-	// 1. Calculate Energy Multiplier
-	let multiplier: number;
+	// 1. Calculate Multipliers
+	const diffMult = settings.difficultyMultipliers[metadata.difficulty] ?? 1;
 	
-	if (metadata.energyM !== undefined || metadata.energyP !== undefined || metadata.energyW !== undefined) {
-		const totalLoad = (metadata.energyM || 0) + (metadata.energyP || 0) + (metadata.energyW || 0);
-		// Scale: 15 points (Titan) = 3x multiplier (old Hard). 5 points = 1. 1 point = 0.2.
-		multiplier = totalLoad / 5;
-	} else {
-		// Legacy fallback
-		multiplier = settings.difficultyMultipliers[metadata.difficulty] ?? 1;
+	let energyMult = 1.0;
+	const hasEnergy = (metadata.energyM !== undefined || metadata.energyP !== undefined || metadata.energyW !== undefined);
+
+	if (hasEnergy) {
+		const weights = settings.energyWeights || { mental: 0.2, physical: 0.2, willpower: 0.2 };
+		energyMult = (
+			(metadata.energyM || 0) * weights.mental +
+			(metadata.energyP || 0) * weights.physical +
+			(metadata.energyW || 0) * weights.willpower
+		);
 	}
+
+	const multiplier = diffMult * energyMult;
 	
 	// Base calculations
 	let xp = settings.baseXp * multiplier;
@@ -143,7 +149,8 @@ export function calculateTaskReward(
 	gp *= comboBonus;
 
 	// Apply Subtask Penalty (25% yield)
-	if (isSubtask) {
+	// EXCEPTION: If the direct parent is a Heading, children get full rewards.
+	if (isSubtask && !parentIsHeading) {
 		xp *= 0.25;
 		gp *= 0.25;
 	}
@@ -163,14 +170,22 @@ export function calculateHabitReward(
 	attributes: CharacterAttributes,
 	globalModifiers: ReturnType<typeof calculateGlobalModifiers>
 ): { xp: number; gp: number; hpDamage: number } {
-	let multiplier: number;
-	
-	if (habit.energyM !== undefined || habit.energyP !== undefined || habit.energyW !== undefined) {
-		const totalLoad = (habit.energyM || 0) + (habit.energyP || 0) + (habit.energyW || 0);
-		multiplier = totalLoad / 5;
-	} else {
-		multiplier = settings.difficultyMultipliers[habit.difficulty as Difficulty] ?? 1;
+	// 1. Calculate Multipliers
+	const diffMult = settings.difficultyMultipliers[habit.difficulty as Difficulty] ?? 1;
+
+	let energyMult = 1.0;
+	const hasEnergy = (habit.energyM !== undefined || habit.energyP !== undefined || habit.energyW !== undefined);
+
+	if (hasEnergy) {
+		const weights = settings.energyWeights || { mental: 0.2, physical: 0.2, willpower: 0.2 };
+		energyMult = (
+			(habit.energyM || 0) * weights.mental +
+			(habit.energyP || 0) * weights.physical +
+			(habit.energyW || 0) * weights.willpower
+		);
 	}
+
+	const multiplier = diffMult * energyMult;
 
 	if (habit.type === "good") {
 		let xp = settings.baseXp * multiplier;
@@ -579,7 +594,8 @@ export function processTaskCompletion(
 	taskText: string,
 	settings: PluginSettings,
 	globalModifiers: ReturnType<typeof calculateGlobalModifiers>,
-	isSubtask?: boolean,
+	isSubtask: boolean,
+	parentIsHeading: boolean = false,
 	comboCount: number = 0
 ): {
 	character: CharacterState;
@@ -587,7 +603,7 @@ export function processTaskCompletion(
 	logEntries: EventLogEntry[];
 	result: RewardResult & { spEarned: number };
 } {
-	const reward = calculateTaskReward(metadata, settings, character.attributes, globalModifiers, isSubtask, comboCount);
+	const reward = calculateTaskReward(metadata, settings, character.attributes, globalModifiers, isSubtask, parentIsHeading, comboCount);
 	const logEntries: EventLogEntry[] = [];
 	let currentChar = { ...character };
 	let updatedSkills = skills.map((s) => ({ ...s }));
@@ -682,17 +698,18 @@ export function processTaskUncompletion(
 	character: CharacterState,
 	skills: Skill[],
 	metadata: TaskMetadata,
-	taskText: string,
 	settings: PluginSettings,
 	globalModifiers: ReturnType<typeof calculateGlobalModifiers>,
-	isSubtask?: boolean
+	isSubtask: boolean,
+	taskText: string,
+	parentIsHeading: boolean = false
 ): {
 	character: CharacterState;
 	skills: Skill[];
 	logEntries: EventLogEntry[];
 	result: RewardResult & { spEarned: number };
 } {
-	const reward = calculateTaskReward(metadata, settings, character.attributes, globalModifiers, isSubtask);
+	const reward = calculateTaskReward(metadata, settings, character.attributes, globalModifiers, isSubtask, parentIsHeading);
 	const logEntries: EventLogEntry[] = [];
 	let currentChar = { ...character };
 	let updatedSkills = skills.map((s) => ({ ...s }));

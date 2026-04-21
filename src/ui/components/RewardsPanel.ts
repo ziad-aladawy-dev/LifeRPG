@@ -10,6 +10,7 @@ import { generateId } from "../../constants";
 import { formatNumber } from "../../utils/formatter";
 import { type Reward, type Item, ConditionType, type CharacterAttributes, RewardCategory, EventType, type CharacterState, ItemRarity, ItemSlot } from "../../types";
 import { ImageCacheManager } from "../../utils/ImageCacheManager";
+import { renderIcon } from "../../utils/uiUtils";
 
 export class RewardsPanel {
 	private containerEl: HTMLElement;
@@ -161,7 +162,6 @@ export class RewardsPanel {
 			} else if (cond.type.startsWith("attr_")) {
 				const attrKey = cond.type.replace("attr_", "") as keyof CharacterAttributes;
 				const attr = character.attributes[attrKey];
-				// Cast to any to check level safely if it exists
 				if (attr && (attr as any).level < cond.value) {
 					isLocked = true;
 					lockReason = cond.description;
@@ -169,7 +169,7 @@ export class RewardsPanel {
 			}
 		}
 
-		let rarityCls = reward.item ? `rarity-${reward.item.rarity.toLowerCase()}` : "";
+		const rarityCls = reward.item ? `rarity-${reward.item.rarity.toLowerCase()}` : "";
 		const canAfford = currentGp >= reward.cost;
 		const card = parent.createDiv({
 			cls: `life-rpg-reward-card ${rarityCls} ${canAfford ? "" : "life-rpg-reward-unaffordable"} ${isLocked ? "is-locked" : ""}`,
@@ -189,7 +189,6 @@ export class RewardsPanel {
 			iconEl.style.backgroundImage = `url('${reward.icon}')`;
 			iconEl.addClass("has-custom-img");
 
-			// Asynchronously resolve cached version for offline support
 			ImageCacheManager.getInstance((this.stateManager as any).plugin.app)
 				.getCachedUrl(reward.icon)
 				.then(cached => {
@@ -198,10 +197,8 @@ export class RewardsPanel {
 		} else if (reward.icon.startsWith("assets/")) {
 			iconEl.style.backgroundImage = `url('${this.stateManager.getAssetPath(reward.icon)}')`;
 			iconEl.addClass("has-custom-img");
-		} else if (/^[a-z0-9-]+$/.test(reward.icon)) {
-			setIcon(iconEl, reward.icon);
 		} else {
-			iconEl.setText(reward.icon);
+			renderIcon(iconEl, reward.icon);
 		}
 
 		// Name

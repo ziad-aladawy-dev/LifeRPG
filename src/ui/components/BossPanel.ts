@@ -7,6 +7,7 @@ import { setIcon } from "obsidian";
 import { type Boss, type Dungeon } from "../../types";
 import { type StateManager } from "../../state/StateManager";
 import { formatNumber, percentage } from "../../utils/formatter";
+import { renderIcon } from "../../utils/uiUtils";
 import {
 	createBossFromTemplate,
 	createDungeonFromTemplate,
@@ -75,11 +76,7 @@ export class BossPanel {
 		const iconEl = bossHeader.createEl("span", {
 			cls: "life-rpg-boss-icon",
 		});
-		if (/^[a-z0-9-]+$/.test(boss.icon)) {
-			setIcon(iconEl, boss.icon);
-		} else {
-			iconEl.setText(boss.icon);
-		}
+		renderIcon(iconEl, boss.icon);
 
 		const bossInfo = bossHeader.createDiv({ cls: "life-rpg-boss-info" });
 		bossInfo.createEl("h4", { text: boss.name, cls: "life-rpg-boss-name" });
@@ -170,14 +167,8 @@ export class BossPanel {
 		for (const template of BOSS_TEMPLATES) {
 			const card = grid.createDiv({ cls: "life-rpg-boss-select-card" });
 
-			const iconEl = card.createEl("div", {
-				cls: "life-rpg-boss-select-icon",
-			});
-			if (/^[a-z0-9-]+$/.test(template.icon)) {
-				setIcon(iconEl, template.icon);
-			} else {
-				iconEl.setText(template.icon);
-			}
+			const iconEl = card.createDiv({ cls: "boss-template-icon" });
+			renderIcon(iconEl, template.icon);
 
 			const info = card.createDiv({ cls: "life-rpg-select-card-info" });
 			info.createEl("div", {
@@ -205,12 +196,8 @@ export class BossPanel {
 		const section = parent.createDiv({ cls: "life-rpg-active-dungeon" });
 
 		const header = section.createDiv({ cls: "life-rpg-dungeon-header" });
-		const iconEl = header.createEl("span", { cls: "life-rpg-dungeon-icon" });
-		if (/^[a-z0-9-]+$/.test(dungeon.icon)) {
-			setIcon(iconEl, dungeon.icon);
-		} else {
-			iconEl.setText(dungeon.icon);
-		}
+		const iconEl = header.createDiv({ cls: "dungeon-icon" });
+		renderIcon(iconEl, dungeon.icon);
 
 		header.createEl("h4", { text: dungeon.name, cls: "life-rpg-dungeon-name" });
 

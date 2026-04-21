@@ -11,6 +11,7 @@ import { formatNumber, percentage } from "../../utils/formatter";
 import { getCharacterRank } from "../../engine/ClassSystem";
 import { SKILL_TREE_NODES, generateId, xpThresholdForSkillLevel } from "../../constants";
 import { ProfileModal } from "../modals/ProfileModal";
+import { renderIcon } from "../../utils/uiUtils";
 
 type StatsMode = "attributes" | "mastery" | "inventory";
 
@@ -248,11 +249,7 @@ export class StatsPanel {
 			cls: "life-rpg-skill-name",
 		});
 		const iconEl = nameSpan.createEl("span", { cls: "life-rpg-skill-icon" });
-		if (/^[a-z0-9-]+$/.test(skill.icon)) {
-			setIcon(iconEl, skill.icon);
-		} else {
-			iconEl.setText(skill.icon);
-		}
+		renderIcon(iconEl, skill.icon);
 		nameSpan.createEl("span", { text: ` ${skill.name}` });
 		
 		const attrDisplayMap: Record<string, string> = {

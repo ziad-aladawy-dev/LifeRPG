@@ -7,6 +7,7 @@ import { setIcon } from "obsidian";
 import { type StateManager } from "../../state/StateManager";
 import { type SkillTreeNode, type CharacterState, Attribute } from "../../types";
 import { SKILL_TREE_NODES } from "../../constants";
+import { renderIcon } from "../../utils/uiUtils";
 
 export class SkillTreePanel {
 	private containerEl: HTMLElement;
@@ -102,11 +103,7 @@ export class SkillTreePanel {
 		const starCore = nodeEl.createDiv({ cls: "star-core" });
 		// Icon inside star
 		const iconBox = nodeEl.createDiv({ cls: "node-icon" });
-		if (/^[a-z0-9-]+$/.test(node.icon)) {
-			setIcon(iconBox, node.icon);
-		} else {
-			iconBox.setText(node.icon);
-		}
+		renderIcon(iconBox, node.icon);
 
 		// Node name label below
 		nodeEl.createDiv({ cls: "life-rpg-node-label", text: node.name });

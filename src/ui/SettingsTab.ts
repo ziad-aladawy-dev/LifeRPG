@@ -10,6 +10,7 @@ import { ImageCacheManager } from "../utils/ImageCacheManager";
 
 export class LifeRpgSettingsTab extends PluginSettingTab {
 	plugin: LifeRpgPlugin;
+	private previewEl: HTMLElement;
 
 	constructor(app: App, plugin: LifeRpgPlugin) {
 		super(app, plugin);
@@ -98,6 +99,7 @@ export class LifeRpgSettingsTab extends PluginSettingTab {
 							this.plugin.stateManager.updateSettings({
 								baseXp: num,
 							});
+							this.refreshPreview();
 						}
 					})
 			);
@@ -119,6 +121,7 @@ export class LifeRpgSettingsTab extends PluginSettingTab {
 							this.plugin.stateManager.updateSettings({
 								baseGp: num,
 							});
+							this.refreshPreview();
 						}
 					})
 			);
@@ -175,16 +178,66 @@ export class LifeRpgSettingsTab extends PluginSettingTab {
 								const current =
 									this.plugin.stateManager.getSettings()
 										.difficultyMultipliers;
-								this.plugin.stateManager.updateSettings({
+								await this.plugin.stateManager.updateSettings({
 									difficultyMultipliers: {
 										...current,
 										[diff.key]: num,
 									},
 								});
+								this.refreshPreview();
 							}
 						})
 				);
 		}
+
+		// ---------------------------------------------------------------
+		// Energy Reward Weights
+		// ---------------------------------------------------------------
+		containerEl.createEl("h2", { text: "⚡ Energy Reward Weights" });
+		containerEl.createEl("p", { 
+			text: "Configure how much each Energy Point (Mental/Physical/Willpower) contributes to your rewards. By default, 5 points total = 1.0x multiplier.",
+			cls: "setting-item-description"
+		});
+
+		const weights = this.plugin.stateManager.getSettings().energyWeights;
+		
+		const categories: { label: string; key: keyof typeof weights }[] = [
+			{ label: "Mental Weight", key: "mental" },
+			{ label: "Physical Weight", key: "physical" },
+			{ label: "Willpower Weight", key: "willpower" },
+		];
+
+		for (const cat of categories) {
+			new Setting(containerEl)
+				.setName(cat.label)
+				.setDesc(`Impact of each ${cat.label.split(" ")[0]} point on the final multiplier.`)
+				.addText((text) =>
+					text
+						.setPlaceholder("0.2")
+						.setValue((weights[cat.key] || 0).toString())
+						.onChange(async (value) => {
+							const num = parseFloat(value);
+							if (!isNaN(num) && num >= 0) {
+								const currentWeights = this.plugin.stateManager.getSettings().energyWeights;
+								await this.plugin.stateManager.updateSettings({
+									energyWeights: {
+										...currentWeights,
+										[cat.key]: num,
+									},
+								});
+								this.refreshPreview();
+							}
+						})
+				);
+		}
+
+		// ---------------------------------------------------------------
+		// Reward Calculation Preview
+		// ---------------------------------------------------------------
+		const previewSection = containerEl.createDiv({ cls: "life-rpg-reward-preview-container" });
+		previewSection.createEl("h3", { text: "🧮 Reward Logic Preview" });
+		this.previewEl = previewSection.createDiv({ cls: "life-rpg-reward-preview-card" });
+		this.refreshPreview();
 
 		// ---------------------------------------------------------------
 		// HP Settings
@@ -534,5 +587,45 @@ export class LifeRpgSettingsTab extends PluginSettingTab {
 						}
 					})
 			);
+	}
+
+	private refreshPreview(): void {
+		if (!this.previewEl) return;
+		this.previewEl.empty();
+		
+		const settings = this.plugin.stateManager.getSettings();
+		const weights = settings.energyWeights || { mental: 0.2, physical: 0.2, willpower: 0.2 };
+		
+		const examplePoints = 5;
+		const exampleDiff = Difficulty.Hardcore;
+		const diffMult = settings.difficultyMultipliers[exampleDiff] || 1;
+		
+		// Calculate energy for an example of 5 points in Mental
+		const energyMult = examplePoints * weights.mental;
+		const totalMult = diffMult * energyMult;
+		
+		const xp = Math.round(settings.baseXp * totalMult);
+		const gp = Math.round(settings.baseGp * totalMult);
+
+		this.previewEl.createEl("p", { 
+			text: "Formula: Base × Difficulty × ((M × MW) + (P × PW) + (W × WW))",
+			cls: "preview-formula"
+		});
+
+		const exampleRow = this.previewEl.createDiv({ cls: "preview-example" });
+		exampleRow.createEl("div", { 
+			text: `Example: ${settings.baseXp} XP Base × ${diffMult}x (Hardcore) × (${examplePoints} Mental pts × ${weights.mental})` 
+		});
+		
+		const resultRow = this.previewEl.createDiv({ cls: "preview-result" });
+		resultRow.createEl("span", { text: "Final Reward: ", cls: "result-label" });
+		resultRow.createEl("span", { text: `✨ ${xp} XP / 💰 ${gp} GP`, cls: "result-value" });
+		
+		if (totalMult < 1) {
+			this.previewEl.createEl("small", { 
+				text: "⚠️ Note: Current weights result in a reward reduction for this example.",
+				cls: "preview-warning"
+			});
+		}
 	}
 }
