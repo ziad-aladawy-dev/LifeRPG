@@ -4376,6 +4376,266 @@
 }
 
 
+/* ============================================================================
+   §32  MODE TOGGLE — Attributes / Mastery / Inventory Switcher
+   ============================================================================ */
+
+.life-rpg-mode-toggle {
+  display: flex;
+  gap: 0;
+  padding: 3px;
+  background: var(--stone-darker);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-inset);
+  position: relative;
+  overflow: hidden;
+}
+
+.life-rpg-mode-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--t-normal);
+  font-family: inherit;
+  white-space: nowrap;
+  position: relative;
+  z-index: 1;
+}
+
+.life-rpg-mode-btn:hover {
+  color: var(--text-bright);
+  background: hsla(40, 20%, 30%, 0.15);
+}
+
+.life-rpg-mode-btn.life-rpg-mode-active {
+  color: var(--gold-light);
+  background: linear-gradient(180deg, var(--stone-mid) 0%, var(--stone-dark) 100%);
+  border-color: var(--border-gold);
+  box-shadow: 0 0 14px var(--gold-ember), 0 2px 8px hsla(0, 0%, 0%, 0.3);
+  font-weight: 700;
+}
+
+/* Gold underline on active tab */
+.life-rpg-mode-btn.life-rpg-mode-active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 20%;
+  right: 20%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--gold-bright), transparent);
+  border-radius: 1px;
+}
+
+.life-rpg-mode-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.life-rpg-mode-label {
+  font-size: 11px;
+  letter-spacing: 0.5px;
+}
+
+/* Hub content area — smooth fade in */
+.life-rpg-hub-content {
+  animation: fade-in 0.25s ease-out;
+  margin-top: 14px;
+}
+
+
+/* ============================================================================
+   §33  CLICKABLE AVATAR — Edit Overlay
+   ============================================================================ */
+
+.life-rpg-avatar-clickable {
+  cursor: pointer;
+  position: relative;
+}
+
+.life-rpg-avatar-edit-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: hsla(0, 0%, 0%, 0.55);
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity var(--t-normal);
+  font-size: 22px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.life-rpg-avatar-clickable:hover .life-rpg-avatar-edit-overlay {
+  opacity: 1;
+}
+
+.life-rpg-avatar-clickable:hover {
+  border-color: var(--gold-bright) !important;
+  box-shadow: var(--shadow-gold) !important;
+  transform: scale(1.08);
+}
+
+
+/* ============================================================================
+   §34  PROFILE MODAL — Dark Fantasy Character Editor
+   ============================================================================ */
+
+.life-rpg-profile-modal {
+  background: var(--stone-darkest) !important;
+  color: var(--text-normal);
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 16px 64px hsla(0, 0%, 0%, 0.7),
+              0 0 40px var(--gold-ember);
+  max-width: 480px;
+}
+
+/* ── Header ── */
+.life-rpg-pm-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, var(--stone-dark) 0%, var(--stone-darker) 100%);
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Ambient corner glow */
+.life-rpg-pm-header::before {
+  content: '';
+  position: absolute;
+  top: -40%;
+  right: -20%;
+  width: 160px;
+  height: 160px;
+  background: radial-gradient(circle, var(--gold-ember) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.life-rpg-pm-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--stone-mid);
+  border: 2px solid var(--gold-mid);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow: 0 0 20px var(--gold-ember);
+}
+
+.life-rpg-pm-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.life-rpg-pm-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.life-rpg-pm-name {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text-bright);
+  letter-spacing: 0.5px;
+}
+
+.life-rpg-pm-subtitle {
+  font-size: 12px;
+  color: var(--gold-light);
+  font-weight: 600;
+}
+
+/* ── Body ── */
+.life-rpg-pm-body {
+  padding: 16px 24px 24px 24px;
+}
+
+.life-rpg-pm-body .life-rpg-section-title {
+  margin-top: 20px;
+}
+
+/* Override Obsidian Setting styles inside our modal */
+.life-rpg-profile-modal .setting-item {
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 10px 0;
+}
+
+.life-rpg-profile-modal .setting-item-name {
+  color: var(--text-bright);
+  font-weight: 700;
+}
+
+.life-rpg-profile-modal .setting-item-description {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.life-rpg-profile-modal input[type="text"],
+.life-rpg-profile-modal select {
+  background: var(--stone-darker) !important;
+  border: 1px solid var(--border-subtle) !important;
+  color: var(--text-bright) !important;
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+}
+
+.life-rpg-profile-modal input[type="text"]:focus,
+.life-rpg-profile-modal select:focus {
+  border-color: var(--gold-mid) !important;
+  box-shadow: 0 0 12px var(--gold-ember);
+}
+
+/* Sync row */
+.life-rpg-pm-sync-row {
+  display: flex;
+  justify-content: center;
+  margin: 16px 0;
+}
+
+/* Rank list inside modal — slightly tighter */
+.life-rpg-profile-modal .life-rpg-ranks-list {
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.life-rpg-profile-modal .life-rpg-ranks-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.life-rpg-profile-modal .life-rpg-ranks-list::-webkit-scrollbar-thumb {
+  background: var(--stone-lighter);
+  border-radius: 2px;
+}
+
+
 /* ╔═════════════════════════════════════════════════════════════════════════════╗
    ║  END — Oathbound Dark Fantasy Theme                                       ║
    ║  ~4300 lines of cinematic, Elden Ring / BG3 inspired styling              ║

@@ -8,20 +8,17 @@ import { VIEW_TYPE_CHARACTER_SHEET } from "../constants";
 import { type StateManager } from "../state/StateManager";
 import { type GameState, ItemSlot } from "../types";
 import { StatsPanel } from "./components/StatsPanel";
-import { SkillsPanel } from "./components/SkillsPanel";
 import { QuestsPanel } from "./components/QuestsPanel";
 import { HabitsPanel } from "./components/HabitsPanel";
 import { RewardsPanel } from "./components/RewardsPanel";
 import { BossPanel } from "./components/BossPanel";
 import { ActivityLogPanel } from "./components/ActivityLogPanel";
-import { ProfilePanel } from "./components/ProfilePanel";
-import { InventoryPanel } from "./components/InventoryPanel";
 import { HabitHistoryModal } from "./modals/HabitHistoryModal";
 import { EventType } from "../types";
 import { SkillTreePanel } from "./components/SkillTreePanel";
 import { EnergyPanel } from "./components/EnergyPanel";
 
-type TabId = "stats" | "energy" | "profile" | "inventory" | "quests" | "skills" | "skill_tree" | "habits" | "rewards" | "boss" | "log";
+type TabId = "stats" | "energy" | "quests" | "skill_tree" | "habits" | "rewards" | "boss" | "log";
 
 interface TabDefinition {
 	id: TabId;
@@ -32,10 +29,7 @@ interface TabDefinition {
 const TABS: TabDefinition[] = [
 	{ id: "stats", label: "📊 Stats", icon: "sword" },
 	{ id: "energy", label: "🔋 Energy", icon: "zap" },
-	{ id: "profile", label: "👤 Profile", icon: "user" },
-	{ id: "inventory", label: "🎒 Inventory", icon: "briefcase" },
 	{ id: "quests", label: "📜 Quests", icon: "scroll" },
-	{ id: "skills", label: "🎯 Skills", icon: "bar-chart" },
 	{ id: "skill_tree", label: "🌳 Tree", icon: "tree" },
 	{ id: "habits", label: "🔄 Habits", icon: "refresh-cw" },
 	{ id: "rewards", label: "💰 Store", icon: "shopping-cart" },
@@ -51,14 +45,11 @@ export class CharacterSheetView extends ItemView {
 
 	// Panel instances (lazy-created)
 	private statsPanel: StatsPanel | null = null;
-	private profilePanel: ProfilePanel | null = null;
 	private questsPanel: QuestsPanel | null = null;
-	private skillsPanel: SkillsPanel | null = null;
 	private habitsPanel: HabitsPanel | null = null;
 	private rewardsPanel: RewardsPanel | null = null;
 	private bossPanel: BossPanel | null = null;
 	private activityLogPanel: ActivityLogPanel | null = null;
-	private inventoryPanel: InventoryPanel | null = null;
 	private skillTreePanel: SkillTreePanel | null = null;
 	private energyPanel: EnergyPanel | null = null;
 	private isChroniclePlaying = false;
@@ -214,8 +205,8 @@ export class CharacterSheetView extends ItemView {
 
 		switch (this.activeTab) {
 			case "stats":
-				this.statsPanel = new StatsPanel(this.tabContentEl, this.stateManager);
-				this.statsPanel.render(state.character);
+				this.statsPanel = new StatsPanel(this.tabContentEl, this.stateManager, this.app);
+				this.statsPanel.render(state);
 				break;
 
 			case "energy": {
@@ -224,16 +215,6 @@ export class CharacterSheetView extends ItemView {
 				this.energyPanel.render(state, plugin.taskWatcher.getActiveTasks());
 				break;
 			}
-
-			case "profile":
-				this.profilePanel = new ProfilePanel(this.tabContentEl, this.stateManager);
-				this.profilePanel.render(state.character);
-				break;
-
-			case "inventory":
-				this.inventoryPanel = new InventoryPanel(this.tabContentEl, this.stateManager);
-				this.inventoryPanel.render();
-				break;
 
 			case "quests": {
 				this.questsPanel = new QuestsPanel(this.tabContentEl as HTMLElement, this.app, this.stateManager);
@@ -249,14 +230,6 @@ export class CharacterSheetView extends ItemView {
 				);
 				break;
 			}
-
-			case "skills":
-				this.skillsPanel = new SkillsPanel(
-					this.tabContentEl,
-					this.stateManager
-				);
-				this.skillsPanel.render(state.skills);
-				break;
 
 			case "skill_tree":
 				this.skillTreePanel = new SkillTreePanel(
@@ -338,9 +311,7 @@ export class CharacterSheetView extends ItemView {
 
 	private destroyPanels(): void {
 		this.statsPanel?.destroy();
-		this.profilePanel?.destroy();
 		this.questsPanel?.destroy();
-		this.skillsPanel?.destroy();
 		this.habitsPanel?.destroy();
 		this.rewardsPanel?.destroy();
 		this.bossPanel?.destroy();
@@ -349,9 +320,7 @@ export class CharacterSheetView extends ItemView {
 		this.energyPanel?.destroy();
 
 		this.statsPanel = null;
-		this.profilePanel = null;
 		this.questsPanel = null;
-		this.skillsPanel = null;
 		this.habitsPanel = null;
 		this.rewardsPanel = null;
 		this.bossPanel = null;
