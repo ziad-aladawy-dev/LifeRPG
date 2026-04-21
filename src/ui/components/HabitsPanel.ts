@@ -570,6 +570,18 @@ export class HabitsPanel {
 			const result = logBadHabit(habit, character, settings, modifiers);
 			this.stateManager.setCharacter(result.character);
 			this.stateManager.updateHabit(habit.id, result.habit);
+
+			// Notification
+			if (settings.showNotifications) {
+				const damage = result.habit.hpPenalty || 0;
+				if (damage > 0) {
+					new Notice(`💔 Bad Habit: "${habit.name}" → -${damage} HP`, 4000);
+				}
+				if (result.character.level < character.level) {
+					new Notice(`💀 YOU DIED! Level dropped to ${result.character.level}.`, 6000);
+				}
+			}
+
 			for (const entry of result.logEntries) {
 				this.stateManager.addLogEntry(entry);
 			}

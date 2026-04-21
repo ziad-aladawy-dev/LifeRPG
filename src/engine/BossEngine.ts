@@ -11,10 +11,11 @@ import {
 	type EventLogEntry,
 	type DungeonTemplate,
 	type CharacterAttributes,
+	type PluginSettings,
 	EventType,
 } from "../types";
 import { generateId } from "../constants";
-import { dealDamageToBoss, calculateGlobalModifiers } from "./GameEngine";
+import { dealDamageToBoss, calculateGlobalModifiers, calculateBossAttackDamage } from "./GameEngine";
 
 // ---------------------------------------------------------------------------
 // Boss Factory
@@ -150,25 +151,41 @@ export function healBoss(
  * Returns damage amount and log entry.
  */
 export function bossAttacksPlayer(
-	boss: Boss
+	boss: Boss,
+	attributes: CharacterAttributes,
+	modifiers: ReturnType<typeof calculateGlobalModifiers>,
+	settings: PluginSettings
 ): { damage: number; logEntry: EventLogEntry } {
-	let damage = boss.attackPower;
+	let rawDamage = boss.attackPower;
 
-	// Boss Rage: Bosses deal more damage when enraged
+	// 1. Time-based Enrage: If the fight has lasted too long, damage increases by 50%
+	const enrageHours = settings.bossEnrageHours ?? 48;
+	const elapsedMs = Date.now() - new Date(boss.startedAt).getTime();
+	const elapsedHours = elapsedMs / (1000 * 60 * 60);
+	const isTimeEnraged = elapsedHours >= enrageHours;
+	
+	if (isTimeEnraged) {
+		rawDamage = Math.round(rawDamage * 1.5);
+	}
+
+	// 2. HP-based Rage: Bosses deal more damage when at low HP
 	const hpPct = boss.hp / boss.maxHp;
-	if (hpPct <= 0.25) damage = Math.round(damage * 1.5); // Desperate: 1.5x damage dealt
-	else if (hpPct <= 0.5) damage = Math.round(damage * 1.25); // Enraged: 1.25x damage dealt
+	if (hpPct <= 0.25) rawDamage = Math.round(rawDamage * 1.5); // Desperate: 1.5x damage dealt
+	else if (hpPct <= 0.5) rawDamage = Math.round(rawDamage * 1.25); // Enraged: 1.25x damage dealt
+
+	// 3. Apply mitigation (WIS and gear)
+	const finalDamage = calculateBossAttackDamage(rawDamage, attributes, modifiers);
 
 	return {
-		damage,
+		damage: finalDamage,
 		logEntry: {
 			id: generateId(),
 			timestamp: new Date().toISOString(),
 			type: EventType.BossAttack,
-			message: `💥 ${boss.icon} ${boss.name} attacks you for ${damage} HP damage!`,
+			message: `💥 ${boss.icon} ${boss.name} attacks you for ${finalDamage} HP damage!${isTimeEnraged ? " (💢 Time-Enraged!)" : ""}`,
 			xpDelta: 0,
 			gpDelta: 0,
-			hpDelta: -damage,
+			hpDelta: -finalDamage,
 		},
 	};
 }

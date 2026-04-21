@@ -20,6 +20,7 @@ import {
 	healBoss,
 	advanceDungeonProgress,
 	revertDungeonProgress,
+	bossAttacksPlayer,
 } from "../engine/BossEngine";
 import { generateId, INITIAL_ITEMS } from "../constants";
 import { getTodayStr } from "../utils/dateUtils";
@@ -148,6 +149,7 @@ export class TaskWatcher {
 		let char = this.stateManager.getCharacter();
 		const boss = this.stateManager.getActiveBoss();
 		const activeTasks = this.getActiveTasks();
+		const modifiers = this.stateManager.getGlobalModifiers();
 		
 		let damageDealt = 0;
 		let overdueCount = 0;
@@ -158,9 +160,15 @@ export class TaskWatcher {
 			const meta = parseTaskMetadata(task.text);
 			if (meta.deadline && meta.deadline < today) {
 				overdueCount++;
-				// If boss is active, take specific boss damage. Else take flat 5 damage.
-				const dmg = (settings.bossEnabled && boss) ? settings.bossDamageOnMissedDeadline : 5;
-				damageDealt += dmg;
+				
+				if (settings.bossEnabled && boss) {
+					// Use specific boss attack logic (factors in ATK power, WIS, and Enrage)
+					const attack = bossAttacksPlayer(boss, char.attributes, modifiers, settings);
+					damageDealt += attack.damage;
+				} else {
+					// Fallback to setting or flat damage if no boss active
+					damageDealt += settings.bossDamageOnMissedDeadline || 5;
+				}
 			}
 		}
 
@@ -186,6 +194,17 @@ export class TaskWatcher {
 			// If death happened, push the death log
 			if (died) {
 				logEntries.push(...hpResult.logEntries);
+			}
+
+			// Notification
+			if (settings.showNotifications) {
+				const popupMsg = (settings.bossEnabled && boss) 
+					? `⚠️ Overdue! ${boss.name} attacked you for ${damageDealt} HP!` 
+					: `🚨 Overdue Tasks! You took ${damageDealt} HP damage.`;
+				new Notice(popupMsg, 5000);
+				if (died) {
+					new Notice(`💀 YOU DIED! Level dropped to ${char.level}.`, 6000);
+				}
 			}
 
 			// Apply to state
