@@ -115,14 +115,13 @@ export class QuestsPanel {
 				const badgesRow = card.createDiv({ cls: "life-rpg-quest-badges" });
 				
 				// Difficulty badge
-				let diffClass = "life-rpg-badge-easy";
-				let diffText = "Easy";
-				if (metadata.difficulty === Difficulty.Medium) {
-					diffClass = "life-rpg-badge-medium";
-					diffText = "Medium";
-				} else if (metadata.difficulty === Difficulty.Hard) {
-					diffClass = "life-rpg-badge-hard";
-					diffText = "Hard";
+				let diffClass = "life-rpg-badge-passive";
+				let diffText = "Passive";
+				switch (metadata.difficulty) {
+					case Difficulty.Easy: diffClass = "life-rpg-badge-easy"; diffText = "Easy"; break;
+					case Difficulty.Challenging: diffClass = "life-rpg-badge-challenging"; diffText = "Challenging"; break;
+					case Difficulty.Hardcore: diffClass = "life-rpg-badge-hardcore"; diffText = "Hardcore"; break;
+					case Difficulty.Madhouse: diffClass = "life-rpg-badge-madhouse"; diffText = "Madhouse"; break;
 				}
 				
 				badgesRow.createEl("span", { text: diffText, cls: `life-rpg-quest-badge ${diffClass}` });
@@ -132,11 +131,11 @@ export class QuestsPanel {
 					let prioText = "";
 					let prioClass = "";
 					switch(metadata.priority) {
-						case TaskPriority.Highest: prioText = "Highest"; prioClass = "life-rpg-badge-priority-highest"; break;
-						case TaskPriority.High: prioText = "High"; prioClass = "life-rpg-badge-priority-high"; break;
-						case TaskPriority.Medium: prioText = "Medium"; prioClass = "life-rpg-badge-priority-medium"; break;
-						case TaskPriority.Low: prioText = "Low"; prioClass = "life-rpg-badge-priority-low"; break;
-						case TaskPriority.Lowest: prioText = "Lowest"; prioClass = "life-rpg-badge-priority-lowest"; break;
+						case TaskPriority.Highest: prioText = "Highest Priority"; prioClass = "life-rpg-badge-priority-highest"; break;
+						case TaskPriority.High: prioText = "High Priority"; prioClass = "life-rpg-badge-priority-high"; break;
+						case TaskPriority.Medium: prioText = "Medium Priority"; prioClass = "life-rpg-badge-priority-medium"; break;
+						case TaskPriority.Low: prioText = "Low Priority"; prioClass = "life-rpg-badge-priority-low"; break;
+						case TaskPriority.Lowest: prioText = "Lowest Priority"; prioClass = "life-rpg-badge-priority-lowest"; break;
 					}
 					if (prioClass) {
 						badgesRow.createEl("span", { text: prioText, cls: `life-rpg-quest-badge ${prioClass}` });

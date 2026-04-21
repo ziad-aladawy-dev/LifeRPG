@@ -148,9 +148,11 @@ export class LifeRpgSettingsTab extends PluginSettingTab {
 		containerEl.createEl("h2", { text: "Difficulty Multipliers" });
 
 		const difficulties: { label: string; key: Difficulty }[] = [
+			{ label: "Passive", key: Difficulty.Passive },
 			{ label: "Easy", key: Difficulty.Easy },
-			{ label: "Medium", key: Difficulty.Medium },
-			{ label: "Hard", key: Difficulty.Hard },
+			{ label: "Challenging", key: Difficulty.Challenging },
+			{ label: "Hardcore", key: Difficulty.Hardcore },
+			{ label: "Madhouse", key: Difficulty.Madhouse },
 		];
 
 		for (const diff of difficulties) {

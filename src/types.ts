@@ -9,9 +9,11 @@
 
 /** Task difficulty levels with their associated multipliers */
 export enum Difficulty {
-	Easy = 1,
-	Medium = 2,
-	Hard = 3,
+	Passive = 1,
+	Easy = 2,
+	Challenging = 3,
+	Hardcore = 4,
+	Madhouse = 5,
 }
 
 /** Item Rarity */

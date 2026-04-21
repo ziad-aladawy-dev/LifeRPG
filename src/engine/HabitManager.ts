@@ -178,10 +178,11 @@ export function logGoodHabit(
 		hpDelta: 0,
 	});
 
-	// Chance to find an item (5% base + CHA bonus)
+	// Chance to find an item (5% base + CHA bonus + dropChance modifier)
 	let foundItem = null;
 	const chaBonus = (currentChar.attributes.cha.level + modifiers.cha) * 0.01;
-	if (Math.random() < 0.05 + chaBonus) {
+	const totalDropChance = 0.05 + chaBonus + modifiers.dropChance;
+	if (Math.random() < totalDropChance) {
 		const randomIndex = Math.floor(Math.random() * INITIAL_ITEMS.length);
 		foundItem = { ...INITIAL_ITEMS[randomIndex], id: generateId() };
 		

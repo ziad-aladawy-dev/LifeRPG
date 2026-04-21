@@ -47,9 +47,11 @@ export class QuestEditModal extends Modal {
 			.setName("Difficulty")
 			.setDesc("Higher difficulty grants more XP and GP, but deals more damage if missed.")
 			.addDropdown(drop => drop
+				.addOption(String(Difficulty.Passive), "Passive")
 				.addOption(String(Difficulty.Easy), "Easy")
-				.addOption(String(Difficulty.Medium), "Medium")
-				.addOption(String(Difficulty.Hard), "Hard")
+				.addOption(String(Difficulty.Challenging), "Challenging")
+				.addOption(String(Difficulty.Hardcore), "Hardcore")
+				.addOption(String(Difficulty.Madhouse), "Madhouse")
 				.setValue(String(this.metadata.difficulty))
 				.onChange(v => this.metadata.difficulty = Number(v) as Difficulty));
 

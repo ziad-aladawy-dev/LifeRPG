@@ -5116,3 +5116,86 @@
   background: rgba(255,255,255,0.08);
   border-left-color: var(--gold-bright);
 }
+
+/* ============================================================================
+   §24  DIFFICULTY BADGE STYLING — Premium Aesthetic
+   ============================================================================ */
+
+.life-rpg-quest-badge {
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid transparent;
+  transition: all var(--t-normal);
+}
+
+/* ── Passive difficulty ── */
+.life-rpg-badge-passive {
+  background: linear-gradient(135deg, var(--stone-mid), var(--stone-dark));
+  color: var(--text-muted);
+  border-color: var(--border-subtle);
+  opacity: 0.8;
+}
+
+/* ── Easy difficulty ── */
+.life-rpg-badge-easy {
+  background: linear-gradient(135deg, var(--nature-dark), var(--nature-mid));
+  color: var(--nature-light);
+  border-color: var(--nature-mid);
+  box-shadow: 0 0 10px hsla(140, 60%, 45%, 0.1);
+}
+
+/* ── Challenging difficulty ── */
+.life-rpg-badge-challenging {
+  background: linear-gradient(135deg, var(--gold-dark), var(--gold-mid));
+  color: var(--gold-pale);
+  border-color: var(--gold-mid);
+  box-shadow: 0 0 12px var(--gold-ember);
+}
+
+/* ── Hardcore difficulty ── */
+.life-rpg-badge-hardcore {
+  background: linear-gradient(135deg, var(--blood-dark), var(--blood-mid));
+  color: var(--blood-light);
+  border-color: var(--blood-mid);
+  box-shadow: 0 0 15px var(--blood-glow);
+  animation: blood-pulse 3s infinite;
+}
+
+/* ── Madhouse difficulty ── */
+.life-rpg-badge-madhouse {
+  background: linear-gradient(135deg, var(--legend-dark), var(--legend-mid), var(--legend-dark));
+  background-size: 200% auto;
+  color: var(--legend-light);
+  border-color: var(--legend-bright);
+  box-shadow: 0 0 20px var(--legend-glow);
+  text-shadow: 0 0 8px var(--legend-light);
+  animation: legend-shimmer 3s linear infinite, aura-breathe 2s ease-in-out infinite;
+  position: relative;
+  overflow: hidden;
+}
+
+.life-rpg-badge-madhouse::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: conic-gradient(from 0deg, transparent, var(--legend-bright), transparent 30%);
+  animation: spin 4s linear infinite;
+  opacity: 0.15;
+}
+
+/* ── Priority Badges ── */
+.life-rpg-badge-priority-highest { color: var(--blood-bright); text-shadow: 0 0 8px var(--blood-glow); border: 1px solid var(--blood-mid); background: hsla(0, 70%, 20%, 0.3); }
+.life-rpg-badge-priority-high { color: var(--ember-bright); border: 1px solid var(--ember-mid); background: hsla(15, 70%, 20%, 0.2); }
+.life-rpg-badge-priority-medium { color: var(--gold-bright); border: 1px solid var(--gold-mid); background: hsla(40, 60%, 20%, 0.2); }
+.life-rpg-badge-priority-low { color: var(--nature-bright); border: 1px solid var(--nature-mid); background: hsla(140, 50%, 20%, 0.15); }
+.life-rpg-badge-priority-lowest { color: var(--text-muted); border: 1px solid var(--border-subtle); background: var(--stone-dark); }

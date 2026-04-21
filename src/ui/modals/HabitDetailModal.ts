@@ -93,9 +93,11 @@ export class HabitDetailModal extends Modal {
 			.setName("Severity")
 			.setDesc("The impact this habit has on your character.")
 			.addDropdown(drop => drop
+				.addOption(String(Difficulty.Passive), "Passive")
 				.addOption(String(Difficulty.Easy), "Easy")
-				.addOption(String(Difficulty.Medium), "Medium")
-				.addOption(String(Difficulty.Hard), "Hard")
+				.addOption(String(Difficulty.Challenging), "Challenging")
+				.addOption(String(Difficulty.Hardcore), "Hardcore")
+				.addOption(String(Difficulty.Madhouse), "Madhouse")
 				.setValue(String(this.habit.difficulty))
 				.onChange(v => this.habit.difficulty = Number(v) as Difficulty));
 

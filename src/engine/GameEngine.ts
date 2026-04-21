@@ -613,7 +613,14 @@ export function processTaskCompletion(
 	}
 
 	// 4. Create the task completion log entry
-	const diffLabel = metadata.difficulty === Difficulty.Hard ? "Hard" : metadata.difficulty === Difficulty.Medium ? "Medium" : "Easy";
+	const diffLabels: Record<Difficulty, string> = {
+		[Difficulty.Passive]: "Passive",
+		[Difficulty.Easy]: "Easy",
+		[Difficulty.Challenging]: "Challenging",
+		[Difficulty.Hardcore]: "Hardcore",
+		[Difficulty.Madhouse]: "Madhouse"
+	};
+	const diffLabel = diffLabels[metadata.difficulty] || "Unknown";
 
 	logEntries.unshift({
 		id: generateId(),

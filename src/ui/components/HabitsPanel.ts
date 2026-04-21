@@ -490,7 +490,7 @@ export class HabitsPanel {
 			const content = `# 🔄 Habit: ${habit.name}\n\n` +
 				`- **Icon**: ${habit.icon}\n` +
 				`- **Type**: ${habit.type === "good" ? "✅ Good" : "⛔ Bad"}\n` +
-				`- **Difficulty**: ${Difficulty[habit.difficulty] || habit.difficulty}\n\n` +
+				`- **Difficulty**: ${Difficulty[habit.difficulty] || "Passive"}\n\n` +
 				`---\n\n` +
 				`## Notes\n`;
 			
@@ -602,13 +602,17 @@ export class HabitsPanel {
 		diffRow.createEl("label", { text: "Difficulty:" });
 		const diffSelect = diffRow.createEl("select", { cls: "life-rpg-select" });
 		diffSelect.addEventListener("keydown", (e) => e.stopPropagation());
-		const optEasy = diffSelect.createEl("option", { value: "1", text: "⭐ Easy" });
-		const optMed = diffSelect.createEl("option", { value: "2", text: "⭐⭐ Medium" });
-		const optHard = diffSelect.createEl("option", { value: "3", text: "⭐⭐⭐ Hard" });
+		const optPass = diffSelect.createEl("option", { value: "1", text: "⚪ Passive" });
+		const optEasy = diffSelect.createEl("option", { value: "2", text: "🟢 Easy" });
+		const optChall = diffSelect.createEl("option", { value: "3", text: "🟡 Challenging" });
+		const optHardc = diffSelect.createEl("option", { value: "4", text: "🟠 Hardcore" });
+		const optMad = diffSelect.createEl("option", { value: "5", text: "🟣 Madhouse" });
 		
-		if (habit.difficulty === 1) optEasy.selected = true;
-		else if (habit.difficulty === 2) optMed.selected = true;
-		else if (habit.difficulty === 3) optHard.selected = true;
+		if (habit.difficulty === 1) optPass.selected = true;
+		else if (habit.difficulty === 2) optEasy.selected = true;
+		else if (habit.difficulty === 3) optChall.selected = true;
+		else if (habit.difficulty === 4) optHardc.selected = true;
+		else if (habit.difficulty === 5) optMad.selected = true;
 
 		// Skill Selector
 		const skillsList = this.stateManager.getSkills();
@@ -691,9 +695,11 @@ export class HabitsPanel {
 		diffRow.createEl("label", { text: "Difficulty:" });
 		const diffSelect = diffRow.createEl("select", { cls: "life-rpg-select" });
 		diffSelect.addEventListener("keydown", (e) => e.stopPropagation());
-		diffSelect.createEl("option", { value: "1", text: "⭐ Easy" });
-		diffSelect.createEl("option", { value: "2", text: "⭐⭐ Medium" });
-		diffSelect.createEl("option", { value: "3", text: "⭐⭐⭐ Hard" });
+		diffSelect.createEl("option", { value: "1", text: "⚪ Passive" });
+		diffSelect.createEl("option", { value: "2", text: "🟢 Easy" });
+		diffSelect.createEl("option", { value: "3", text: "🟡 Challenging" });
+		diffSelect.createEl("option", { value: "4", text: "🟠 Hardcore" });
+		diffSelect.createEl("option", { value: "5", text: "🟣 Madhouse" });
 
 		// Recurrence
 		const recurRow = form.createDiv({ cls: "life-rpg-form-row" });

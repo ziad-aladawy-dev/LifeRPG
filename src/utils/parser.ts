@@ -80,20 +80,28 @@ export function parseQuestId(lineText: string): string | null {
  * Default: Medium
  */
 function parseDifficulty(text: string): Difficulty {
-	const match = text.match(/\[(?:difficulty|diff|d)\s*:\s*(easy|med|medium|hard)\]/i);
-	if (!match) return Difficulty.Easy;
+	const match = text.match(/\[(?:difficulty|diff|d)\s*:\s*(passive|pass|easy|challenging|chall|hardcore|hardc|hc|madhouse|mad)\]/i);
+	if (!match) return Difficulty.Passive;
 
 	const raw = match[1].toLowerCase();
 	switch (raw) {
+		case "pass":
+		case "passive":
+			return Difficulty.Passive;
 		case "easy":
 			return Difficulty.Easy;
-		case "med":
-		case "medium":
-			return Difficulty.Medium;
-		case "hard":
-			return Difficulty.Hard;
+		case "chall":
+		case "challenging":
+			return Difficulty.Challenging;
+		case "hc":
+		case "hardc":
+		case "hardcore":
+			return Difficulty.Hardcore;
+		case "mad":
+		case "madhouse":
+			return Difficulty.Madhouse;
 		default:
-			return Difficulty.Easy;
+			return Difficulty.Passive;
 	}
 }
 
