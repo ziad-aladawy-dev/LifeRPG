@@ -164,7 +164,7 @@ export function calculateHabitReward(
 		const totalLoad = (habit.energyM || 0) + (habit.energyP || 0) + (habit.energyW || 0);
 		multiplier = totalLoad / 5;
 	} else {
-		multiplier = settings.difficultyMultipliers[habit.difficulty] ?? 1;
+		multiplier = settings.difficultyMultipliers[habit.difficulty as Difficulty] ?? 1;
 	}
 
 	if (habit.type === "good") {
@@ -208,7 +208,8 @@ export function calculateHabitReward(
 export function processXpGain(
 	character: CharacterState,
 	xpAmount: number,
-	hpPerLevel: number
+	hpPerLevel: number,
+	globalModifiers?: { hpMax: number }
 ): { character: CharacterState; logEntries: EventLogEntry[]; leveledUp: boolean } {
 	const char = { ...character };
 	const logEntries: EventLogEntry[] = [];
@@ -221,7 +222,8 @@ export function processXpGain(
 		char.xp -= char.xpToNextLevel;
 		char.level++;
 		char.maxHp += hpPerLevel;
-		char.hp = char.maxHp; // Full heal on level up
+		const finalMaxHp = char.maxHp + (globalModifiers?.hpMax || 0);
+		char.hp = finalMaxHp; // Full heal on level up
 		char.xpToNextLevel = xpThresholdForLevel(char.level);
 		leveledUp = true;
 
@@ -287,7 +289,8 @@ export function processSkillXpGain(
 export function revertXpGain(
 	character: CharacterState,
 	xpAmount: number,
-	hpPerLevel: number
+	hpPerLevel: number,
+	globalModifiers?: { hpMax: number }
 ): { character: CharacterState; logEntries: EventLogEntry[]; leveledDown: boolean } {
 	const char = { ...character };
 	const logEntries: EventLogEntry[] = [];
@@ -300,7 +303,8 @@ export function revertXpGain(
 		char.level--;
 		char.maxHp = Math.max(10, char.maxHp - hpPerLevel);
 		// Note: when reverting XP gain, maxHp is correctly decreased here.
-		if (char.hp > char.maxHp) char.hp = char.maxHp;
+		const finalMaxHp = char.maxHp + (globalModifiers?.hpMax || 0);
+		if (char.hp > finalMaxHp) char.hp = finalMaxHp;
 		char.xpToNextLevel = xpThresholdForLevel(char.level);
 		char.xp += char.xpToNextLevel;
 		leveledDown = true;
@@ -455,7 +459,8 @@ export function revertAttributeXpGain(
 export function processHpDamage(
 	character: CharacterState,
 	amount: number,
-	actualHpGain: number = 10
+	actualHpGain: number = 10,
+	globalModifiers?: { hpMax: number }
 ): { character: CharacterState; logEntries: EventLogEntry[]; died: boolean } {
 	const logEntries: EventLogEntry[] = [];
 	let c = { ...character };
@@ -463,8 +468,9 @@ export function processHpDamage(
 	let died = false;
 
 	if (c.hp <= 0) {
+		const finalMaxHp = c.maxHp + (globalModifiers?.hpMax || 0);
 		died = true;
-		c.hp = c.maxHp;
+		c.hp = finalMaxHp;
 		c.xp = 0;
 		c.gp = 0;
 		if (c.level > 1) {
@@ -492,11 +498,13 @@ export function processHpDamage(
  */
 export function processHpRegen(
 	character: CharacterState,
-	amount: number
+	amount: number,
+	globalModifiers?: { hpMax: number }
 ): CharacterState {
+	const finalMaxHp = character.maxHp + (globalModifiers?.hpMax || 0);
 	return {
 		...character,
-		hp: Math.min(character.maxHp, character.hp + amount),
+		hp: Math.min(finalMaxHp, character.hp + amount),
 	};
 }
 
@@ -553,7 +561,7 @@ export function processTaskCompletion(
 	logEntries: EventLogEntry[];
 	result: RewardResult & { spEarned: number };
 } {
-	const reward = calculateTaskReward(metadata.difficulty, settings, character.attributes, globalModifiers, isSubtask, comboCount);
+	const reward = calculateTaskReward(metadata, settings, character.attributes, globalModifiers, isSubtask, comboCount);
 	const logEntries: EventLogEntry[] = [];
 	let currentChar = { ...character };
 	let updatedSkills = skills.map((s) => ({ ...s }));
@@ -651,7 +659,7 @@ export function processTaskUncompletion(
 	logEntries: EventLogEntry[];
 	result: RewardResult & { spEarned: number };
 } {
-	const reward = calculateTaskReward(metadata.difficulty, settings, character.attributes, globalModifiers, isSubtask);
+	const reward = calculateTaskReward(metadata, settings, character.attributes, globalModifiers, isSubtask);
 	const logEntries: EventLogEntry[] = [];
 	let currentChar = { ...character };
 	let updatedSkills = skills.map((s) => ({ ...s }));

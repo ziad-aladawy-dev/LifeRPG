@@ -47,7 +47,7 @@ export class StatsPanel {
 		const radarSection = el.createDiv({ cls: "life-rpg-radar-section" });
 		const canvas = radarSection.createEl("canvas", { 
 			cls: "life-rpg-radar-canvas",
-			attr: { width: "320", height: "300" } 
+			attr: { width: "600", height: "280" } 
 		});
 		this.drawRadarChart(canvas, character.attributes as unknown as Record<string, AttributeState>);
 
@@ -78,7 +78,10 @@ export class StatsPanel {
 		// --- RESOURCE BARS SECTION ---
 		const resourceSection = el.createDiv({ cls: "life-rpg-resource-section" });
 		
-		this.renderResourceBar(resourceSection, "Health", character.hp, character.maxHp, "hp");
+		const modifiers = this.stateManager.getGlobalModifiers();
+		const finalMaxHp = character.maxHp + (modifiers.hpMax || 0);
+		
+		this.renderResourceBar(resourceSection, "Health", character.hp, finalMaxHp, "hp");
 		this.renderResourceBar(resourceSection, "Experience", character.xp, character.xpToNextLevel, "xp");
 
 		// --- FLOATING GOLD ---
@@ -165,8 +168,15 @@ export class StatsPanel {
 		titleContainer.createEl("h3", { text: "🎯 Skills" });
 		
 		const spDisplay = titleContainer.createDiv({ cls: "life-rpg-sp-badge" });
+		const availableSP = this.stateManager.getSkillPoints();
+		const totalSP = this.stateManager.getTotalSkillPoints();
+		
 		spDisplay.createEl("span", { text: "SP: ", cls: "life-rpg-sp-label" });
-		spDisplay.createEl("span", { text: this.stateManager.getSkillPoints().toString(), cls: "life-rpg-sp-value" });
+		spDisplay.createEl("span", { 
+			text: `${availableSP} / ${totalSP}`, 
+			cls: "life-rpg-sp-value",
+			title: `Total SP earned from skill levels: ${totalSP}\nSpent SP: ${totalSP - availableSP}`
+		});
 
 		const btnGroup = header.createDiv({ cls: "life-rpg-panel-btn-group" });
 		

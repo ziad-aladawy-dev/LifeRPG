@@ -22,6 +22,7 @@ import {
 	ItemRarity,
 	RewardCategory,
 	EventType,
+	type TaskMetadata,
 } from "../types";
 import { DEFAULT_GAME_STATE, DEFAULT_SETTINGS, DEFAULT_ATTRIBUTES, INITIAL_ITEMS, SKILL_TREE_NODES, generateId } from "../constants";
 import { calculateGlobalModifiers } from "../engine/GameEngine";
@@ -381,8 +382,19 @@ export class StateManager {
 	// Skill Tree Operations
 	// -----------------------------------------------------------------------
 
+	getTotalSkillPoints(): number {
+		return this.state.skills.reduce((total, skill) => total + (skill.level - 1), 0);
+	}
+
+	getSpentSkillPoints(): number {
+		return this.state.unlockedSkillNodes.reduce((total, nodeId) => {
+			const node = SKILL_TREE_NODES.find(n => n.id === nodeId);
+			return total + (node ? node.cost : 0);
+		}, 0);
+	}
+
 	getSkillPoints(): number {
-		return this.state.unspentSkillPoints;
+		return this.getTotalSkillPoints() - this.getSpentSkillPoints();
 	}
 
 	getUnlockedSkillNodes(): string[] {
@@ -404,7 +416,7 @@ export class StateManager {
 	unlockSkillNode(nodeId: string): boolean {
 		const node = SKILL_TREE_NODES.find(n => n.id === nodeId);
 		if (!node) return false;
-		if (this.state.unspentSkillPoints < node.cost) return false;
+		if (this.getSkillPoints() < node.cost) return false;
 		if (this.state.unlockedSkillNodes.includes(nodeId)) return false;
 
 		// Check requirements
@@ -417,7 +429,6 @@ export class StateManager {
 			if (!attr || attr.level < node.attributeThreshold.level) return false;
 		}
 
-		this.state.unspentSkillPoints -= node.cost;
 		this.state.unlockedSkillNodes.push(nodeId);
 		
 		this.addLogEntry({
@@ -437,13 +448,6 @@ export class StateManager {
 
 	/** Reset Skill Tree (Mirror of Rebirth logic) */
 	respecSkillTree(): void {
-		let totalRefund = 0;
-		for (const nodeId of this.state.unlockedSkillNodes) {
-			const node = SKILL_TREE_NODES.find(n => n.id === nodeId);
-			if (node) totalRefund += node.cost;
-		}
-		
-		this.state.unspentSkillPoints += totalRefund;
 		this.state.unlockedSkillNodes = [];
 		
 		this.addLogEntry({

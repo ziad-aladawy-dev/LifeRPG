@@ -114,7 +114,7 @@ export class EnergyPanel {
 		const file = app.vault.getAbstractFileByPath(task.filePath);
 		if (file instanceof TFile) {
 			const leaf = app.workspace.getLeaf(false);
-			await leaf.openFile(file, { eState: { line: task.lineNumber - 1 } });
+			await leaf.openFile(file, { eState: { line: task.line - 1 } });
 		}
 	}
 

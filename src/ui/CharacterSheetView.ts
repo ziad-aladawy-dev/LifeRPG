@@ -29,11 +29,11 @@ interface TabDefinition {
 const TABS: TabDefinition[] = [
 	{ id: "stats", label: "📊 Stats", icon: "sword" },
 	{ id: "energy", label: "🔋 Energy", icon: "zap" },
-	{ id: "quests", label: "📜 Quests", icon: "scroll" },
-	{ id: "skill_tree", label: "🌳 Tree", icon: "tree" },
-	{ id: "habits", label: "🔄 Habits", icon: "refresh-cw" },
-	{ id: "rewards", label: "💰 Store", icon: "shopping-cart" },
 	{ id: "boss", label: "💀 Boss", icon: "skull" },
+	{ id: "quests", label: "📜 Quests", icon: "scroll" },
+	{ id: "habits", label: "🔄 Habits", icon: "refresh-cw" },
+	{ id: "skill_tree", label: "🌳 Tree", icon: "tree" },
+	{ id: "rewards", label: "💰 Store", icon: "shopping-cart" },
 	{ id: "log", label: "📝 Log", icon: "list" },
 ];
 
@@ -284,6 +284,9 @@ export class CharacterSheetView extends ItemView {
 		ribbon.empty();
 
 		const char = this.stateManager.getCharacter();
+		const modifiers = this.stateManager.getGlobalModifiers();
+		const finalMaxHp = char.maxHp + (modifiers.hpMax || 0);
+
 		const el = ribbon as HTMLElement;
 
 		const energy = this.stateManager.calculateDailyEnergyLoad();
@@ -291,15 +294,18 @@ export class CharacterSheetView extends ItemView {
 
 		const items = [
 			{ icon: "🏅", text: `Lv.${char.level}` },
-			{ icon: "❤️", text: `${char.hp}/${char.maxHp}` },
+			{ icon: "❤️", text: `${char.hp}/${finalMaxHp}` },
 			{ icon: "⚡", text: `${energy.total}/${cap}` },
 			{ icon: "✨", text: `${char.xp}/${char.xpToNextLevel}` },
-			{ icon: "⭐", text: `${this.stateManager.getSkillPoints()} SP` },
+			{ icon: "⭐", text: `${this.stateManager.getSkillPoints()} / ${this.stateManager.getTotalSkillPoints()} SP` },
 			{ icon: "💰", text: `${char.gp}` },
 		];
 
 		for (const item of items) {
 			const span = el.createEl("span", { cls: "life-rpg-ribbon-item" });
+			if (item.icon === "⭐") {
+				span.title = `Available / Total Skill Points\nTotal is earned from skill levels.`;
+			}
 			const iconEl = span.createEl("span", { cls: "life-rpg-ribbon-icon" });
 			iconEl.setText(item.icon);
 			span.createEl("span", {

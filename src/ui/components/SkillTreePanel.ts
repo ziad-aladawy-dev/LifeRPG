@@ -33,7 +33,8 @@ export class SkillTreePanel {
 		titleGroup.createEl("span", { text: "Channel your unspent potential into new abilities.", cls: "subtitle" });
 		
 		const spDisplay = header.createDiv({ cls: "life-rpg-sp-display" });
-		spDisplay.createEl("span", { text: availableSP.toString(), cls: "sp-value" });
+		const totalSP = this.stateManager.getTotalSkillPoints();
+		spDisplay.createEl("span", { text: `${availableSP} / ${totalSP}`, cls: "sp-value" });
 		spDisplay.createEl("span", { text: " SP AVAILABLE", cls: "sp-label" });
 
 		const respecBtn = header.createEl("button", {

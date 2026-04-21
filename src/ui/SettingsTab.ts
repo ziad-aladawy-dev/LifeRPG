@@ -3,7 +3,7 @@
 // Plugin settings UI in Obsidian's settings pane.
 // ============================================================================
 
-import { App, PluginSettingTab, Setting } from "obsidian";
+import { App, PluginSettingTab, Setting, Notice } from "obsidian";
 import type LifeRpgPlugin from "../main";
 import { Difficulty } from "../types";
 import { ImageCacheManager } from "../utils/ImageCacheManager";
@@ -465,8 +465,8 @@ export class LifeRpgSettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Download and cache portal images")
-			.setDesc("Automatically download external image URLs for offline use.")
-			.addToggle((toggle) => toggle.setValue(true).setDisabled(true).setDesc("Always enabled for best experience"));
+			.setDesc("Automatically download external image URLs for offline use. Always enabled for best experience.")
+			.addToggle((toggle) => toggle.setValue(true).setDisabled(true));
 
 		new Setting(containerEl)
 			.setName("Cache size cap (MB)")

@@ -56,7 +56,7 @@ export function isHabitDue(habit: Habit): boolean {
 	
 	const diffDays = Math.round((todayTime - anchorTime) / (1000 * 60 * 60 * 24));
 	
-	if (diffDays >= 0 && diffDays % habit.recurrenceDays === 0) return true;
+	if (diffDays >= 0 && diffDays % (habit.recurrenceDays || 1) === 0) return true;
 	
 	return false;
 }
@@ -255,7 +255,7 @@ export function logBadHabit(
 	const wisBonus = 10;
 	const actualHpGain = settings.hpPerLevel + (currentChar.attributes.wis.level * wisBonus);
 	const wasLevelGreaterThanOne = currentChar.level > 1;
-	const hpResult = processHpDamage(currentChar, damage, actualHpGain);
+	const hpResult = processHpDamage(currentChar, damage, actualHpGain, modifiers);
 	if (hpResult.died && wasLevelGreaterThanOne) {
 		updatedHabit.causedDeathLevelDown = true;
 	} else {

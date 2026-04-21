@@ -150,7 +150,7 @@ export class QuestsPanel {
 				}
 				
 				// Reward Preview
-				const reward = calculateTaskReward(metadata.difficulty, settings, character.attributes, globalModifiers, task.isSubtask);
+				const reward = calculateTaskReward(metadata, settings, character.attributes, globalModifiers, task.isSubtask);
 				badgesRow.createEl("span", { text: `+${reward.xp} XP`, cls: `life-rpg-quest-badge life-rpg-habit-reward` });
 				badgesRow.createEl("span", { text: `+${reward.gp} GP`, cls: `life-rpg-quest-badge life-rpg-habit-reward` });
 
