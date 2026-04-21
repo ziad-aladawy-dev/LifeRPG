@@ -124,6 +124,11 @@ export class StatsPanel {
 
 			const sources = row.createDiv({ cls: "life-rpg-bonus-sources" });
 
+			// Energy System sources (Burnout)
+			if (bt.key === "xpMultiplier" && modifiers.isBurntOut) {
+				sources.createEl("span", { text: "🔥 BURNOUT: -25%", cls: "life-rpg-bonus-source debuff" });
+			}
+
 			// Equipment sources
 			for (const item of equippedItems) {
 				const val = item.modifiers[bt.itemKey] || 0;

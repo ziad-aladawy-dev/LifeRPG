@@ -6,7 +6,7 @@
 import { setIcon, Notice, normalizePath, TFile, TFolder } from "obsidian";
 import { type Habit, type Skill, Difficulty, ItemSlot } from "../../types";
 import { type StateManager } from "../../state/StateManager";
-import { logGoodHabit, logBadHabit, resolveOutstandingHabit, undoHabit, recalculateHabitStreak } from "../../engine/HabitManager";
+import { logGoodHabit, logBadHabit, resolveOutstandingHabit, undoHabit, recalculateHabitStreak, isHabitDue } from "../../engine/HabitManager";
 import { calculateHabitReward, streakBonusMultiplier } from "../../engine/GameEngine";
 import { generateId } from "../../constants";
 import { HabitDetailModal } from "../modals/HabitDetailModal";
@@ -26,32 +26,8 @@ export class HabitsPanel {
 	}
 
 	private isHabitDue(habit: Habit): boolean {
-		const today = new Date().toISOString().split("T")[0];
-		
-		// 1. Backlog is always due
-		if ((habit.outstandingDays || 0) > 0) return true;
-		
-		// 2. Daily is always due
-		if ((habit.recurrenceDays || 1) <= 1) return true;
-		
-		// 3. Completed today (so user can see their success inside the main list)
-		if (habit.lastCompleted && habit.lastCompleted.startsWith(today)) return true;
-		
-		// 4. Calculate if mathematically due today based on start date anchor
-		const anchorDateStr = habit.startDate || habit.createdAt.split("T")[0];
-		const [ay, am, ad] = anchorDateStr.split("-").map(Number);
-		const anchorDate = new Date(ay, am - 1, ad);
-		
-		const todayParsed = new Date();
-		// Strip time for clean day diff
-		const anchorTime = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), anchorDate.getDate()).getTime();
-		const todayTime = new Date(todayParsed.getFullYear(), todayParsed.getMonth(), todayParsed.getDate()).getTime();
-		
-		const diffDays = Math.round((todayTime - anchorTime) / (1000 * 60 * 60 * 24));
-		
-	if (diffDays >= 0 && diffDays % habit.recurrenceDays === 0) return true;
-		
-		return false;
+		const { isHabitDue } = require("../../engine/HabitManager");
+		return isHabitDue(habit);
 	}
 
 	private calculateNextDueDate(habit: Habit): Date {
@@ -223,7 +199,7 @@ export class HabitsPanel {
 		const character = this.stateManager.getCharacter();
 		const modifiers = this.stateManager.getGlobalModifiers();
 
-		const baseReward = calculateHabitReward(habit.type, habit.difficulty, settings, character.attributes, modifiers);
+		const baseReward = calculateHabitReward(habit, settings, character.attributes, modifiers);
 
 		// --- Entire Card Intense Streak System ---
 		if (liveStreak > 0) {

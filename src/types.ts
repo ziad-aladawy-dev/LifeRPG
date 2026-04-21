@@ -123,6 +123,7 @@ export interface CharacterState {
 	gp: number;
 	attributes: CharacterAttributes;
 	equippedItems: Record<ItemSlot, string | null>; // Maps slot to Item ID
+	burntOutYesterday: boolean; // Triggers debuff
 }
 
 /** A custom skill that can be leveled independently */
@@ -184,6 +185,11 @@ export interface Habit {
 	maxStreak?: number;
 	createdAt: string; // ISO date string
 	startDate?: string; // Optional manual start date (YYYY-MM-DD)
+	
+	// Energy scores (M, P, W)
+	energyM?: number;
+	energyP?: number;
+	energyW?: number;
 }
 
 /** A custom reward the player can purchase with GP */
@@ -242,6 +248,9 @@ export interface EventLogEntry {
 /** Metadata parsed from a task line's inline annotations */
 export interface TaskMetadata {
 	difficulty: Difficulty;
+	energyM?: number; // 0-5
+	energyP?: number; // 0-5
+	energyW?: number; // 0-5
 	skillId: string | null;
 	deadline: string | null; // ISO date string (Legacy support)
 	startDate?: string | null; // ISO string
@@ -455,6 +464,7 @@ export interface PluginSettings {
 
 	// Editor
 	enableEditorSuggestions: boolean;
+	dailyEnergyCap: number; // The "Rule of 30"
 }
 
 // ---------------------------------------------------------------------------

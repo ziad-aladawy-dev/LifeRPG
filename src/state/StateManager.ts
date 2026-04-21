@@ -5,6 +5,7 @@
 
 import { type Plugin, Notice } from "obsidian";
 import { getTodayStr } from "../utils/dateUtils";
+import { isHabitDue } from "../engine/HabitManager";
 import {
 	type GameState,
 	type Skill,
@@ -810,6 +811,69 @@ export class StateManager {
 		this.state.questRegistry[qId] = metadata;
 		this.save();
 		this.notify();
+	}
+
+	/**
+	 * Calculate the total energy load for the current day.
+	 * Includes good habits and dated tasks (deadline, start, or end date is today).
+	 */
+	calculateDailyEnergyLoad(): { m: number, p: number, w: number, total: number } {
+		const today = getTodayStr();
+		let m = 0, p = 0, w = 0;
+
+		// 1. Habits (Good only and Due today)
+		for (const habit of this.state.habits) {
+			if (habit.type === "good" && isHabitDue(habit)) {
+				m += habit.energyM || 0;
+				p += habit.energyP || 0;
+				w += habit.energyW || 0;
+			}
+		}
+
+		// 2. Dated Tasks
+		for (const qId in this.state.questRegistry) {
+			const meta = this.state.questRegistry[qId];
+			const dates = [meta.deadline, meta.startDate, meta.endDate]
+				.filter(d => !!d)
+				.map(d => d!.split("T")[0]);
+			
+			if (dates.includes(today)) {
+				m += meta.energyM || 0;
+				p += meta.energyP || 0;
+				w += meta.energyW || 0;
+			}
+		}
+
+		return { m, p, w, total: m + p + w };
+	}
+
+	/**
+	 * Detect burnout based on energy load and apply penalties.
+	 * Triggered during daily rollover.
+	 */
+	processBurnoutRollover(): void {
+		const load = this.calculateDailyEnergyLoad();
+		const cap = this.settings.dailyEnergyCap || 30;
+
+		if (load.total > cap) {
+			const damage = 20; // Base burnout damage
+			this.state.character.burntOutYesterday = true;
+			this.state.character.hp = Math.max(1, this.state.character.hp - damage);
+			
+			this.addLogEntry({
+				id: generateId(),
+				timestamp: new Date().toISOString(),
+				type: EventType.HpDamage,
+				message: `🔥 BURNOUT! Yesterday's energy load (${load.total}) exceeded your cap of ${cap}. You taken ${damage} damage and have a -25% XP debuff today.`,
+				xpDelta: 0,
+				gpDelta: 0,
+				hpDelta: -damage,
+			});
+		} else {
+			this.state.character.burntOutYesterday = false;
+		}
+		
+		this.save();
 	}
 
 	generateQuestId(): string {

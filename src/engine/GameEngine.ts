@@ -29,9 +29,6 @@ import { getRankUpTitle } from "./ClassSystem";
 // Item & Equipment Modifiers
 // ---------------------------------------------------------------------------
 
-/**
- * Aggregates modifiers from all equipped items AND unlocked skill tree nodes.
- */
 export function calculateGlobalModifiers(
 	character: CharacterState,
 	inventory: Item[],
@@ -50,6 +47,8 @@ export function calculateGlobalModifiers(
 		damageReduction: 0,
 		wisdomSave: 0, // Reduces bad habit damage
 		dropChance: 0,
+		// Energy system flags
+		isBurntOut: character.burntOutYesterday || false,
 	};
 
 	// 1. Item Modifiers
@@ -81,6 +80,11 @@ export function calculateGlobalModifiers(
 		total.dropChance += node.modifiers.dropChance || 0;
 	}
 
+	// 3. Burnout Debuff: -25% XP gain
+	if (total.isBurntOut) {
+		total.xpMultiplier *= 0.75;
+	}
+
 	return total;
 }
 
@@ -90,17 +94,28 @@ export function calculateGlobalModifiers(
 
 /**
  * Calculate XP and GP rewards for completing a task.
- * Formula: base * difficultyMultiplier
+ * Formula: base * energyMultiplier
+ * energyMultiplier = (M + P + W) / 5
  */
 export function calculateTaskReward(
-	difficulty: Difficulty,
+	metadata: TaskMetadata,
 	settings: PluginSettings,
 	attributes: CharacterAttributes,
 	globalModifiers: ReturnType<typeof calculateGlobalModifiers>,
 	isSubtask?: boolean,
 	comboCount: number = 0
 ): { xp: number; gp: number } {
-	const multiplier = settings.difficultyMultipliers[difficulty] ?? 1;
+	// 1. Calculate Energy Multiplier
+	let multiplier: number;
+	
+	if (metadata.energyM !== undefined || metadata.energyP !== undefined || metadata.energyW !== undefined) {
+		const totalLoad = (metadata.energyM || 0) + (metadata.energyP || 0) + (metadata.energyW || 0);
+		// Scale: 15 points (Titan) = 3x multiplier (old Hard). 5 points = 1. 1 point = 0.2.
+		multiplier = totalLoad / 5;
+	} else {
+		// Legacy fallback
+		multiplier = settings.difficultyMultipliers[metadata.difficulty] ?? 1;
+	}
 	
 	// Base calculations
 	let xp = settings.baseXp * multiplier;
@@ -138,14 +153,21 @@ export function calculateTaskReward(
  * Calculate XP and GP for a habit action.
  */
 export function calculateHabitReward(
-	type: "good" | "bad",
-	difficulty: Difficulty,
+	habit: any, // Habit interface but flexible for internal use
 	settings: PluginSettings,
 	attributes: CharacterAttributes,
 	globalModifiers: ReturnType<typeof calculateGlobalModifiers>
 ): { xp: number; gp: number; hpDamage: number } {
-	const multiplier = settings.difficultyMultipliers[difficulty] ?? 1;
-	if (type === "good") {
+	let multiplier: number;
+	
+	if (habit.energyM !== undefined || habit.energyP !== undefined || habit.energyW !== undefined) {
+		const totalLoad = (habit.energyM || 0) + (habit.energyP || 0) + (habit.energyW || 0);
+		multiplier = totalLoad / 5;
+	} else {
+		multiplier = settings.difficultyMultipliers[habit.difficulty] ?? 1;
+	}
+
+	if (habit.type === "good") {
 		let xp = settings.baseXp * multiplier;
 		let gp = settings.baseGp * multiplier * 0.5; // Habits give 50% GP
 

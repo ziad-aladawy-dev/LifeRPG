@@ -30,6 +30,37 @@ import {
 } from "./GameEngine";
 import { INITIAL_ITEMS } from "../constants";
 
+/**
+ * Robust check if a habit is due today based on recurrence and backlog.
+ */
+export function isHabitDue(habit: Habit): boolean {
+	const today = new Date().toISOString().split("T")[0];
+	
+	// 1. Backlog is always due
+	if ((habit.outstandingDays || 0) > 0) return true;
+	
+	// 2. Daily is always due
+	if ((habit.recurrenceDays || 1) <= 1) return true;
+	
+	// 3. Completed today (so user can see their success inside the main list)
+	if (habit.lastCompleted && habit.lastCompleted.startsWith(today)) return true;
+	
+	// 4. Calculate if mathematically due today based on start date anchor
+	const anchorDateStr = habit.startDate || habit.createdAt.split("T")[0];
+	const [ay, am, ad] = anchorDateStr.split("-").map(Number);
+	const anchorDate = new Date(ay, am - 1, ad);
+	
+	const todayParsed = new Date();
+	const anchorTime = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), anchorDate.getDate()).getTime();
+	const todayTime = new Date(todayParsed.getFullYear(), todayParsed.getMonth(), todayParsed.getDate()).getTime();
+	
+	const diffDays = Math.round((todayTime - anchorTime) / (1000 * 60 * 60 * 24));
+	
+	if (diffDays >= 0 && diffDays % habit.recurrenceDays === 0) return true;
+	
+	return false;
+}
+
 // ---------------------------------------------------------------------------
 // Good Habit Logging
 // ---------------------------------------------------------------------------
@@ -84,7 +115,7 @@ export function logGoodHabit(
 	updatedHabit.history[todayStr] = true;
 
 	// Calculate rewards with streak bonus and gear modifiers
-	const baseReward = calculateHabitReward("good", habit.difficulty, settings, currentChar.attributes, modifiers);
+	const baseReward = calculateHabitReward(updatedHabit, settings, currentChar.attributes, modifiers);
 	const bonus = streakBonusMultiplier(updatedHabit.streak);
 	const xpGain = Math.round(baseReward.xp * bonus);
 	const gpGain = Math.round(baseReward.gp * bonus);
@@ -208,7 +239,7 @@ export function logBadHabit(
 	}
 
 	// Calculate damage
-	const reward = calculateHabitReward("bad", habit.difficulty, settings, currentChar.attributes, modifiers);
+	const reward = calculateHabitReward(updatedHabit, settings, currentChar.attributes, modifiers);
 	const damage = reward.hpDamage;
 
 	// Update habit tracking
@@ -410,7 +441,7 @@ export function resolveOutstandingHabit(
 
 	if (wasCompleted) {
 		// Award rewards
-		const reward = calculateHabitReward("good", h.difficulty, settings, c.attributes, modifiers);
+		const reward = calculateHabitReward(h, settings, c.attributes, modifiers);
 		const xpGain = reward.xp;
 		const gpGain = reward.gp;
 
@@ -457,7 +488,7 @@ export function resolveOutstandingHabit(
 		h.history[targetDateStr] = true;
 	} else {
 		// Mark as missed (False)
-		const reward = calculateHabitReward("bad", h.difficulty, settings, c.attributes, modifiers);
+		const reward = calculateHabitReward(h, settings, c.attributes, modifiers);
 		const wisBonus = 10;
 		const actualHpGain = settings.hpPerLevel + (c.attributes.wis.level * wisBonus);
 		const hpResult = processHpDamage(c, reward.hpDamage, actualHpGain);
@@ -638,7 +669,7 @@ export function applyRetroactiveHabitHistoryChange(
 	}
 	
 	// Calculate rewards/penalties for this habit
-	const reward = calculateHabitReward(h.type, h.difficulty, settings, c.attributes, modifiers);
+	const reward = calculateHabitReward(h, settings, c.attributes, modifiers);
 	
 	if (h.type === "good") {
 		const xpDelta = completed ? reward.xp : -reward.xp;

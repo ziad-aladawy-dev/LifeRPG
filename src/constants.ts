@@ -56,6 +56,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	imageCacheSizeCap: 100,
 	lastImageCachePrune: new Date().toISOString(),
 	enableEditorSuggestions: true,
+	dailyEnergyCap: 30,
 };
 
 // ---------------------------------------------------------------------------
@@ -86,6 +87,7 @@ export const DEFAULT_CHARACTER: CharacterState = {
 		[ItemSlot.Armor]: null,
 		[ItemSlot.Accessory]: null,
 	},
+	burntOutYesterday: false,
 };
 
 // ---------------------------------------------------------------------------

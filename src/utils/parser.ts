@@ -14,12 +14,55 @@ import { Difficulty, TaskPriority, type TaskMetadata } from "../types";
  * All fields are optional and case-insensitive.
  */
 export function parseTaskMetadata(lineText: string): TaskMetadata {
+	const energy = parseEnergyScores(lineText);
 	return {
 		difficulty: parseDifficulty(lineText),
 		skillId: parseSkillId(lineText),
 		deadline: parseDeadline(lineText),
 		priority: parsePriority(lineText),
+		...energy
 	};
+}
+
+/**
+ * Extract energy scores from bracketed metadata.
+ * Supports: [m: 5], [p: 2], [w: 1] OR [m: 5, p: 2, w: 1]
+ */
+function parseEnergyScores(text: string): { energyM?: number, energyP?: number, energyW?: number } {
+	const result: { energyM?: number, energyP?: number, energyW?: number } = {};
+	
+	// Individual matches
+	const mMatch = text.match(/\[(?:mental|m)\s*:\s*(\d)\]/i);
+	if (mMatch) result.energyM = Math.min(5, Math.max(0, parseInt(mMatch[1])));
+	
+	const pMatch = text.match(/\[(?:physical|p)\s*:\s*(\d)\]/i);
+	if (pMatch) result.energyP = Math.min(5, Math.max(0, parseInt(pMatch[1])));
+	
+	const wMatch = text.match(/\[(?:willpower|w)\s*:\s*(\d)\]/i);
+	if (wMatch) result.energyW = Math.min(5, Math.max(0, parseInt(wMatch[1])));
+	
+	// Composite match: [m: 5, p: 2, w: 1]
+	const compositeMatch = text.match(/\[(m|p|w|mental|physical|willpower)[^\]]+\]/gi);
+	if (compositeMatch) {
+		for (const m of compositeMatch) {
+			const content = m.slice(1, -1); // remove [ and ]
+			const parts = content.split(",");
+			for (const p of parts) {
+				const kv = p.split(":");
+				if (kv.length === 2) {
+					const key = kv[0].trim().toLowerCase();
+					const val = parseInt(kv[1].trim());
+					if (!isNaN(val)) {
+						if (key === "m" || key === "mental") result.energyM = Math.min(5, Math.max(0, val));
+						if (key === "p" || key === "physical") result.energyP = Math.min(5, Math.max(0, val));
+						if (key === "w" || key === "willpower") result.energyW = Math.min(5, Math.max(0, val));
+					}
+				}
+			}
+		}
+	}
+	
+	return result;
 }
 
 /**
@@ -114,7 +157,7 @@ export function getTaskText(line: string): string {
 	// Remove checkbox prefix
 	let text = line.replace(/^[\s]*[-*]\s\[[ xX]\]\s*/, "");
 	// Remove inline metadata brackets
-	text = text.replace(/\[(?:difficulty|diff|d|skill|s|deadline|due|dl|id)\s*:[^\]]*\]/gi, "");
+	text = text.replace(/\[(?:difficulty|diff|d|skill|s|deadline|due|dl|id|m|mental|p|physical|w|willpower)\s*:[^\]]*\]/gi, "");
 	// Remove priority emojis 
 	text = text.replace(/[🔺⏫🔼🔽⏬⏺️]/g, "");
 	// Remove TickTickSync metadata (dataview inline syntax) 

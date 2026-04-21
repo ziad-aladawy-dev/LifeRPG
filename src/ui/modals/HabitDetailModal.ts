@@ -111,6 +111,35 @@ export class HabitDetailModal extends Modal {
 				drop.onChange(v => this.habit.skillId = v === "none" ? null : v);
 			});
 
+		// --- Energy Load (Only for Good Habits) ---
+		if (this.habit.type === "good") {
+			body.createEl("h3", { text: "🔋 Energy Load", cls: "life-rpg-section-title" });
+			
+			new Setting(body)
+				.setName("Mental (M)")
+				.addSlider(slider => slider
+					.setLimits(0, 5, 1)
+					.setValue(this.habit.energyM || 1)
+					.setDynamicTooltip()
+					.onChange(v => this.habit.energyM = v));
+
+			new Setting(body)
+				.setName("Physical (P)")
+				.addSlider(slider => slider
+					.setLimits(0, 5, 1)
+					.setValue(this.habit.energyP || 1)
+					.setDynamicTooltip()
+					.onChange(v => this.habit.energyP = v));
+
+			new Setting(body)
+				.setName("Willpower (W)")
+				.addSlider(slider => slider
+					.setLimits(1, 5, 1)
+					.setValue(this.habit.energyW || 1)
+					.setDynamicTooltip()
+					.onChange(v => this.habit.energyW = v));
+		}
+
 		// Footer Buttons
 		const footer = contentEl.createDiv({ cls: "life-rpg-modal-footer" });
 		

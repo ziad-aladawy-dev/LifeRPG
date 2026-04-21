@@ -19,8 +19,9 @@ import { InventoryPanel } from "./components/InventoryPanel";
 import { HabitHistoryModal } from "./modals/HabitHistoryModal";
 import { EventType } from "../types";
 import { SkillTreePanel } from "./components/SkillTreePanel";
+import { EnergyPanel } from "./components/EnergyPanel";
 
-type TabId = "stats" | "profile" | "inventory" | "quests" | "skills" | "skill_tree" | "habits" | "rewards" | "boss" | "log";
+type TabId = "stats" | "energy" | "profile" | "inventory" | "quests" | "skills" | "skill_tree" | "habits" | "rewards" | "boss" | "log";
 
 interface TabDefinition {
 	id: TabId;
@@ -30,6 +31,7 @@ interface TabDefinition {
 
 const TABS: TabDefinition[] = [
 	{ id: "stats", label: "📊 Stats", icon: "sword" },
+	{ id: "energy", label: "🔋 Energy", icon: "zap" },
 	{ id: "profile", label: "👤 Profile", icon: "user" },
 	{ id: "inventory", label: "🎒 Inventory", icon: "briefcase" },
 	{ id: "quests", label: "📜 Quests", icon: "scroll" },
@@ -58,6 +60,7 @@ export class CharacterSheetView extends ItemView {
 	private activityLogPanel: ActivityLogPanel | null = null;
 	private inventoryPanel: InventoryPanel | null = null;
 	private skillTreePanel: SkillTreePanel | null = null;
+	private energyPanel: EnergyPanel | null = null;
 	private isChroniclePlaying = false;
 
 	constructor(leaf: WorkspaceLeaf, stateManager: StateManager) {
@@ -215,6 +218,13 @@ export class CharacterSheetView extends ItemView {
 				this.statsPanel.render(state.character);
 				break;
 
+			case "energy": {
+				this.energyPanel = new EnergyPanel(this.tabContentEl, this.stateManager);
+				const plugin = (this.stateManager as any).plugin;
+				this.energyPanel.render(state, plugin.taskWatcher.getActiveTasks());
+				break;
+			}
+
 			case "profile":
 				this.profilePanel = new ProfilePanel(this.tabContentEl, this.stateManager);
 				this.profilePanel.render(state.character);
@@ -303,9 +313,13 @@ export class CharacterSheetView extends ItemView {
 		const char = this.stateManager.getCharacter();
 		const el = ribbon as HTMLElement;
 
+		const energy = this.stateManager.calculateDailyEnergyLoad();
+		const cap = this.stateManager.getSettings().dailyEnergyCap || 30;
+
 		const items = [
 			{ icon: "🏅", text: `Lv.${char.level}` },
 			{ icon: "❤️", text: `${char.hp}/${char.maxHp}` },
+			{ icon: "⚡", text: `${energy.total}/${cap}` },
 			{ icon: "✨", text: `${char.xp}/${char.xpToNextLevel}` },
 			{ icon: "⭐", text: `${this.stateManager.getSkillPoints()} SP` },
 			{ icon: "💰", text: `${char.gp}` },
@@ -332,6 +346,7 @@ export class CharacterSheetView extends ItemView {
 		this.bossPanel?.destroy();
 		this.activityLogPanel?.destroy();
 		this.skillTreePanel?.destroy();
+		this.energyPanel?.destroy();
 
 		this.statsPanel = null;
 		this.profilePanel = null;
@@ -342,5 +357,6 @@ export class CharacterSheetView extends ItemView {
 		this.bossPanel = null;
 		this.activityLogPanel = null;
 		this.skillTreePanel = null;
+		this.energyPanel = null;
 	}
 }

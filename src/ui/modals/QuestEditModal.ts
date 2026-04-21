@@ -53,7 +53,7 @@ export class QuestEditModal extends Modal {
 				.setValue(String(this.metadata.difficulty))
 				.onChange(v => this.metadata.difficulty = Number(v) as Difficulty));
 
-		// --- Skill Binding ---
+		// --- Bound Skill ---
 		new Setting(body)
 			.setName("Bound Skill")
 			.setDesc("Associate this quest with a skill to earn specialized XP.")
@@ -65,6 +65,40 @@ export class QuestEditModal extends Modal {
 				drop.setValue(this.metadata.skillId || "none");
 				drop.onChange(v => this.metadata.skillId = v === "none" ? null : v);
 			});
+
+		// --- Energy Load ---
+		body.createEl("h3", { text: "🔋 Energy Load", cls: "life-rpg-section-title" });
+		body.createEl("p", { 
+			text: "Rate the drain on each battery from 1 (Low) to 5 (High). Total load determines rewards.", 
+			cls: "life-rpg-setting-desc" 
+		});
+
+		new Setting(body)
+			.setName("Mental (M)")
+			.setDesc("Logic, problem-solving, and concentration.")
+			.addSlider(slider => slider
+				.setLimits(0, 5, 1)
+				.setValue(this.metadata.energyM || 1)
+				.setDynamicTooltip()
+				.onChange(v => this.metadata.energyM = v));
+
+		new Setting(body)
+			.setName("Physical (P)")
+			.setDesc("Movement, commuting, and sensory processing.")
+			.addSlider(slider => slider
+				.setLimits(0, 5, 1)
+				.setValue(this.metadata.energyP || 1)
+				.setDynamicTooltip()
+				.onChange(v => this.metadata.energyP = v));
+
+		new Setting(body)
+			.setName("Willpower (W)")
+			.setDesc("Resistance, boredom, or emotional dread.")
+			.addSlider(slider => slider
+				.setLimits(0, 5, 1)
+				.setValue(this.metadata.energyW || 1)
+				.setDynamicTooltip()
+				.onChange(v => this.metadata.energyW = v));
 
 		// --- Date & Time ---
 		body.createEl("h3", { text: "⏱️ Schedule", cls: "life-rpg-section-title" });
