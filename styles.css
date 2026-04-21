@@ -2407,6 +2407,21 @@
 .life-rpg-habit-card.intensity-frost-stasis .streak-big-number { font-size: 60px; color: white; text-shadow: 0 0 50px white, 0 0 100px cyan; font-style: italic; }
 .life-rpg-habit-card.intensity-frost-stasis .life-rpg-habit-name { font-size: 22px; font-weight: 900; text-shadow: 0 0 15px cyan; color: white; }
 
+.clickable-habit-name:hover {
+  filter: brightness(1.2);
+  text-shadow: 0 0 8px var(--gold-glow);
+  transform: translateY(-1px);
+  transition: all var(--t-fast);
+}
+
+.life-rpg-habit-good .clickable-habit-name:hover {
+  text-shadow: 0 0 8px var(--nature-glow);
+}
+
+.life-rpg-habit-bad .clickable-habit-name:hover {
+  text-shadow: 0 0 8px var(--blood-glow);
+}
+
 /* ── Habit Actions ── */
 .life-rpg-habit-actions {
   display: flex;

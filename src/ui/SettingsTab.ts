@@ -381,6 +381,25 @@ export class LifeRpgSettingsTab extends PluginSettingTab {
 					})
 			);
 
+		new Setting(containerEl)
+			.setName("Habit notes folder")
+			.setDesc(
+				"Path to the folder where habit-specific notes are stored (e.g. 'Atlas/Habits'). " +
+				"These notes open when you click on a habit name."
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder("Atlas/Habits")
+					.setValue(
+						this.plugin.stateManager.getSettings().habitNotesFolder
+					)
+					.onChange(async (value) => {
+						this.plugin.stateManager.updateSettings({
+							habitNotesFolder: value.trim(),
+						});
+					})
+			);
+
 		// ---------------------------------------------------------------
 		// Notifications & Log
 		// ---------------------------------------------------------------

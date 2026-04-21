@@ -51,6 +51,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	scanAllFiles: true,
 	showNotifications: true,
 	skillToAttributeRatio: 0.2,
+	habitNotesFolder: "Atlas/Habits",
 	bossEnrageHours: 48,
 	imageCacheSizeCap: 100,
 	lastImageCachePrune: new Date().toISOString(),

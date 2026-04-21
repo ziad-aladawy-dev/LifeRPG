@@ -424,6 +424,9 @@ export interface PluginSettings {
 	showNotifications: boolean;
 	skillToAttributeRatio: number;
 
+	// Habit notes
+	habitNotesFolder: string;
+
 	// Boss enrage timer (hours before boss enrages)
 	bossEnrageHours: number;
 

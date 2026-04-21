@@ -3,12 +3,11 @@
 // Renders good and bad habits with log buttons and streak tracking.
 // ============================================================================
 
-import { setIcon } from "obsidian";
+import { setIcon, Notice, normalizePath, TFile, TFolder } from "obsidian";
 import { type Habit, type Skill, Difficulty, ItemSlot } from "../../types";
 import { type StateManager } from "../../state/StateManager";
 import { logGoodHabit, logBadHabit, resolveOutstandingHabit, undoHabit, recalculateHabitStreak } from "../../engine/HabitManager";
 import { calculateHabitReward, streakBonusMultiplier } from "../../engine/GameEngine";
-import { Notice } from "obsidian";
 import { generateId } from "../../constants";
 import { HabitDetailModal } from "../modals/HabitDetailModal";
 import { HabitHistoryModal } from "../modals/HabitHistoryModal";
@@ -193,10 +192,16 @@ export class HabitsPanel {
 			iconEl.setText(habit.icon);
 		}
 
-		nameRow.createEl("span", {
+		const habitNameEl = nameRow.createEl("span", {
 			text: habit.name,
-			cls: "life-rpg-habit-name",
+			cls: "life-rpg-habit-name clickable-habit-name",
 		});
+		habitNameEl.style.cursor = "pointer";
+		habitNameEl.title = "Click to open habit note";
+		habitNameEl.onclick = (e) => {
+			e.stopPropagation();
+			this.openHabitNote(habit);
+		};
 
 		// Streak & info
 		const infoRow = cardContent.createDiv({ cls: "life-rpg-habit-info" });
@@ -478,6 +483,50 @@ export class HabitsPanel {
 			this.stateManager.addLogEntry(entry);
 		}
 	}
+	private async openHabitNote(habit: Habit): Promise<void> {
+		const app = (this.stateManager as any).app || (this.stateManager as any).plugin.app;
+		const settings = this.stateManager.getSettings();
+		const folderPath = settings.habitNotesFolder || "Atlas/Habits";
+		
+		// Ensure folder exists
+		try {
+			if (!(await app.vault.adapter.exists(folderPath))) {
+				await app.vault.createFolder(folderPath);
+			}
+		} catch (err) {
+			// Folder might already exist or be nested
+			const folders = folderPath.split("/");
+			let currentPath = "";
+			for (const folder of folders) {
+				currentPath = currentPath ? `${currentPath}/${folder}` : folder;
+				if (!(await app.vault.adapter.exists(currentPath))) {
+					await app.vault.createFolder(currentPath);
+				}
+			}
+		}
+
+		const fileName = `${habit.name.replace(/[\\/:*?"<>|]/g, "-")}.md`;
+		const filePath = normalizePath(`${folderPath}/${fileName}`);
+		
+		let file = app.vault.getAbstractFileByPath(filePath);
+		
+		if (!file) {
+			const content = `# 🔄 Habit: ${habit.name}\n\n` +
+				`- **Icon**: ${habit.icon}\n` +
+				`- **Type**: ${habit.type === "good" ? "✅ Good" : "⛔ Bad"}\n` +
+				`- **Difficulty**: ${Difficulty[habit.difficulty] || habit.difficulty}\n\n` +
+				`---\n\n` +
+				`## Notes\n`;
+			
+			file = await app.vault.create(filePath, content);
+		}
+
+		if (file instanceof TFile) {
+			const leaf = app.workspace.getLeaf(false);
+			await leaf.openFile(file);
+		}
+	}
+
 	private logHabit(habit: Habit): void {
 		const character = this.stateManager.getCharacter();
 		const skills = this.stateManager.getSkills();
