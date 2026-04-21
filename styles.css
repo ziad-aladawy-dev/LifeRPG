@@ -4559,34 +4559,42 @@
 
 /* ── Task Priority Badges ── */
 .life-rpg-badge-priority-highest {
-  background: linear-gradient(135deg, var(--ember-dark) 0%, var(--blood-dark) 100%) !important;
-  border-color: var(--ember-bright) !important;
-  color: var(--ember-bright) !important;
-  box-shadow: 0 0 10px var(--ember-glow) !important;
-  font-weight: 700 !important;
+  background: linear-gradient(135deg, var(--blood-dark) 0%, var(--ember-dark) 100%) !important;
+  border-color: var(--blood-bright) !important;
+  color: var(--text-bright) !important;
+  box-shadow: 0 0 12px var(--blood-glow) !important;
+  text-shadow: 0 0 5px var(--blood-glow);
+  font-weight: 800 !important;
   text-transform: uppercase;
   letter-spacing: 1px;
 }
 
 .life-rpg-badge-priority-high {
-  background: linear-gradient(135deg, var(--gold-dark) 0%, var(--gold-mid) 100%) !important;
-  border-color: var(--gold-bright) !important;
+  background: linear-gradient(135deg, var(--ember-dark) 0%, var(--gold-dark) 100%) !important;
+  border-color: var(--ember-bright) !important;
+  color: var(--ember-light) !important;
+  box-shadow: 0 0 8px var(--ember-glow) !important;
+}
+
+.life-rpg-badge-priority-medium {
+  background: linear-gradient(135deg, var(--gold-dark) 0%, var(--stone-dark) 100%) !important;
+  border-color: var(--gold-mid) !important;
   color: var(--gold-light) !important;
-  box-shadow: 0 0 8px var(--gold-glow) !important;
+  box-shadow: 0 0 5px var(--gold-ember) !important;
 }
 
 .life-rpg-badge-priority-low {
   background: linear-gradient(135deg, var(--frost-dark) 0%, var(--stone-dark) 100%) !important;
   border-color: var(--frost-mid) !important;
   color: var(--frost-light) !important;
-  opacity: 0.8;
+  opacity: 0.9;
 }
 
 .life-rpg-badge-priority-lowest {
-  background: var(--stone-darker) !important;
-  border-color: var(--stone-light) !important;
+  background: var(--stone-darkest) !important;
+  border-color: var(--stone-mid) !important;
   color: var(--text-faint) !important;
-  opacity: 0.6;
+  opacity: 0.7;
 }
 
 /* ── Skill Group Headers ── */

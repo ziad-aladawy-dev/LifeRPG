@@ -128,12 +128,13 @@ export class QuestsPanel {
 				badgesRow.createEl("span", { text: diffText, cls: `life-rpg-quest-badge ${diffClass}` });
 				
 				// Priority Badge (Obsidian Tasks compatibility)
-				if (metadata.priority !== undefined && metadata.priority !== TaskPriority.Medium) {
-					let prioText = "Medium";
+				if (metadata.priority !== undefined) {
+					let prioText = "";
 					let prioClass = "";
 					switch(metadata.priority) {
 						case TaskPriority.Highest: prioText = "Highest"; prioClass = "life-rpg-badge-priority-highest"; break;
 						case TaskPriority.High: prioText = "High"; prioClass = "life-rpg-badge-priority-high"; break;
+						case TaskPriority.Medium: prioText = "Medium"; prioClass = "life-rpg-badge-priority-medium"; break;
 						case TaskPriority.Low: prioText = "Low"; prioClass = "life-rpg-badge-priority-low"; break;
 						case TaskPriority.Lowest: prioText = "Lowest"; prioClass = "life-rpg-badge-priority-lowest"; break;
 					}

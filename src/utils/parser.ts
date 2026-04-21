@@ -84,8 +84,9 @@ function parseDeadline(text: string): string | null {
  * Extract Obsidian Tasks priority emoji.
  */
 function parsePriority(text: string): TaskPriority {
-	if (text.includes("⏫")) return TaskPriority.Highest;
-	if (text.includes("🔼")) return TaskPriority.High;
+	if (text.includes("🔺")) return TaskPriority.Highest;
+	if (text.includes("⏫")) return TaskPriority.High;
+	if (text.includes("🔼")) return TaskPriority.Medium;
 	if (text.includes("🔽")) return TaskPriority.Low;
 	if (text.includes("⏬")) return TaskPriority.Lowest;
 	return TaskPriority.Medium;
@@ -115,7 +116,7 @@ export function getTaskText(line: string): string {
 	// Remove inline metadata brackets
 	text = text.replace(/\[(?:difficulty|diff|d|skill|s|deadline|due|dl|id)\s*:[^\]]*\]/gi, "");
 	// Remove priority emojis 
-	text = text.replace(/[⏫🔼🔽⏬⏺️]/g, "");
+	text = text.replace(/[🔺⏫🔼🔽⏬⏺️]/g, "");
 	// Remove TickTickSync metadata (dataview inline syntax) 
 	text = text.replace(/\[ticktick_id::[^\]]+\]/gi, "");
 	// Remove Obsidian comments 
