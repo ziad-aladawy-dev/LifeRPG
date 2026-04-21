@@ -260,6 +260,7 @@ export interface TaskMetadata {
 	includeTime?: boolean;
 	priority?: TaskPriority;
 	penalizedAt?: string | null; // ISO timestamp of last penalty trigger
+	isHeading?: boolean;
 }
 
 /** Represents a tracked task's checkbox state for change detection */
@@ -314,6 +315,8 @@ export interface BossTemplate {
 	flavor: string;
 	abilities?: BossAbility[];
 	lootTable?: BossLoot[];
+	scalingAttribute?: Attribute; // Attribute this boss resonates with
+	scalingFactor?: number;      // Multiplier for resonance scaling
 }
 
 /** An active or completed boss fight */
@@ -332,6 +335,8 @@ export interface Boss {
 	defeatedAt: string | null;
 	abilities?: BossAbility[];
 	lootTable?: BossLoot[];
+	scalingAttribute?: Attribute;
+	scalingFactor?: number;
 }
 
 /** A single dungeon stage */

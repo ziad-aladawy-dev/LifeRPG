@@ -110,25 +110,32 @@ export class QuestsPanel {
 
 				// Rewards Info Row (Beautifully written under title)
 				const reward = calculateTaskReward(metadata, settings, character.attributes, globalModifiers, task.isSubtask);
-				const infoRow = card.createDiv({ cls: "life-rpg-quest-info" });
-				infoRow.createEl("span", { 
-					text: `+${reward.xp} XP, +${reward.gp} GP`, 
-					cls: "life-rpg-quest-reward" 
-				});
+				
+				if (reward.xp > 0 || reward.gp > 0) {
+					const infoRow = card.createDiv({ cls: "life-rpg-quest-info" });
+					infoRow.createEl("span", { 
+						text: `+${reward.xp} XP, +${reward.gp} GP`, 
+						cls: "life-rpg-quest-reward" 
+					});
+				}
 
 				const badgesRow = card.createDiv({ cls: "life-rpg-quest-badges" });
 				
-				// Difficulty badge
-				let diffClass = "life-rpg-badge-passive";
-				let diffText = "Passive";
-				switch (metadata.difficulty) {
-					case Difficulty.Easy: diffClass = "life-rpg-badge-easy"; diffText = "Easy"; break;
-					case Difficulty.Challenging: diffClass = "life-rpg-badge-challenging"; diffText = "Challenging"; break;
-					case Difficulty.Hardcore: diffClass = "life-rpg-badge-hardcore"; diffText = "Hardcore"; break;
-					case Difficulty.Madhouse: diffClass = "life-rpg-badge-madhouse"; diffText = "Madhouse"; break;
+				if (metadata.isHeading) {
+					badgesRow.createEl("span", { text: "Heading", cls: "life-rpg-quest-badge life-rpg-badge-heading" });
+				} else {
+					// Difficulty badge
+					let diffClass = "life-rpg-badge-passive";
+					let diffText = "Passive";
+					switch (metadata.difficulty) {
+						case Difficulty.Easy: diffClass = "life-rpg-badge-easy"; diffText = "Easy"; break;
+						case Difficulty.Challenging: diffClass = "life-rpg-badge-challenging"; diffText = "Challenging"; break;
+						case Difficulty.Hardcore: diffClass = "life-rpg-badge-hardcore"; diffText = "Hardcore"; break;
+						case Difficulty.Madhouse: diffClass = "life-rpg-badge-madhouse"; diffText = "Madhouse"; break;
+					}
+					
+					badgesRow.createEl("span", { text: diffText, cls: `life-rpg-quest-badge ${diffClass}` });
 				}
-				
-				badgesRow.createEl("span", { text: diffText, cls: `life-rpg-quest-badge ${diffClass}` });
 				
 				// Priority Badge (Obsidian Tasks compatibility)
 				if (metadata.priority !== undefined) {

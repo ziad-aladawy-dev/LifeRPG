@@ -22,6 +22,7 @@ import {
 	advanceDungeonProgress,
 	revertDungeonProgress,
 	bossAttacksPlayer,
+	calculateOverdueHazardDamage,
 } from "../engine/BossEngine";
 import { generateId, INITIAL_ITEMS } from "../constants";
 import { getTodayStr } from "../utils/dateUtils";
@@ -198,7 +199,7 @@ export class TaskWatcher {
 					const attack = bossAttacksPlayer(boss, char.attributes, modifiers, settings);
 					damageDealt += attack.damage;
 				} else {
-					damageDealt += settings.bossDamageOnMissedDeadline || 5;
+					damageDealt += calculateOverdueHazardDamage(settings, char.attributes, modifiers);
 				}
 
 				// Mark task as penalized in memory/registry
@@ -668,8 +669,19 @@ export class TaskWatcher {
 		// --- Dungeon progress ---
 		const activeDungeon = this.stateManager.getActiveDungeon();
 		if (activeDungeon && activeDungeon.active) {
-			const dungeonResult = advanceDungeonProgress(activeDungeon);
+			const dungeonResult = advanceDungeonProgress(activeDungeon, character.attributes, modifiers);
 			this.stateManager.setActiveDungeon(dungeonResult.dungeon);
+			
+			// Apply Attrition Damage
+			if (dungeonResult.damage > 0) {
+				const actualHpGain = settings.hpPerLevel + (character.attributes.wis.level * 10);
+				const hpResult = processHpDamage(this.stateManager.getCharacter(), dungeonResult.damage, actualHpGain);
+				this.stateManager.setCharacter(hpResult.character);
+				if (hpResult.died) {
+					hpResult.logEntries.forEach(log => this.stateManager.addLogEntry(log));
+				}
+			}
+
 			for (const entry of dungeonResult.logEntries) {
 				this.stateManager.addLogEntry(entry);
 			}

@@ -194,7 +194,8 @@ export class BossPanel {
 			});
 
 			card.addEventListener("click", () => {
-				const boss = createBossFromTemplate(template);
+				const char = this.stateManager.getState().character;
+				const boss = createBossFromTemplate(template, char.attributes);
 				this.stateManager.setActiveBoss(boss);
 			});
 		}
@@ -307,7 +308,8 @@ export class BossPanel {
 			});
 
 			card.addEventListener("click", () => {
-				const dungeon = createDungeonFromTemplate(template);
+				const char = this.stateManager.getState().character;
+				const dungeon = createDungeonFromTemplate(template, char.attributes);
 				this.stateManager.setActiveDungeon(dungeon);
 			});
 		}

@@ -20,6 +20,7 @@ export function parseTaskMetadata(lineText: string): TaskMetadata {
 		skillId: parseSkillId(lineText),
 		deadline: parseDeadline(lineText),
 		priority: parsePriority(lineText),
+		isHeading: parseIsHeading(lineText),
 		...energy
 	};
 }
@@ -72,6 +73,13 @@ function parseEnergyScores(text: string): { energyM?: number, energyP?: number, 
 export function parseQuestId(lineText: string): string | null {
 	const match = lineText.match(/\[id\s*:\s*([a-z0-9]+)\]/i);
 	return match ? match[1] : null;
+}
+
+/**
+ * Detect if a task is a heading [type: heading] or [heading: true]
+ */
+function parseIsHeading(text: string): boolean {
+	return /\[(?:type|heading)\s*:\s*(heading|true)\]/i.test(text);
 }
 
 /**
@@ -170,7 +178,7 @@ export function getTaskText(line: string): string {
 	
 	// 3. Remove inline metadata brackets (LifeRPG fields)
 	// We use a more inclusive regex for the content inside brackets to catch all metadata fields
-	text = text.replace(/\[(?:difficulty|diff|d|skill|s|deadline|due|dl|id|m|mental|p|physical|w|willpower)\s*:[^\]]*\]/gi, "");
+	text = text.replace(/\[(?:difficulty|diff|d|skill|s|deadline|due|dl|id|m|mental|p|physical|w|willpower|type|heading)\s*:[^\]]*\]/gi, "");
 	
 	// 4. Remove Dataview-style inline fields (including lone ticktick_id)
 	text = text.replace(/\[[a-z0-9_]+\s*::\s*[^\]]*\]/gi, "");

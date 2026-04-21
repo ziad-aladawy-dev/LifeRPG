@@ -42,7 +42,24 @@ export class QuestEditModal extends Modal {
 
 		const body = contentEl.createDiv({ cls: "life-rpg-modal-body" });
 
-		// --- Difficulty ---
+		// --- Heading Toggle ---
+		new Setting(body)
+			.setName("Is Complex Heading")
+			.setDesc("If enabled, this task acts as a container with no inherent reward. Focus on subtasks instead.")
+			.addToggle(toggle => toggle
+				.setValue(!!this.metadata.isHeading)
+				.onChange(v => {
+					this.metadata.isHeading = v;
+					this.onOpen(); // Re-render to show/hide other settings
+				}));
+
+		if (this.metadata.isHeading) {
+			body.createEl("p", { 
+				text: "⚠️ This task is marked as a Heading. Difficulty and Energy settings are disabled.", 
+				cls: "life-rpg-modal-info-message" 
+			});
+		} else {
+			// --- Difficulty ---
 		new Setting(body)
 			.setName("Difficulty")
 			.setDesc("Higher difficulty grants more XP and GP, but deals more damage if missed.")
@@ -101,6 +118,7 @@ export class QuestEditModal extends Modal {
 				.setValue(this.metadata.energyW || 1)
 				.setDynamicTooltip()
 				.onChange(v => this.metadata.energyW = v));
+		}
 
 		// --- Date & Time ---
 		body.createEl("h3", { text: "⏱️ Schedule", cls: "life-rpg-section-title" });

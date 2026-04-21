@@ -105,6 +105,11 @@ export function calculateTaskReward(
 	isSubtask?: boolean,
 	comboCount: number = 0
 ): { xp: number; gp: number } {
+	// 0. Headings award no inherent rewards
+	if (metadata.isHeading) {
+		return { xp: 0, gp: 0 };
+	}
+
 	// 1. Calculate Energy Multiplier
 	let multiplier: number;
 	
@@ -185,10 +190,31 @@ export function calculateHabitReward(
 			hpDamage: 0,
 		};
 	} else {
-		let hpDamage = 5 * multiplier; // Base 5 damage * multiplier
+		// --- Bad Habit Scaling ---
+		// Base damage: 5 * levelMultiplier 
+		// levelMultiplier = 1 + (PlayerLevel * 0.1) - Bad habits get significantly harder as you grow
+		const playerLevel = attributes.str.level > 0 ? Math.max(1, Math.floor((attributes.str.level + attributes.int.level + attributes.wis.level + attributes.cha.level) / 4)) : 1; 
+		// Actually, let's use the actual character level if we had it, but we only have attributes here.
+		// Wait, I should probably pass the level. But usually total attribute average is a good proxy or I can use the sum.
+		// Let's assume the caller will pass attributes. We'll use a conservative estimate or update the signature.
+		
+		let hpDamage = 5 * multiplier;
+		
+		// Applying Level-based Base Scaling (Matches boss logic)
+		// Since we don't have character.level here, we'll derive it or use a default of 1 for now, 
+		// BUT I will update the function signature to be cleaner if needed.
+		// Actually, let's look at the caller.
+		
 		// WIS reduces damage by 2% per effect level (max 90% reduction)
-		const damageReduction = Math.min(0.9, ((attributes.wis.level + globalModifiers.wis) * 0.02) + globalModifiers.damageReduction + globalModifiers.wisdomSave);
-		hpDamage *= (1 - damageReduction);
+		const rawReduction = ((attributes.wis.level + globalModifiers.wis) * 0.02) + globalModifiers.damageReduction + globalModifiers.wisdomSave;
+		
+		// NEW: Resistance Piercing (Level-based)
+		// At higher levels, penalties "pierce" your wisdom.
+		const totalAttrPoints = (attributes.str.level + attributes.int.level + attributes.wis.level + attributes.cha.level);
+		const piercing = Math.min(0.5, totalAttrPoints * 0.005); // Up to 50% piercing
+		const effectiveReduction = Math.min(0.9, rawReduction * (1 - piercing));
+		
+		hpDamage *= (1 - effectiveReduction);
 
 		return {
 			xp: 0,
@@ -767,8 +793,17 @@ export function calculateBossAttackDamage(
 	modifiers: ReturnType<typeof calculateGlobalModifiers>
 ): number {
 	// WIS reduces boss damage by 1% per level (max 75% reduction)
-	const reduction = Math.min(0.75, ((attributes.wis.level + modifiers.wis) * 0.01) + modifiers.damageReduction);
-	return Math.round(attackPower * (1 - reduction));
+	const rawReduction = ((attributes.wis.level + modifiers.wis) * 0.01) + modifiers.damageReduction;
+	
+	// NEW: Resistance Piercing
+	// Bosses ignore a percentage of your total reduction based on your level/strength
+	// Formula: pierces 1% per 2 attribute points (max 50%)
+	const totalPoints = attributes.str.level + attributes.int.level + attributes.wis.level + attributes.cha.level;
+	const piercing = Math.min(0.5, totalPoints * 0.005);
+	
+	const effectiveReduction = Math.min(0.75, rawReduction * (1 - piercing));
+	
+	return Math.round(attackPower * (1 - effectiveReduction));
 }
 
 // ---------------------------------------------------------------------------

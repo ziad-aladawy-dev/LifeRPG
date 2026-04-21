@@ -5201,6 +5201,27 @@
 .life-rpg-badge-priority-low { color: var(--nature-bright); border: 1px solid var(--nature-mid); background: hsla(140, 50%, 20%, 0.15); }
 .life-rpg-badge-priority-lowest { color: var(--text-muted); border: 1px solid var(--border-subtle); background: var(--stone-dark); }
 
+/* ── Heading Badge ── */
+.life-rpg-badge-heading {
+  background: linear-gradient(135deg, var(--stone-dark), var(--stone-darkest));
+  color: var(--text-muted);
+  border-color: var(--gold-mid);
+  opacity: 0.9;
+  letter-spacing: 1px;
+  box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
+}
+
+.life-rpg-modal-info-message {
+  padding: 8px 12px;
+  background: rgba(255, 215, 0, 0.05);
+  border: 1px solid var(--gold-dark);
+  border-radius: var(--radius-sm);
+  color: var(--gold-mid);
+  font-size: 11px;
+  margin: 10px 0;
+  font-style: italic;
+}
+
 /* ── Quest Card Overhaul ── */
 .life-rpg-quest-card {
   position: relative; /* For absolute positioning of actions */
