@@ -69,6 +69,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	questSortDir: "desc",
 	questSearch: "",
 	expandedQuestIds: [],
+	hideCompletedQuests: false,
 };
 
 // ---------------------------------------------------------------------------

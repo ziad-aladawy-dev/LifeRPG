@@ -1023,7 +1023,7 @@ export class StateManager {
 		if (this.state.activeQuestIds) {
 			for (const qId of this.state.activeQuestIds) {
 				const meta = this.state.questRegistry[qId];
-				if (!meta || !meta.deadline) continue;
+				if (!meta || !meta.deadline || meta.isHeading) continue;
 				const deadlineDate = meta.deadline.split("T")[0];
 				if (deadlineDate <= targetDate) {
 					m += meta.energyM || 0;
@@ -1037,7 +1037,7 @@ export class StateManager {
 		if (this.state.completedTodayQuestIds) {
 			for (const qId of this.state.completedTodayQuestIds) {
 				const meta = this.state.questRegistry[qId];
-				if (!meta) continue;
+				if (!meta || meta.isHeading) continue;
 				m += meta.energyM || 0;
 				p += meta.energyP || 0;
 				w += meta.energyW || 0;
@@ -1084,10 +1084,13 @@ export class StateManager {
 		} else {
 			this.state.character.burntOutYesterday = false;
 		}
+	}
 
-		// Reset Daily Effort Tracking for the new day
+	/** Clear the list of quests completed today */
+	clearCompletedToday(): void {
 		this.state.completedTodayQuestIds = [];
 		this.save();
+		this.notify();
 	}
 
 	generateQuestId(): string {

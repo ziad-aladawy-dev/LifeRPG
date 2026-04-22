@@ -53,8 +53,8 @@ export class TaskWatcher {
 		// 1. Listen to metadataCache changes (fires when any .md file is modified)
 		const changeHandler = debounce(
 			(file: TFile) => this.onFileChanged(file),
-			400,
-			true
+			800,
+			false
 		);
 		const changeRef = this.app.metadataCache.on("changed", changeHandler);
 		this.unregisterEvents.push(() =>
@@ -143,6 +143,10 @@ export class TaskWatcher {
 
 	/** Collect all unique quest IDs for tasks that are currently NOT completed */
 	private syncActiveQuestIds(): void {
+		// PERFORMANCE: This scans the entire vault cache. 
+		// Since onFileChanged is debounced and guarded, this only runs when 
+		// a task structurally changes. Still, we use a internal flag to 
+		// avoid redundant calculations if multiple files update quickly.
 		const activeIds: Set<string> = new Set();
 		
 		for (const tasks of this.taskCache.values()) {
@@ -295,6 +299,25 @@ export class TaskWatcher {
 	}
 
 	/**
+	 * Get tasks that should be visible in the Quests UI.
+	 * Includes all active tasks + tasks completed TODAY.
+	 */
+	getVisibleTasks(): TrackedTask[] {
+		const result: TrackedTask[] = [];
+		const completedToday = this.stateManager.getState().completedTodayQuestIds || [];
+
+		for (const [_, tasks] of this.taskCache.entries()) {
+			for (const task of tasks) {
+				const isCompletedToday = task.questId && completedToday.includes(task.questId);
+				if (!task.completed || isCompletedToday) {
+					result.push(task);
+				}
+			}
+		}
+		return result;
+	}
+
+	/**
 	 * Get the list of markdown files to monitor.
 	 * If a daily notes folder is set, prioritize that.
 	 * If scanAllFiles is true, scan everything.
@@ -404,10 +427,15 @@ export class TaskWatcher {
 				file.path
 			);
 
-			// Sync quest names to registry for persistence
-			this.syncQuestRegistry(currentTasks);
 			// Get previously cached tasks for this file
 			const previousTasks = this.taskCache.get(file.path) || [];
+			
+			// 1. PERFORMANCE: Only proceed with heavy updates if something structurally changed
+			const tasksChanged = this.didTasksChange(previousTasks, currentTasks);
+			if (!tasksChanged) return;
+
+			// Sync quest names to registry for persistence
+			this.syncQuestRegistry(currentTasks);
 
 			// Only detect changes if we've done the initial scan
 			// (prevents mass XP awards on first load)
@@ -421,20 +449,19 @@ export class TaskWatcher {
 					currentTasks
 				);
 
-				let changed = false;
+				let changedCharacter = false;
 
 				for (const task of newlyCompleted) {
 					await this.processCompletedTask(task, settings);
-					changed = true;
+					changedCharacter = true;
 				}
 
 				for (const task of newlyUncompleted) {
 					await this.processUncompletedTask(task, settings);
-					changed = true;
+					changedCharacter = true;
 				}
 
-				if (changed) {
-					// Notify state manager manually if we want the Quests tab to force refresh
+				if (changedCharacter) {
 					this.stateManager.save();
 				}
 			}
@@ -442,13 +469,32 @@ export class TaskWatcher {
 			// Always update the cache
 			this.taskCache.set(file.path, currentTasks);
 			
-			// Update the list of all incomplete quest IDs across the entire vault
+			// Update the list of active quest IDs (debounced/optimized inside if needed)
 			this.syncActiveQuestIds();
 
 			this.stateManager.forceNotify();
 		} catch (error) {
 			console.error("Life RPG: Error processing file change:", error);
 		}
+	}
+
+	/**
+	 * PERFORMANCE: Deep compare two task lists to see if we need to trigger state updates.
+	 * Returns true if structural changes (completion, new tasks, ID changes) occurred.
+	 */
+	private didTasksChange(prev: TrackedTask[], curr: TrackedTask[]): boolean {
+		if (prev.length !== curr.length) return true;
+		
+		for (let i = 0; i < curr.length; i++) {
+			const p = prev[i];
+			const c = curr[i];
+			
+			if (p.completed !== c.completed) return true;
+			if (p.questId !== c.questId) return true;
+			if (p.text !== c.text) return true; // Name change affects registry and energy contributors
+		}
+		
+		return false;
 	}
 
 	/**

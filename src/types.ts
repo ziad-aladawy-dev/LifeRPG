@@ -515,6 +515,7 @@ export interface PluginSettings {
 	questSortDir: "asc" | "desc";
 	questSearch: string;
 	expandedQuestIds: string[];
+	hideCompletedQuests: boolean;
 }
 
 // ---------------------------------------------------------------------------

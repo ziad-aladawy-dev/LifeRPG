@@ -3,7 +3,7 @@
 // Displays all currently tracked active (unchecked) tasks.
 // ============================================================================
 
-import { setIcon } from "obsidian";
+import { setIcon, Notice } from "obsidian";
 import { Difficulty, TaskPriority, type TrackedTask, type PluginSettings, type CharacterState, type TaskMetadata } from "../../types";
 import { parseTaskMetadata, getTaskText } from "../../utils/parser";
 import { calculateTaskReward, calculateGlobalModifiers } from "../../engine/GameEngine";
@@ -43,6 +43,15 @@ export class QuestsPanel {
 		setIcon(dayBtn, "calendar-days");
 		dayBtn.addEventListener("click", () => {
 			this.stateManager.updateSettings({ questViewMode: "day" });
+		});
+
+		const hideCompletedBtn = viewModes.createEl("button", {
+			cls: `life-rpg-toolbar-btn ${settings.hideCompletedQuests ? "is-active" : ""}`,
+			title: settings.hideCompletedQuests ? "Show Completed Quests" : "Hide Completed Quests"
+		});
+		setIcon(hideCompletedBtn, settings.hideCompletedQuests ? "eye-off" : "eye");
+		hideCompletedBtn.addEventListener("click", () => {
+			this.stateManager.updateSettings({ hideCompletedQuests: !settings.hideCompletedQuests });
 		});
 
 		// 2. Search
@@ -103,9 +112,22 @@ export class QuestsPanel {
 				questSearch: ""
 			});
 		});
+
+		// Purge Button
+		const purgeBtn = toolbar.createEl("button", {
+			cls: "life-rpg-toolbar-btn life-rpg-btn-danger",
+			title: "Purge Completed Today (Clear UI)"
+		});
+		setIcon(purgeBtn, "trash-2");
+		purgeBtn.addEventListener("click", () => {
+			if (confirm("⚠️ Are you sure?\n\nThis will remove today's completed tasks from the Quests display AND the Energy Panel contributors list.\n\nEnergy Load percentage will remain unchanged.")) {
+				this.stateManager.clearCompletedToday();
+				new Notice("📜 Today's completed quest list cleared.");
+			}
+		});
 	}
 
-	render(activeTasks: TrackedTask[], settings: PluginSettings, character: CharacterState, globalModifiers: ReturnType<typeof calculateGlobalModifiers>): void {
+	render(tasks: TrackedTask[], settings: PluginSettings, character: CharacterState, globalModifiers: ReturnType<typeof calculateGlobalModifiers>): void {
 		const el = this.containerEl;
 		
 		// Capture scroll of the nearest scrollable ancestor (usually .life-rpg-container)
@@ -121,16 +143,16 @@ export class QuestsPanel {
 		// Render the toolbar
 		this.renderToolbar(settings);
 
-		if (activeTasks.length === 0) {
+		if (tasks.length === 0) {
 			el.createDiv({
 				cls: "life-rpg-empty-state",
-				text: "No active quests found.",
+				text: "No quests found.",
 			});
 			return;
 		}
 
 		// 1. Data Enrichment
-		const enrichedTasks = activeTasks.map(t => {
+		const enrichedTasks = tasks.map(t => {
 			let meta = parseTaskMetadata(t.text);
 			if (t.questId) {
 				const registeredMeta = this.stateManager.getQuestMetadata(t.questId);
@@ -140,8 +162,13 @@ export class QuestsPanel {
 			return { task: t, meta, totalPoints };
 		});
 
-		// 2. Filter: Search
+		// 2. Filter: Search & Completed
 		let filtered = enrichedTasks;
+		
+		if (settings.hideCompletedQuests) {
+			filtered = filtered.filter(item => !item.task.completed);
+		}
+
 		if (settings.questSearch) {
 			const query = settings.questSearch.toLowerCase();
 			filtered = filtered.filter(item => {
@@ -259,10 +286,18 @@ export class QuestsPanel {
 		renderChildren?: (container: HTMLElement) => void
 	): void {
 		const taskText = getTaskText(task.text);
-		const card = parentEl.createDiv({ cls: "life-rpg-quest-card" });
+		const card = parentEl.createDiv({ cls: `life-rpg-quest-card ${task.completed ? "is-completed" : ""}` });
 		if (!flattened && task.isSubtask) card.addClass("life-rpg-subtask");
 
 		const headerRow = card.createDiv({ cls: "life-rpg-quest-header" });
+		
+		// Icon/Checkbox indicator
+		const iconEl = headerRow.createDiv({ cls: "life-rpg-quest-status-icon" });
+		if (task.completed) {
+			setIcon(iconEl, "check-circle-2");
+		} else {
+			setIcon(iconEl, "circle");
+		}
 		headerRow.style.cursor = "pointer";
 		headerRow.addEventListener("click", async (e) => {
 			e.stopPropagation();

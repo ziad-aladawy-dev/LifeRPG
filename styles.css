@@ -5420,5 +5420,112 @@
   background: hsla(0, 0%, 0%, 0.1);
 }
 
+/* ── Quest Status Icon ── */
+.life-rpg-quest-status-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  color: var(--gold-mid);
+}
+
+.life-rpg-quest-status-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ── Completed Quest Styling ── */
+.life-rpg-quest-card.is-completed {
+  opacity: 0.55;
+  filter: grayscale(0.4);
+  background: linear-gradient(135deg, var(--stone-darker) 0%, var(--stone-darkest) 100%);
+  border-color: var(--border-subtle);
+}
+
+.life-rpg-quest-card.is-completed .life-rpg-quest-name {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.life-rpg-quest-card.is-completed .life-rpg-quest-reward {
+  color: var(--text-faint);
+}
+
+.is-completed .life-rpg-quest-status-icon {
+  color: var(--nature-bright);
+}
+
+/* ── Energy Contributor Row Polish ── */
+.life-rpg-contributor-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: hsla(220, 15%, 8%, 0.4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  margin-bottom: 6px;
+  transition: all var(--t-normal);
+}
+
+.life-rpg-contributor-row:hover {
+  background: hsla(220, 15%, 15%, 0.6);
+  border-color: var(--gold-mid);
+  transform: translateX(4px);
+}
+
+.contributor-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-bright);
+  text-shadow: 0 0 10px hsla(40, 80%, 70%, 0.1);
+}
+
+.contributor-details {
+  font-size: 10px;
+  color: var(--gold-mid);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.contributor-points {
+  font-size: 14px;
+  font-weight: 900;
+  color: var(--gold-bright);
+  text-shadow: 0 0 12px var(--gold-glow);
+}
+
+.is-clickable {
+  cursor: pointer;
+}
+
+.life-rpg-btn-danger:hover {
+  color: var(--nature-light) !important; /* Re-using a bright color for contrast but slightly more urgent */
+  border-color: var(--nature-light) !important;
+  box-shadow: 0 0 8px hsla(0, 80%, 50%, 0.3) !important;
+}
+
+/* Red actual danger */
+.life-rpg-btn-danger {
+  color: hsla(0, 70%, 60%, 0.8) !important;
+}
+
+.life-rpg-btn-danger:hover {
+  color: hsla(0, 80%, 70%, 1) !important;
+  border-color: hsla(0, 80%, 50%, 0.6) !important;
+}
+
+.life-rpg-contributor-row.is-completed {
+  opacity: 0.6;
+  filter: desaturate(0.5);
+}
+
+.life-rpg-contributor-row.is-completed .contributor-name {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
 
 

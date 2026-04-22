@@ -59,7 +59,7 @@ export class EnergyPanel {
 		if (state.activeQuestIds) {
 			for (const qId of state.activeQuestIds) {
 				const meta = state.questRegistry[qId];
-				if (!meta || !meta.deadline) continue;
+				if (!meta || !meta.deadline || meta.isHeading) continue;
 				
 				const deadlineDate = meta.deadline.split("T")[0];
 				
@@ -72,6 +72,23 @@ export class EnergyPanel {
 					const taskName = meta.name || (task ? getTaskText(task.text) : `Quest ${qId}`);
 					this.renderContributor(list, "Quest", taskName, loadVal, meta, task);
 				}
+			}
+		}
+
+		// Completed Today Tasks (Expended Effort)
+		if (state.completedTodayQuestIds) {
+			for (const qId of state.completedTodayQuestIds) {
+				const meta = state.questRegistry[qId];
+				if (!meta || meta.isHeading) continue;
+
+				const loadVal = (meta.energyM || 0) + (meta.energyP || 0) + (meta.energyW || 0);
+				if (loadVal === 0) continue;
+
+				const task = activeTasks.find(t => t.questId === qId);
+				const taskName = meta.name || (task ? getTaskText(task.text) : `Quest ${qId}`);
+				
+				// Identify as completed quest
+				this.renderContributor(list, "Quest", taskName, loadVal, meta, task, true);
 			}
 		}
 
@@ -135,10 +152,10 @@ export class EnergyPanel {
 		miniBarFill.style.width = `${batteryPct}%`;
 	}
 
-	private renderContributor(parent: HTMLElement, type: string, name: string, val: number, data: any, task?: TrackedTask): void {
+	private renderContributor(parent: HTMLElement, type: string, name: string, val: number, data: any, task?: TrackedTask, isCompleted: boolean = false): void {
 		if (val === 0) return;
 
-		const row = parent.createDiv({ cls: `life-rpg-contributor-row ${task ? "is-clickable" : ""}` });
+		const row = parent.createDiv({ cls: `life-rpg-contributor-row ${task ? "is-clickable" : ""} ${isCompleted ? "is-completed" : ""}` });
 		const icon = row.createDiv({ cls: "contributor-type-icon" });
 		setIcon(icon, type === "Quest" ? "scroll" : "repeat");
 		

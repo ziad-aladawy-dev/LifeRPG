@@ -221,7 +221,7 @@ export class CharacterSheetView extends ItemView {
 			case "energy":
 				if (!this.energyPanel) this.energyPanel = new EnergyPanel(this.tabContentEl, this.stateManager);
 				this.ensurePanelAttached(this.energyPanel);
-				this.energyPanel.render(state, plugin.taskWatcher.getActiveTasks());
+				this.energyPanel.render(state, plugin.taskWatcher.getVisibleTasks());
 				break;
 
 			case "quests": {
@@ -229,7 +229,7 @@ export class CharacterSheetView extends ItemView {
 				this.ensurePanelAttached(this.questsPanel);
 				const modifiers = this.stateManager.getGlobalModifiers();
 				this.questsPanel.render(
-					plugin.taskWatcher.getActiveTasks(),
+					plugin.taskWatcher.getVisibleTasks(),
 					settings,
 					state.character,
 					modifiers
