@@ -9,7 +9,7 @@ import { type StateManager } from "../../state/StateManager";
 import { formatRelativeTime } from "../../utils/formatter";
 
 export class ActivityLogPanel {
-	private containerEl: HTMLElement;
+	public containerEl: HTMLElement;
 	private stateManager: StateManager;
 	private activeFilter: EventType | "all" = "all";
 

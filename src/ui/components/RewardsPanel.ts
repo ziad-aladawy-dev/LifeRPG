@@ -13,7 +13,7 @@ import { ImageCacheManager } from "../../utils/ImageCacheManager";
 import { renderIcon } from "../../utils/uiUtils";
 
 export class RewardsPanel {
-	private containerEl: HTMLElement;
+	public containerEl: HTMLElement;
 	private stateManager: StateManager;
 
 	constructor(parentEl: HTMLElement, stateManager: StateManager) {

@@ -16,7 +16,7 @@ import { renderIcon } from "../../utils/uiUtils";
 type StatsMode = "attributes" | "mastery" | "inventory";
 
 export class StatsPanel {
-	private containerEl: HTMLElement;
+	public containerEl: HTMLElement;
 	private stateManager: StateManager;
 	private app: App;
 	private prevValues: Map<string, number> = new Map();

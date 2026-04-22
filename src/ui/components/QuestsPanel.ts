@@ -13,7 +13,7 @@ import { renderBadge } from "../../utils/uiUtils";
 
 export class QuestsPanel {
 	private app: any;
-	private containerEl: HTMLElement;
+	public containerEl: HTMLElement;
 	private stateManager: StateManager;
 
 	constructor(parentEl: HTMLElement, app: any, stateManager: StateManager) {

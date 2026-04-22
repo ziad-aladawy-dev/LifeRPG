@@ -14,7 +14,7 @@ import { HabitHistoryModal } from "../modals/HabitHistoryModal";
 import { renderIcon } from "../../utils/uiUtils";
 
 export class HabitsPanel {
-	private containerEl: HTMLElement;
+	public containerEl: HTMLElement;
 	private stateManager: StateManager;
 
 	// Use static to persist toggle state across tab switches within a session

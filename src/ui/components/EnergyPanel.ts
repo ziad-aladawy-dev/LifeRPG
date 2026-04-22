@@ -5,7 +5,7 @@ import { getTodayStr } from "../../utils/dateUtils";
 import { getTaskText } from "../../utils/parser";
 
 export class EnergyPanel {
-	private containerEl: HTMLElement;
+	public containerEl: HTMLElement;
 	private stateManager: StateManager;
 
 	constructor(parentEl: HTMLElement, stateManager: StateManager) {

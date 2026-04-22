@@ -10,7 +10,7 @@ import { SKILL_TREE_NODES } from "../../constants";
 import { renderIcon } from "../../utils/uiUtils";
 
 export class SkillTreePanel {
-	private containerEl: HTMLElement;
+	public containerEl: HTMLElement;
 	private stateManager: StateManager;
 
 	constructor(parentEl: HTMLElement, stateManager: StateManager) {

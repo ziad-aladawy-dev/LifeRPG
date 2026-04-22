@@ -214,16 +214,19 @@ export class CharacterSheetView extends ItemView {
 		switch (this.activeTab) {
 			case "stats":
 				if (!this.statsPanel) this.statsPanel = new StatsPanel(this.tabContentEl, this.stateManager, this.app);
+				this.ensurePanelAttached(this.statsPanel);
 				this.statsPanel.render(state);
 				break;
 
 			case "energy":
 				if (!this.energyPanel) this.energyPanel = new EnergyPanel(this.tabContentEl, this.stateManager);
+				this.ensurePanelAttached(this.energyPanel);
 				this.energyPanel.render(state, plugin.taskWatcher.getActiveTasks());
 				break;
 
 			case "quests": {
 				if (!this.questsPanel) this.questsPanel = new QuestsPanel(this.tabContentEl as HTMLElement, this.app, this.stateManager);
+				this.ensurePanelAttached(this.questsPanel);
 				const modifiers = this.stateManager.getGlobalModifiers();
 				this.questsPanel.render(
 					plugin.taskWatcher.getActiveTasks(),
@@ -236,21 +239,25 @@ export class CharacterSheetView extends ItemView {
 
 			case "skill_tree":
 				if (!this.skillTreePanel) this.skillTreePanel = new SkillTreePanel(this.tabContentEl, this.stateManager);
+				this.ensurePanelAttached(this.skillTreePanel);
 				this.skillTreePanel.render();
 				break;
 
 			case "habits":
 				if (!this.habitsPanel) this.habitsPanel = new HabitsPanel(this.tabContentEl, this.stateManager);
+				this.ensurePanelAttached(this.habitsPanel);
 				this.habitsPanel.render(state.habits, state.skills);
 				break;
 
 			case "rewards":
 				if (!this.rewardsPanel) this.rewardsPanel = new RewardsPanel(this.tabContentEl, this.stateManager);
+				this.ensurePanelAttached(this.rewardsPanel);
 				this.rewardsPanel.render(state.rewards, state.character.gp);
 				break;
 
 			case "boss":
 				if (!this.bossPanel) this.bossPanel = new BossPanel(this.tabContentEl, this.stateManager);
+				this.ensurePanelAttached(this.bossPanel);
 				this.bossPanel.render(
 					state.activeBoss,
 					state.activeDungeon,
@@ -261,8 +268,16 @@ export class CharacterSheetView extends ItemView {
 
 			case "log":
 				if (!this.activityLogPanel) this.activityLogPanel = new ActivityLogPanel(this.tabContentEl, this.stateManager);
+				this.ensurePanelAttached(this.activityLogPanel);
 				this.activityLogPanel.render(state.eventLog);
 				break;
+		}
+	}
+
+	/** Ensures a persistent panel's container is physically attached to the active tab DOM. */
+	private ensurePanelAttached(panel: any): void {
+		if (panel && this.tabContentEl && panel.containerEl.parentElement !== this.tabContentEl) {
+			this.tabContentEl.appendChild(panel.containerEl);
 		}
 	}
 

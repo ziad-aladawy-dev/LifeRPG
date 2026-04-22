@@ -17,7 +17,7 @@ import {
 import { BOSS_TEMPLATES, DUNGEON_TEMPLATES } from "../../constants";
 
 export class BossPanel {
-	private containerEl: HTMLElement;
+	public containerEl: HTMLElement;
 	private stateManager: StateManager;
 
 	constructor(parentEl: HTMLElement, stateManager: StateManager) {
