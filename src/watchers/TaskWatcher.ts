@@ -53,7 +53,7 @@ export class TaskWatcher {
 		// 1. Listen to metadataCache changes (fires when any .md file is modified)
 		const changeHandler = debounce(
 			(file: TFile) => this.onFileChanged(file),
-			800,
+			2000,
 			false
 		);
 		const changeRef = this.app.metadataCache.on("changed", changeHandler);
@@ -119,10 +119,10 @@ export class TaskWatcher {
 				const content = await this.app.vault.cachedRead(file);
 				const tasks = this.parseTasksFromContent(content, file.path);
 				this.taskCache.set(file.path, tasks);
-				
+
 				// Sync names to registry for existing quests
 				this.syncQuestRegistry(tasks);
-				
+
 				scanned++;
 			} catch {
 				// File may have been deleted during scan
@@ -132,7 +132,7 @@ export class TaskWatcher {
 		this.initialized = true;
 		console.log(
 			`Life RPG: Initial scan complete — cached ${scanned} files, ` +
-				`${Array.from(this.taskCache.values()).reduce((sum, t) => sum + t.length, 0)} tasks tracked.`
+			`${Array.from(this.taskCache.values()).reduce((sum, t) => sum + t.length, 0)} tasks tracked.`
 		);
 
 		// Now that cache is mapped, penalize overdue tasks if necessary
@@ -148,7 +148,7 @@ export class TaskWatcher {
 		// a task structurally changes. Still, we use a internal flag to 
 		// avoid redundant calculations if multiple files update quickly.
 		const activeIds: Set<string> = new Set();
-		
+
 		for (const tasks of this.taskCache.values()) {
 			for (const task of tasks) {
 				if (!task.completed && task.questId) {
@@ -156,7 +156,7 @@ export class TaskWatcher {
 				}
 			}
 		}
-		
+
 		this.stateManager.updateActiveQuestIds(Array.from(activeIds));
 	}
 
@@ -173,7 +173,7 @@ export class TaskWatcher {
 		const boss = this.stateManager.getActiveBoss();
 		const activeTasks = this.getActiveTasks();
 		const modifiers = this.stateManager.getGlobalModifiers();
-		
+
 		let damageDealt = 0;
 		let overdueCount = 0;
 		const logEntries: any[] = [];
@@ -214,12 +214,12 @@ export class TaskWatcher {
 				const lastPenalized = new Date(meta.penalizedAt).getTime();
 				// If day-based, wait 24h. If time-based, wait until tomorrow? 
 				// Actually, once penalized, a task should stay penalized until completed or edited.
-				continue; 
+				continue;
 			}
 
 			if (isOverdue) {
 				overdueCount++;
-				
+
 				if (settings.bossEnabled && boss) {
 					const attack = bossAttacksPlayer(boss, char.attributes, modifiers, settings);
 					damageDealt += attack.damage;
@@ -268,8 +268,8 @@ export class TaskWatcher {
 
 			// Notification
 			if (settings.showNotifications) {
-				const popupMsg = (settings.bossEnabled && boss) 
-					? `⚠️ Overdue! ${boss.name} attacked you for ${damageDealt} HP!` 
+				const popupMsg = (settings.bossEnabled && boss)
+					? `⚠️ Overdue! ${boss.name} attacked you for ${damageDealt} HP!`
 					: `🚨 Overdue Tasks! You took ${damageDealt} HP damage.`;
 				new Notice(popupMsg, 5000);
 				if (died) {
@@ -357,7 +357,7 @@ export class TaskWatcher {
 		const pattern = settings.dailyNoteFormat
 			.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') // Escape regex chars
 			.replace(/\\\{\\\{date\\\}\\\}/g, "\\d{4}-\\d{2}-\\d{2}"); // Replace {{date}} with date regex
-		
+
 		const regex = new RegExp(`^${pattern}$`);
 		return regex.test(file.basename);
 	}
@@ -422,6 +422,17 @@ export class TaskWatcher {
 
 		try {
 			const content = await this.app.vault.cachedRead(file);
+
+			// FAST PATH: If file has zero potential tasks, skip immediately
+			if (!content.includes("[ ]") && !content.includes("[x]") && !content.includes("[X]")) {
+				if (this.taskCache.has(file.path)) {
+					this.taskCache.delete(file.path);
+					this.syncActiveQuestIds();
+					this.stateManager.forceNotify();
+				}
+				return;
+			}
+
 			const currentTasks = this.parseTasksFromContent(
 				content,
 				file.path
@@ -429,7 +440,7 @@ export class TaskWatcher {
 
 			// Get previously cached tasks for this file
 			const previousTasks = this.taskCache.get(file.path) || [];
-			
+
 			// 1. PERFORMANCE: Only proceed with heavy updates if something structurally changed
 			const tasksChanged = this.didTasksChange(previousTasks, currentTasks);
 			if (!tasksChanged) return;
@@ -468,7 +479,7 @@ export class TaskWatcher {
 
 			// Always update the cache
 			this.taskCache.set(file.path, currentTasks);
-			
+
 			// Update the list of active quest IDs (debounced/optimized inside if needed)
 			this.syncActiveQuestIds();
 
@@ -484,16 +495,16 @@ export class TaskWatcher {
 	 */
 	private didTasksChange(prev: TrackedTask[], curr: TrackedTask[]): boolean {
 		if (prev.length !== curr.length) return true;
-		
+
 		for (let i = 0; i < curr.length; i++) {
 			const p = prev[i];
 			const c = curr[i];
-			
+
 			if (p.completed !== c.completed) return true;
 			if (p.questId !== c.questId) return true;
 			if (p.text !== c.text) return true; // Name change affects registry and energy contributors
 		}
-		
+
 		return false;
 	}
 
@@ -524,54 +535,58 @@ export class TaskWatcher {
 		content: string,
 		filePath: string
 	): TrackedTask[] {
-		const lines = content.split("\n");
 		const tasks: TrackedTask[] = [];
 		const stack: { task: TrackedTask; indentLength: number }[] = [];
 
-		for (let i = 0; i < lines.length; i++) {
-			const line = lines[i];
-			if (isTaskLine(line)) {
-				// Measure indentation length (tab = 4 spaces)
-				const indentMatch = line.match(/^([ \t]*)/);
-				const indentStr = indentMatch ? indentMatch[1] : "";
-				let indentLength = 0;
-				for (const char of indentStr) {
-					if (char === "\t") indentLength += 4;
-					else indentLength += 1;
-				}
+		// PERFORMANCE: Instead of split('\n') which creates thousands of strings,
+		// we use a regex with the global flag to find ONLY potential task lines.
+		const taskRegex = /^[\s]*[-*]\s\[[ xX]\].*$/gm;
+		let match;
 
-				// The ID uses standard logic representing the exact file context so it's extremely robust
-				const id = `${filePath}_line_${i}`;
-				const questId = parseQuestId(line);
+		while ((match = taskRegex.exec(content)) !== null) {
+			const line = match[0];
+			
+			// Determine line number by counting newlines before this match
+			// This is efficient because we only do it for lines that are tasks
+			const lineIdx = content.substring(0, match.index).split("\n").length - 1;
 
-				const task: TrackedTask = {
-					id,
-					questId,
-					line: i,
-					text: line,
-					completed: isTaskCompleted(line),
-					filePath,
-					indentLevel: indentLength,
-					parentId: null,
-					isSubtask: false,
-				};
-
-				// Resolve parent from stack
-				while (
-					stack.length > 0 &&
-					stack[stack.length - 1].indentLength >= indentLength
-				) {
-					stack.pop(); // Not deeper, so pop out
-				}
-
-				if (stack.length > 0) {
-					task.parentId = stack[stack.length - 1].task.id;
-					task.isSubtask = true;
-				}
-
-				tasks.push(task);
-				stack.push({ task, indentLength });
+			// Measure indentation length
+			const indentMatch = line.match(/^([ \t]*)/);
+			const indentStr = indentMatch ? indentMatch[1] : "";
+			let indentLength = 0;
+			for (const char of indentStr) {
+				if (char === "\t") indentLength += 4;
+				else indentLength += 1;
 			}
+
+			const questId = parseQuestId(line);
+			const task: TrackedTask = {
+				id: `${filePath}_line_${lineIdx}`,
+				questId,
+				line: lineIdx,
+				text: line,
+				completed: isTaskCompleted(line),
+				filePath,
+				indentLevel: indentLength,
+				parentId: null,
+				isSubtask: false,
+			};
+
+			// Resolve parent from stack
+			while (
+				stack.length > 0 &&
+				stack[stack.length - 1].indentLength >= indentLength
+			) {
+				stack.pop(); // Not deeper, so pop out
+			}
+
+			if (stack.length > 0) {
+				task.parentId = stack[stack.length - 1].task.id;
+				task.isSubtask = true;
+			}
+
+			tasks.push(task);
+			stack.push({ task, indentLength });
 		}
 
 		return tasks;
@@ -771,7 +786,7 @@ export class TaskWatcher {
 		if (activeDungeon && activeDungeon.active) {
 			const dungeonResult = advanceDungeonProgress(activeDungeon, character.attributes, modifiers);
 			this.stateManager.setActiveDungeon(dungeonResult.dungeon);
-			
+
 			// Apply Attrition Damage
 			if (dungeonResult.damage > 0) {
 				const actualHpGain = settings.hpPerLevel + (character.attributes.wis.level * 10);
@@ -818,7 +833,7 @@ export class TaskWatcher {
 		settings: PluginSettings
 	): Promise<void> {
 		let metadata = parseTaskMetadata(task.text);
-		
+
 		// CRITICAL: Merge with registry metadata to ensure undo rewards match completion rewards
 		if (task.questId) {
 			const registeredMeta = this.stateManager.getQuestMetadata(task.questId);
@@ -866,7 +881,7 @@ export class TaskWatcher {
 			const points = this.stateManager.getSkillPoints();
 			this.stateManager.updateMetadata({ unspentSkillPoints: Math.max(0, points + result.result.spEarned) } as any);
 		}
-		
+
 		// Reset combo on uncheck (optional, but prevents abuse)
 		this.stateManager.updateMetadata({ comboCount: 0 });
 
