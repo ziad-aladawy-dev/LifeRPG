@@ -99,12 +99,25 @@ export class QuestsPanel {
 			});
 		});
 
+		// Sync/Refresh Button (Manual Vault Scan)
+		const syncBtn = toolbar.createEl("button", {
+			cls: "life-rpg-toolbar-btn",
+			title: "Manual Vault Sync (Update Progress)"
+		});
+		setIcon(syncBtn, "sync");
+		syncBtn.addEventListener("click", () => {
+			const plugin = (this.stateManager as any).plugin;
+			if (plugin && plugin.taskWatcher) {
+				plugin.taskWatcher.manualSync();
+			}
+		});
+
 		// Reset Button
 		const resetBtn = toolbar.createEl("button", { 
 			cls: "life-rpg-toolbar-btn",
 			title: "Reset Filters"
 		});
-		setIcon(resetBtn, "refresh-cw");
+		setIcon(resetBtn, "rotate-ccw");
 		resetBtn.addEventListener("click", () => {
 			this.stateManager.updateSettings({
 				questSortBy: "none",

@@ -516,6 +516,7 @@ export interface PluginSettings {
 	questSearch: string;
 	expandedQuestIds: string[];
 	hideCompletedQuests: boolean;
+	enableManualSync: boolean;
 }
 
 // ---------------------------------------------------------------------------

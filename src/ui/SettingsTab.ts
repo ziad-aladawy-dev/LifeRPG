@@ -379,6 +379,21 @@ export class LifeRpgSettingsTab extends PluginSettingTab {
 						}
 					})
 			);
+
+		new Setting(containerEl)
+			.setName("Manual sync mode")
+			.setDesc("Disable background live-sync for absolute zero typing lag. You will need to click the 'Sync' button in the Quests panel to update progress.")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(
+						this.plugin.stateManager.getSettings().enableManualSync
+					)
+					.onChange(async (value) => {
+						this.plugin.stateManager.updateSettings({
+							enableManualSync: value,
+						});
+					})
+			);
 		
 		new Setting(containerEl)
 			.setName("Enable editor suggestions")

@@ -70,6 +70,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	questSearch: "",
 	expandedQuestIds: [],
 	hideCompletedQuests: false,
+	enableManualSync: false,
 };
 
 // ---------------------------------------------------------------------------

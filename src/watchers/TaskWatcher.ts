@@ -98,6 +98,20 @@ export class TaskWatcher {
 		this.initialized = false;
 	}
 
+	/** 
+	 * MANUALLY trigger a full vault scan to update quests/energy.
+	 * This is used when 'Manual Sync Mode' is enabled.
+	 */
+	public async manualSync(): Promise<void> {
+		const settings = this.stateManager.getSettings();
+		if (!settings.enableTaskWatcher) return;
+		
+		new Notice("🔄 Syncing RPG data...");
+		this.taskCache.clear();
+		await this.performInitialScan();
+		new Notice("✅ Sync Complete.");
+	}
+
 	// -------------------------------------------------------------------
 	// Initial Scan — build task cache from existing files
 	// -------------------------------------------------------------------
@@ -411,6 +425,7 @@ export class TaskWatcher {
 	private async onFileChanged(file: TFile): Promise<void> {
 		const settings = this.stateManager.getSettings();
 		if (!settings.enableTaskWatcher) return;
+		if (settings.enableManualSync) return; // SKIP for manual sync mode
 		if (file.extension !== "md") return;
 
 		// If not scanning all files, check if file is in a relevant folder/format

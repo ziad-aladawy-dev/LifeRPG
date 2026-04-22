@@ -79,6 +79,14 @@ export default class LifeRpgPlugin extends Plugin {
 		});
 
 		this.addCommand({
+			id: "manual-vault-sync",
+			name: "Manual Vault Sync (Refresh RPG Data)",
+			callback: () => {
+				this.taskWatcher.manualSync();
+			},
+		});
+
+		this.addCommand({
 			id: "set-task-properties",
 			name: "Set Task Properties (Difficulty / Skill / Deadline)",
 			editorCallback: (editor: Editor) => {
