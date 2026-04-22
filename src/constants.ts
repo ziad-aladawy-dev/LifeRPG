@@ -64,6 +64,10 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 		physical: 0.2,
 		willpower: 0.2,
 	},
+	questViewMode: "file",
+	questSortBy: "none",
+	questSortDir: "desc",
+	questSearch: "",
 };
 
 // ---------------------------------------------------------------------------

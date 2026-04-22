@@ -506,6 +506,12 @@ export interface PluginSettings {
 		physical: number;
 		willpower: number;
 	};
+
+	// Quest Panel UI State
+	questViewMode: "file" | "day";
+	questSortBy: "none" | "mental" | "physical" | "willpower" | "total" | "difficulty" | "priority" | "deadline";
+	questSortDir: "asc" | "desc";
+	questSearch: string;
 }
 
 // ---------------------------------------------------------------------------

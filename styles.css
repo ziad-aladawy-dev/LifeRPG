@@ -1378,6 +1378,83 @@
   animation: slide-in-up 0.35s ease-out;
 }
 
+/* ── Quest Toolbar ── */
+.life-rpg-quests-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  background: hsla(220, 12%, 4%, 0.4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-inset);
+  backdrop-filter: blur(4px);
+}
+
+.life-rpg-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.life-rpg-toolbar-search {
+  flex: 1;
+  min-width: 150px;
+}
+
+.life-rpg-toolbar-search input {
+  width: 100%;
+  background: var(--stone-darkest) !important;
+  border: 1px solid var(--stone-lighter) !important;
+  color: var(--text-bright) !important;
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  font-size: 13px;
+  transition: all var(--t-fast);
+}
+
+.life-rpg-toolbar-search input:focus {
+  border-color: var(--arcane-mid) !important;
+  box-shadow: 0 0 8px var(--arcane-glow);
+}
+
+.life-rpg-toolbar-btn {
+  background: var(--stone-mid);
+  border: 1px solid var(--stone-light);
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--t-fast);
+  height: 28px;
+  min-width: 32px;
+}
+
+.life-rpg-toolbar-btn:hover {
+  background: var(--stone-light);
+  color: var(--text-bright);
+  border-color: var(--stone-lighter);
+}
+
+.life-rpg-toolbar-btn.is-active {
+  background: var(--gold-dark);
+  color: var(--gold-light);
+  border-color: var(--gold-mid);
+  box-shadow: 0 0 10px var(--gold-glow);
+}
+
+.life-rpg-toolbar-btn .lucide {
+  width: 14px;
+  height: 14px;
+}
+
 .life-rpg-quest-group {
   margin-bottom: 16px;
 }
