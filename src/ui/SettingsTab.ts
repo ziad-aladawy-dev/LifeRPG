@@ -3,12 +3,14 @@
 // Plugin settings UI in Obsidian's settings pane.
 // ============================================================================
 
-import { App, PluginSettingTab, Setting } from "obsidian";
+import { App, PluginSettingTab, Setting, Notice } from "obsidian";
 import type LifeRpgPlugin from "../main";
 import { Difficulty } from "../types";
+import { ImageCacheManager } from "../utils/ImageCacheManager";
 
 export class LifeRpgSettingsTab extends PluginSettingTab {
 	plugin: LifeRpgPlugin;
+	private previewEl: HTMLElement;
 
 	constructor(app: App, plugin: LifeRpgPlugin) {
 		super(app, plugin);
@@ -97,6 +99,7 @@ export class LifeRpgSettingsTab extends PluginSettingTab {
 							this.plugin.stateManager.updateSettings({
 								baseXp: num,
 							});
+							this.refreshPreview();
 						}
 					})
 			);
@@ -118,6 +121,7 @@ export class LifeRpgSettingsTab extends PluginSettingTab {
 							this.plugin.stateManager.updateSettings({
 								baseGp: num,
 							});
+							this.refreshPreview();
 						}
 					})
 			);
@@ -147,9 +151,11 @@ export class LifeRpgSettingsTab extends PluginSettingTab {
 		containerEl.createEl("h2", { text: "Difficulty Multipliers" });
 
 		const difficulties: { label: string; key: Difficulty }[] = [
+			{ label: "Passive", key: Difficulty.Passive },
 			{ label: "Easy", key: Difficulty.Easy },
-			{ label: "Medium", key: Difficulty.Medium },
-			{ label: "Hard", key: Difficulty.Hard },
+			{ label: "Challenging", key: Difficulty.Challenging },
+			{ label: "Hardcore", key: Difficulty.Hardcore },
+			{ label: "Madhouse", key: Difficulty.Madhouse },
 		];
 
 		for (const diff of difficulties) {
@@ -172,16 +178,66 @@ export class LifeRpgSettingsTab extends PluginSettingTab {
 								const current =
 									this.plugin.stateManager.getSettings()
 										.difficultyMultipliers;
-								this.plugin.stateManager.updateSettings({
+								await this.plugin.stateManager.updateSettings({
 									difficultyMultipliers: {
 										...current,
 										[diff.key]: num,
 									},
 								});
+								this.refreshPreview();
 							}
 						})
 				);
 		}
+
+		// ---------------------------------------------------------------
+		// Energy Reward Weights
+		// ---------------------------------------------------------------
+		containerEl.createEl("h2", { text: "⚡ Energy Reward Weights" });
+		containerEl.createEl("p", { 
+			text: "Configure how much each Energy Point (Mental/Physical/Willpower) contributes to your rewards. By default, 5 points total = 1.0x multiplier.",
+			cls: "setting-item-description"
+		});
+
+		const weights = this.plugin.stateManager.getSettings().energyWeights;
+		
+		const categories: { label: string; key: keyof typeof weights }[] = [
+			{ label: "Mental Weight", key: "mental" },
+			{ label: "Physical Weight", key: "physical" },
+			{ label: "Willpower Weight", key: "willpower" },
+		];
+
+		for (const cat of categories) {
+			new Setting(containerEl)
+				.setName(cat.label)
+				.setDesc(`Impact of each ${cat.label.split(" ")[0]} point on the final multiplier.`)
+				.addText((text) =>
+					text
+						.setPlaceholder("0.2")
+						.setValue((weights[cat.key] || 0).toString())
+						.onChange(async (value) => {
+							const num = parseFloat(value);
+							if (!isNaN(num) && num >= 0) {
+								const currentWeights = this.plugin.stateManager.getSettings().energyWeights;
+								await this.plugin.stateManager.updateSettings({
+									energyWeights: {
+										...currentWeights,
+										[cat.key]: num,
+									},
+								});
+								this.refreshPreview();
+							}
+						})
+				);
+		}
+
+		// ---------------------------------------------------------------
+		// Reward Calculation Preview
+		// ---------------------------------------------------------------
+		const previewSection = containerEl.createDiv({ cls: "life-rpg-reward-preview-container" });
+		previewSection.createEl("h3", { text: "🧮 Reward Logic Preview" });
+		this.previewEl = previewSection.createDiv({ cls: "life-rpg-reward-preview-card" });
+		this.refreshPreview();
 
 		// ---------------------------------------------------------------
 		// HP Settings
@@ -323,6 +379,19 @@ export class LifeRpgSettingsTab extends PluginSettingTab {
 						}
 					})
 			);
+		
+		new Setting(containerEl)
+			.setName("Enable editor suggestions")
+			.setDesc("Show autocomplete dropdown when typing '[' on a task line (e.g. [difficulty: hard]).")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.stateManager.getSettings().enableEditorSuggestions)
+					.onChange(async (value) => {
+						this.plugin.stateManager.updateSettings({
+							enableEditorSuggestions: value,
+						});
+					})
+			);
 
 		new Setting(containerEl)
 			.setName("Scan all files")
@@ -356,6 +425,45 @@ export class LifeRpgSettingsTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						this.plugin.stateManager.updateSettings({
 							dailyNotesFolder: value.trim(),
+						});
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Daily note filename pattern")
+			.setDesc(
+				"Optional: Restrict tasks to files matching this pattern. " +
+				"Use {{date}} for YYYY-MM-DD. Example: 'Journal-{{date}}'. " +
+				"Only used when 'Scan all files' is disabled."
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder("e.g. {{date}}")
+					.setValue(
+						this.plugin.stateManager.getSettings().dailyNoteFormat
+					)
+					.onChange(async (value) => {
+						this.plugin.stateManager.updateSettings({
+							dailyNoteFormat: value.trim(),
+						});
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Habit notes folder")
+			.setDesc(
+				"Path to the folder where habit-specific notes are stored (e.g. 'Atlas/Habits'). " +
+				"These notes open when you click on a habit name."
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder("Atlas/Habits")
+					.setValue(
+						this.plugin.stateManager.getSettings().habitNotesFolder
+					)
+					.onChange(async (value) => {
+						this.plugin.stateManager.updateSettings({
+							habitNotesFolder: value.trim(),
 						});
 					})
 			);
@@ -406,6 +514,57 @@ export class LifeRpgSettingsTab extends PluginSettingTab {
 			);
 
 		// ---------------------------------------------------------------
+		// Image Cache
+		// ---------------------------------------------------------------
+		containerEl.createEl("h2", { text: "🖼️ Image Cache" });
+
+		new Setting(containerEl)
+			.setName("Download and cache portal images")
+			.setDesc("Automatically download external image URLs for offline use. Always enabled for best experience.")
+			.addToggle((toggle) => toggle.setValue(true).setDisabled(true));
+
+		new Setting(containerEl)
+			.setName("Cache size cap (MB)")
+			.setDesc("Maximum space allowed for cached images. Oldest images are deleted when full.")
+			.addText((text) =>
+				text
+					.setPlaceholder("100")
+					.setValue(
+						this.plugin.stateManager.getSettings().imageCacheSizeCap.toString()
+					)
+					.onChange(async (value) => {
+						const num = parseInt(value, 10);
+						if (!isNaN(num) && num > 0) {
+							this.plugin.stateManager.updateSettings({
+								imageCacheSizeCap: num,
+							});
+						}
+					})
+			);
+
+		const cacheSetting = new Setting(containerEl)
+			.setName("Clear image cache")
+			.setDesc("Checking storage usage...")
+			.addButton((btn) =>
+				btn
+					.setButtonText("Clear Cache")
+					.setWarning()
+					.onClick(async () => {
+						const confirmed = confirm("Are you sure you want to delete all cached images? They will be re-downloaded if you visit the store/profile while online.");
+						if (confirmed) {
+							await ImageCacheManager.getInstance(this.app).clearCache();
+							new Notice("Image cache cleared.");
+							this.display(); // Refresh
+						}
+					})
+			);
+
+		// Update cache size display
+		ImageCacheManager.getInstance(this.app).getCacheSizeMB().then(size => {
+			cacheSetting.setDesc(`Current usage: ${size} MB. Click to delete all cached image files.`);
+		});
+
+		// ---------------------------------------------------------------
 		// Danger Zone
 		// ---------------------------------------------------------------
 		containerEl.createEl("h2", { text: "⚠️ Danger Zone" });
@@ -428,5 +587,45 @@ export class LifeRpgSettingsTab extends PluginSettingTab {
 						}
 					})
 			);
+	}
+
+	private refreshPreview(): void {
+		if (!this.previewEl) return;
+		this.previewEl.empty();
+		
+		const settings = this.plugin.stateManager.getSettings();
+		const weights = settings.energyWeights || { mental: 0.2, physical: 0.2, willpower: 0.2 };
+		
+		const examplePoints = 5;
+		const exampleDiff = Difficulty.Hardcore;
+		const diffMult = settings.difficultyMultipliers[exampleDiff] || 1;
+		
+		// Calculate energy for an example of 5 points in Mental
+		const energyMult = examplePoints * weights.mental;
+		const totalMult = diffMult * energyMult;
+		
+		const xp = Math.round(settings.baseXp * totalMult);
+		const gp = Math.round(settings.baseGp * totalMult);
+
+		this.previewEl.createEl("p", { 
+			text: "Formula: Base × Difficulty × ((M × MW) + (P × PW) + (W × WW))",
+			cls: "preview-formula"
+		});
+
+		const exampleRow = this.previewEl.createDiv({ cls: "preview-example" });
+		exampleRow.createEl("div", { 
+			text: `Example: ${settings.baseXp} XP Base × ${diffMult}x (Hardcore) × (${examplePoints} Mental pts × ${weights.mental})` 
+		});
+		
+		const resultRow = this.previewEl.createDiv({ cls: "preview-result" });
+		resultRow.createEl("span", { text: "Final Reward: ", cls: "result-label" });
+		resultRow.createEl("span", { text: `✨ ${xp} XP / 💰 ${gp} GP`, cls: "result-value" });
+		
+		if (totalMult < 1) {
+			this.previewEl.createEl("small", { 
+				text: "⚠️ Note: Current weights result in a reward reduction for this example.",
+				cls: "preview-warning"
+			});
+		}
 	}
 }

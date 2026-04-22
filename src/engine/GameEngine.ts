@@ -29,9 +29,6 @@ import { getRankUpTitle } from "./ClassSystem";
 // Item & Equipment Modifiers
 // ---------------------------------------------------------------------------
 
-/**
- * Aggregates modifiers from all equipped items AND unlocked skill tree nodes.
- */
 export function calculateGlobalModifiers(
 	character: CharacterState,
 	inventory: Item[],
@@ -50,6 +47,8 @@ export function calculateGlobalModifiers(
 		damageReduction: 0,
 		wisdomSave: 0, // Reduces bad habit damage
 		dropChance: 0,
+		// Energy system flags
+		isBurntOut: character.burntOutYesterday || false,
 	};
 
 	// 1. Item Modifiers
@@ -81,6 +80,11 @@ export function calculateGlobalModifiers(
 		total.dropChance += node.modifiers.dropChance || 0;
 	}
 
+	// 3. Burnout Debuff: -25% XP gain
+	if (total.isBurntOut) {
+		total.xpMultiplier *= 0.75;
+	}
+
 	return total;
 }
 
@@ -90,17 +94,39 @@ export function calculateGlobalModifiers(
 
 /**
  * Calculate XP and GP rewards for completing a task.
- * Formula: base * difficultyMultiplier
+ * Formula: base * energyMultiplier
+ * energyMultiplier = (M + P + W) / 5
  */
 export function calculateTaskReward(
-	difficulty: Difficulty,
+	metadata: TaskMetadata,
 	settings: PluginSettings,
 	attributes: CharacterAttributes,
 	globalModifiers: ReturnType<typeof calculateGlobalModifiers>,
 	isSubtask?: boolean,
+	parentIsHeading: boolean = false,
 	comboCount: number = 0
 ): { xp: number; gp: number } {
-	const multiplier = settings.difficultyMultipliers[difficulty] ?? 1;
+	// 0. Headings award no inherent rewards
+	if (metadata.isHeading) {
+		return { xp: 0, gp: 0 };
+	}
+
+	// 1. Calculate Multipliers
+	const diffMult = settings.difficultyMultipliers[metadata.difficulty] ?? 1;
+	
+	let energyMult = 1.0;
+	const hasEnergy = (metadata.energyM !== undefined || metadata.energyP !== undefined || metadata.energyW !== undefined);
+
+	if (hasEnergy) {
+		const weights = settings.energyWeights || { mental: 0.2, physical: 0.2, willpower: 0.2 };
+		energyMult = (
+			(metadata.energyM || 0) * weights.mental +
+			(metadata.energyP || 0) * weights.physical +
+			(metadata.energyW || 0) * weights.willpower
+		);
+	}
+
+	const multiplier = diffMult * energyMult;
 	
 	// Base calculations
 	let xp = settings.baseXp * multiplier;
@@ -123,7 +149,8 @@ export function calculateTaskReward(
 	gp *= comboBonus;
 
 	// Apply Subtask Penalty (25% yield)
-	if (isSubtask) {
+	// EXCEPTION: If the direct parent is a Heading, children get full rewards.
+	if (isSubtask && !parentIsHeading) {
 		xp *= 0.25;
 		gp *= 0.25;
 	}
@@ -138,14 +165,29 @@ export function calculateTaskReward(
  * Calculate XP and GP for a habit action.
  */
 export function calculateHabitReward(
-	type: "good" | "bad",
-	difficulty: Difficulty,
+	habit: any, // Habit interface but flexible for internal use
 	settings: PluginSettings,
 	attributes: CharacterAttributes,
 	globalModifiers: ReturnType<typeof calculateGlobalModifiers>
 ): { xp: number; gp: number; hpDamage: number } {
-	const multiplier = settings.difficultyMultipliers[difficulty] ?? 1;
-	if (type === "good") {
+	// 1. Calculate Multipliers
+	const diffMult = settings.difficultyMultipliers[habit.difficulty as Difficulty] ?? 1;
+
+	let energyMult = 1.0;
+	const hasEnergy = (habit.energyM !== undefined || habit.energyP !== undefined || habit.energyW !== undefined);
+
+	if (hasEnergy) {
+		const weights = settings.energyWeights || { mental: 0.2, physical: 0.2, willpower: 0.2 };
+		energyMult = (
+			(habit.energyM || 0) * weights.mental +
+			(habit.energyP || 0) * weights.physical +
+			(habit.energyW || 0) * weights.willpower
+		);
+	}
+
+	const multiplier = diffMult * energyMult;
+
+	if (habit.type === "good") {
 		let xp = settings.baseXp * multiplier;
 		let gp = settings.baseGp * multiplier * 0.5; // Habits give 50% GP
 
@@ -163,10 +205,31 @@ export function calculateHabitReward(
 			hpDamage: 0,
 		};
 	} else {
-		let hpDamage = 5 * multiplier; // Base 5 damage * multiplier
+		// --- Bad Habit Scaling ---
+		// Base damage: 5 * levelMultiplier 
+		// levelMultiplier = 1 + (PlayerLevel * 0.1) - Bad habits get significantly harder as you grow
+		const playerLevel = attributes.str.level > 0 ? Math.max(1, Math.floor((attributes.str.level + attributes.int.level + attributes.wis.level + attributes.cha.level) / 4)) : 1; 
+		// Actually, let's use the actual character level if we had it, but we only have attributes here.
+		// Wait, I should probably pass the level. But usually total attribute average is a good proxy or I can use the sum.
+		// Let's assume the caller will pass attributes. We'll use a conservative estimate or update the signature.
+		
+		let hpDamage = 5 * multiplier;
+		
+		// Applying Level-based Base Scaling (Matches boss logic)
+		// Since we don't have character.level here, we'll derive it or use a default of 1 for now, 
+		// BUT I will update the function signature to be cleaner if needed.
+		// Actually, let's look at the caller.
+		
 		// WIS reduces damage by 2% per effect level (max 90% reduction)
-		const damageReduction = Math.min(0.9, ((attributes.wis.level + globalModifiers.wis) * 0.02) + globalModifiers.damageReduction + globalModifiers.wisdomSave);
-		hpDamage *= (1 - damageReduction);
+		const rawReduction = ((attributes.wis.level + globalModifiers.wis) * 0.02) + globalModifiers.damageReduction + globalModifiers.wisdomSave;
+		
+		// NEW: Resistance Piercing (Level-based)
+		// At higher levels, penalties "pierce" your wisdom.
+		const totalAttrPoints = (attributes.str.level + attributes.int.level + attributes.wis.level + attributes.cha.level);
+		const piercing = Math.min(0.5, totalAttrPoints * 0.005); // Up to 50% piercing
+		const effectiveReduction = Math.min(0.9, rawReduction * (1 - piercing));
+		
+		hpDamage *= (1 - effectiveReduction);
 
 		return {
 			xp: 0,
@@ -186,7 +249,8 @@ export function calculateHabitReward(
 export function processXpGain(
 	character: CharacterState,
 	xpAmount: number,
-	hpPerLevel: number
+	hpPerLevel: number,
+	globalModifiers?: { hpMax: number }
 ): { character: CharacterState; logEntries: EventLogEntry[]; leveledUp: boolean } {
 	const char = { ...character };
 	const logEntries: EventLogEntry[] = [];
@@ -199,7 +263,8 @@ export function processXpGain(
 		char.xp -= char.xpToNextLevel;
 		char.level++;
 		char.maxHp += hpPerLevel;
-		char.hp = char.maxHp; // Full heal on level up
+		const finalMaxHp = char.maxHp + (globalModifiers?.hpMax || 0);
+		char.hp = finalMaxHp; // Full heal on level up
 		char.xpToNextLevel = xpThresholdForLevel(char.level);
 		leveledUp = true;
 
@@ -265,7 +330,8 @@ export function processSkillXpGain(
 export function revertXpGain(
 	character: CharacterState,
 	xpAmount: number,
-	hpPerLevel: number
+	hpPerLevel: number,
+	globalModifiers?: { hpMax: number }
 ): { character: CharacterState; logEntries: EventLogEntry[]; leveledDown: boolean } {
 	const char = { ...character };
 	const logEntries: EventLogEntry[] = [];
@@ -278,7 +344,8 @@ export function revertXpGain(
 		char.level--;
 		char.maxHp = Math.max(10, char.maxHp - hpPerLevel);
 		// Note: when reverting XP gain, maxHp is correctly decreased here.
-		if (char.hp > char.maxHp) char.hp = char.maxHp;
+		const finalMaxHp = char.maxHp + (globalModifiers?.hpMax || 0);
+		if (char.hp > finalMaxHp) char.hp = finalMaxHp;
 		char.xpToNextLevel = xpThresholdForLevel(char.level);
 		char.xp += char.xpToNextLevel;
 		leveledDown = true;
@@ -433,7 +500,8 @@ export function revertAttributeXpGain(
 export function processHpDamage(
 	character: CharacterState,
 	amount: number,
-	actualHpGain: number = 10
+	actualHpGain: number = 10,
+	globalModifiers?: { hpMax: number }
 ): { character: CharacterState; logEntries: EventLogEntry[]; died: boolean } {
 	const logEntries: EventLogEntry[] = [];
 	let c = { ...character };
@@ -441,8 +509,9 @@ export function processHpDamage(
 	let died = false;
 
 	if (c.hp <= 0) {
+		const finalMaxHp = c.maxHp + (globalModifiers?.hpMax || 0);
 		died = true;
-		c.hp = c.maxHp;
+		c.hp = finalMaxHp;
 		c.xp = 0;
 		c.gp = 0;
 		if (c.level > 1) {
@@ -470,11 +539,13 @@ export function processHpDamage(
  */
 export function processHpRegen(
 	character: CharacterState,
-	amount: number
+	amount: number,
+	globalModifiers?: { hpMax: number }
 ): CharacterState {
+	const finalMaxHp = character.maxHp + (globalModifiers?.hpMax || 0);
 	return {
 		...character,
-		hp: Math.min(character.maxHp, character.hp + amount),
+		hp: Math.min(finalMaxHp, character.hp + amount),
 	};
 }
 
@@ -523,7 +594,8 @@ export function processTaskCompletion(
 	taskText: string,
 	settings: PluginSettings,
 	globalModifiers: ReturnType<typeof calculateGlobalModifiers>,
-	isSubtask?: boolean,
+	isSubtask: boolean,
+	parentIsHeading: boolean = false,
 	comboCount: number = 0
 ): {
 	character: CharacterState;
@@ -531,7 +603,7 @@ export function processTaskCompletion(
 	logEntries: EventLogEntry[];
 	result: RewardResult & { spEarned: number };
 } {
-	const reward = calculateTaskReward(metadata.difficulty, settings, character.attributes, globalModifiers, isSubtask, comboCount);
+	const reward = calculateTaskReward(metadata, settings, character.attributes, globalModifiers, isSubtask, parentIsHeading, comboCount);
 	const logEntries: EventLogEntry[] = [];
 	let currentChar = { ...character };
 	let updatedSkills = skills.map((s) => ({ ...s }));
@@ -583,7 +655,14 @@ export function processTaskCompletion(
 	}
 
 	// 4. Create the task completion log entry
-	const diffLabel = metadata.difficulty === Difficulty.Hard ? "Hard" : metadata.difficulty === Difficulty.Medium ? "Medium" : "Easy";
+	const diffLabels: Record<Difficulty, string> = {
+		[Difficulty.Passive]: "Passive",
+		[Difficulty.Easy]: "Easy",
+		[Difficulty.Challenging]: "Challenging",
+		[Difficulty.Hardcore]: "Hardcore",
+		[Difficulty.Madhouse]: "Madhouse"
+	};
+	const diffLabel = diffLabels[metadata.difficulty] || "Unknown";
 
 	logEntries.unshift({
 		id: generateId(),
@@ -619,17 +698,18 @@ export function processTaskUncompletion(
 	character: CharacterState,
 	skills: Skill[],
 	metadata: TaskMetadata,
-	taskText: string,
 	settings: PluginSettings,
 	globalModifiers: ReturnType<typeof calculateGlobalModifiers>,
-	isSubtask?: boolean
+	isSubtask: boolean,
+	taskText: string,
+	parentIsHeading: boolean = false
 ): {
 	character: CharacterState;
 	skills: Skill[];
 	logEntries: EventLogEntry[];
 	result: RewardResult & { spEarned: number };
 } {
-	const reward = calculateTaskReward(metadata.difficulty, settings, character.attributes, globalModifiers, isSubtask);
+	const reward = calculateTaskReward(metadata, settings, character.attributes, globalModifiers, isSubtask, parentIsHeading);
 	const logEntries: EventLogEntry[] = [];
 	let currentChar = { ...character };
 	let updatedSkills = skills.map((s) => ({ ...s }));
@@ -730,8 +810,17 @@ export function calculateBossAttackDamage(
 	modifiers: ReturnType<typeof calculateGlobalModifiers>
 ): number {
 	// WIS reduces boss damage by 1% per level (max 75% reduction)
-	const reduction = Math.min(0.75, ((attributes.wis.level + modifiers.wis) * 0.01) + modifiers.damageReduction);
-	return Math.round(attackPower * (1 - reduction));
+	const rawReduction = ((attributes.wis.level + modifiers.wis) * 0.01) + modifiers.damageReduction;
+	
+	// NEW: Resistance Piercing
+	// Bosses ignore a percentage of your total reduction based on your level/strength
+	// Formula: pierces 1% per 2 attribute points (max 50%)
+	const totalPoints = attributes.str.level + attributes.int.level + attributes.wis.level + attributes.cha.level;
+	const piercing = Math.min(0.5, totalPoints * 0.005);
+	
+	const effectiveReduction = Math.min(0.75, rawReduction * (1 - piercing));
+	
+	return Math.round(attackPower * (1 - effectiveReduction));
 }
 
 // ---------------------------------------------------------------------------

@@ -52,9 +52,10 @@ export class TaskPropertyModal extends Modal {
 			.addDropdown((dropdown: DropdownComponent) =>
 				dropdown
 					.addOption(Difficulty.Easy.toString(), "⭐ Easy (1x)")
-					.addOption(Difficulty.Medium.toString(), "⭐⭐ Medium (2x)")
-					.addOption(Difficulty.Hard.toString(), "⭐⭐⭐ Hard (3x)")
+					.addOption(Difficulty.Challenging.toString(), "⭐⭐ Challenging (2x)")
+					.addOption(Difficulty.Hardcore.toString(), "⭐⭐⭐ Hardcore (3x)")
 					.setValue(this.result.difficulty.toString())
+
 					.onChange((value) => {
 						this.result.difficulty = parseInt(value, 10) as Difficulty;
 					})
@@ -135,11 +136,12 @@ export function buildMetadataString(result: TaskPropertyResult, skills: Skill[])
 	const parts: string[] = [];
 
 	const diffLabel =
-		result.difficulty === Difficulty.Hard
-			? "hard"
-			: result.difficulty === Difficulty.Medium
-				? "medium"
+		result.difficulty === Difficulty.Hardcore
+			? "hardcore"
+			: result.difficulty === Difficulty.Challenging
+				? "challenging"
 				: "easy";
+
 	parts.push(`[difficulty: ${diffLabel}]`);
 
 	if (result.skillId) {

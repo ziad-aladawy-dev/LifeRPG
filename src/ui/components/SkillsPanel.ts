@@ -8,6 +8,7 @@ import { type Skill, Attribute } from "../../types";
 import { formatNumber, percentage } from "../../utils/formatter";
 import { generateId, xpThresholdForSkillLevel } from "../../constants";
 import { type StateManager } from "../../state/StateManager";
+import { renderIcon } from "../../utils/uiUtils";
 
 export class SkillsPanel {
 	private containerEl: HTMLElement;
@@ -58,10 +59,39 @@ export class SkillsPanel {
 			return;
 		}
 
-		// Skills list
+		// Skills list grouped by attribute
 		const list = el.createDiv({ cls: "life-rpg-skills-list" });
-		for (const skill of skills) {
-			this.renderSkillCard(list, skill);
+		
+		const attributes = [
+			{ id: Attribute.STR, name: "Strength", icon: "🦾", cls: "life-rpg-skill-group-str" },
+			{ id: Attribute.INT, name: "Intelligence", icon: "🧠", cls: "life-rpg-skill-group-int" },
+			{ id: Attribute.WIS, name: "Wisdom", icon: "🕊️", cls: "life-rpg-skill-group-wis" },
+			{ id: Attribute.CHA, name: "Charisma", icon: "👑", cls: "life-rpg-skill-group-cha" },
+		];
+
+		const otherSkills = skills.filter(s => !s.attribute);
+
+		for (const attr of attributes) {
+			const attrSkills = skills.filter(s => s.attribute === attr.id);
+			if (attrSkills.length > 0) {
+				const groupHeader = list.createDiv({ cls: `life-rpg-skill-group-header ${attr.cls}` });
+				groupHeader.createEl("span", { text: attr.icon, cls: "life-rpg-group-icon" });
+				groupHeader.createEl("span", { text: attr.name, cls: "life-rpg-group-name" });
+				
+				for (const skill of attrSkills) {
+					this.renderSkillCard(list, skill);
+				}
+			}
+		}
+
+		if (otherSkills.length > 0) {
+			const groupHeader = list.createDiv({ cls: "life-rpg-skill-group-header life-rpg-skill-group-other" });
+			groupHeader.createEl("span", { text: "📦", cls: "life-rpg-group-icon" });
+			groupHeader.createEl("span", { text: "Other", cls: "life-rpg-group-name" });
+			
+			for (const skill of otherSkills) {
+				this.renderSkillCard(list, skill);
+			}
 		}
 	}
 
@@ -74,11 +104,7 @@ export class SkillsPanel {
 			cls: "life-rpg-skill-name",
 		});
 		const iconEl = nameSpan.createEl("span", { cls: "life-rpg-skill-icon" });
-		if (/^[a-z0-9-]+$/.test(skill.icon)) {
-			setIcon(iconEl, skill.icon);
-		} else {
-			iconEl.setText(skill.icon);
-		}
+		renderIcon(iconEl, skill.icon);
 		nameSpan.createEl("span", { text: ` ${skill.name}` });
 		
 		const attrDisplayMap: Record<string, string> = {

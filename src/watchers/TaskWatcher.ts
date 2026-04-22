@@ -13,6 +13,7 @@ import {
 	isTaskLine,
 	isTaskCompleted,
 	getTaskText,
+	parseQuestId,
 } from "../utils/parser";
 import { processTaskCompletion, processTaskUncompletion, processXpGain, processGpGain, processHpDamage } from "../engine/GameEngine";
 import {
@@ -20,6 +21,8 @@ import {
 	healBoss,
 	advanceDungeonProgress,
 	revertDungeonProgress,
+	bossAttacksPlayer,
+	calculateOverdueHazardDamage,
 } from "../engine/BossEngine";
 import { generateId, INITIAL_ITEMS } from "../constants";
 import { getTodayStr } from "../utils/dateUtils";
@@ -116,6 +119,10 @@ export class TaskWatcher {
 				const content = await this.app.vault.cachedRead(file);
 				const tasks = this.parseTasksFromContent(content, file.path);
 				this.taskCache.set(file.path, tasks);
+				
+				// Sync names to registry for existing quests
+				this.syncQuestRegistry(tasks);
+				
 				scanned++;
 			} catch {
 				// File may have been deleted during scan
@@ -139,29 +146,80 @@ export class TaskWatcher {
 	private async processOverdueTasks(settings: PluginSettings): Promise<void> {
 		const state = this.stateManager.getState();
 		const today = getTodayStr();
-
-		if (state.lastOverdueCheckDate === today) return;
-
-		// Immediately mark as checked to prevent re-entrant calls from state change listeners
-		this.stateManager.updateLastOverdueCheckDate(today);
+		const now = new Date();
 
 		let char = this.stateManager.getCharacter();
 		const boss = this.stateManager.getActiveBoss();
 		const activeTasks = this.getActiveTasks();
+		const modifiers = this.stateManager.getGlobalModifiers();
 		
 		let damageDealt = 0;
 		let overdueCount = 0;
 		const logEntries: any[] = [];
 		let died = false;
+		const processedQuestIds: string[] = [];
 
 		for (const task of activeTasks) {
-			const meta = parseTaskMetadata(task.text);
-			if (meta.deadline && meta.deadline < today) {
-				overdueCount++;
-				// If boss is active, take specific boss damage. Else take flat 5 damage.
-				const dmg = (settings.bossEnabled && boss) ? settings.bossDamageOnMissedDeadline : 5;
-				damageDealt += dmg;
+			// 1. Resolve Metadata
+			let meta = parseTaskMetadata(task.text);
+			if (task.questId) {
+				const registeredMeta = this.stateManager.getQuestMetadata(task.questId);
+				if (registeredMeta) {
+					meta = { ...meta, ...registeredMeta };
+				}
 			}
+
+			// 2. Check Overdue Status
+			const deadline = meta.endDate || meta.deadline;
+			if (!deadline) continue;
+
+			let isOverdue = false;
+			if (meta.includeTime) {
+				// Exact time check
+				const deadlineTime = deadline ? new Date(deadline).getTime() : 0;
+				isOverdue = deadlineTime > 0 && now.getTime() > deadlineTime;
+			} else {
+				// Day-based check: Normalize ISO strings to YYYY-MM-DD
+				const deadlineDay = deadline!.includes("T") ? deadline!.split("T")[0] : deadline!;
+				isOverdue = deadlineDay < today;
+			}
+
+			// 3. Avoid duplicate penalties
+			// If it's a day-based deadline and we already checked today, skip it (unless it's a new task)
+			if (!meta.includeTime && state.lastOverdueCheckDate === today) continue;
+
+			// If it has been penalized recently, skip
+			if (meta.penalizedAt) {
+				const lastPenalized = new Date(meta.penalizedAt).getTime();
+				// If day-based, wait 24h. If time-based, wait until tomorrow? 
+				// Actually, once penalized, a task should stay penalized until completed or edited.
+				continue; 
+			}
+
+			if (isOverdue) {
+				overdueCount++;
+				
+				if (settings.bossEnabled && boss) {
+					const attack = bossAttacksPlayer(boss, char.attributes, modifiers, settings);
+					damageDealt += attack.damage;
+				} else {
+					damageDealt += calculateOverdueHazardDamage(settings, char.attributes, modifiers);
+				}
+
+				// Mark task as penalized in memory/registry
+				if (task.questId) {
+					processedQuestIds.push(task.questId);
+					this.stateManager.registerQuestMetadata(task.questId, {
+						...meta,
+						penalizedAt: now.toISOString()
+					});
+				}
+			}
+		}
+
+		// Update the daily check timestamp only if we checked the non-timed ones
+		if (state.lastOverdueCheckDate !== today) {
+			this.stateManager.updateLastOverdueCheckDate(today);
 		}
 
 		if (overdueCount > 0) {
@@ -175,7 +233,7 @@ export class TaskWatcher {
 			const dmgSource = (settings.bossEnabled && boss) ? `${boss.name} attacked you` : "You took damage";
 			logEntries.push({
 				id: generateId(),
-				timestamp: new Date().toISOString(),
+				timestamp: now.toISOString(),
 				type: "boss-damage-taken",
 				message: `🚨 OVERDUE: ${dmgSource} for ${damageDealt} HP because of ${overdueCount} missed deadline(s)!`,
 				xpDelta: 0,
@@ -183,9 +241,19 @@ export class TaskWatcher {
 				hpDelta: -damageDealt,
 			});
 
-			// If death happened, push the death log
 			if (died) {
 				logEntries.push(...hpResult.logEntries);
+			}
+
+			// Notification
+			if (settings.showNotifications) {
+				const popupMsg = (settings.bossEnabled && boss) 
+					? `⚠️ Overdue! ${boss.name} attacked you for ${damageDealt} HP!` 
+					: `🚨 Overdue Tasks! You took ${damageDealt} HP damage.`;
+				new Notice(popupMsg, 5000);
+				if (died) {
+					new Notice(`💀 YOU DIED! Level dropped to ${char.level}.`, 6000);
+				}
 			}
 
 			// Apply to state
@@ -221,13 +289,37 @@ export class TaskWatcher {
 			return allFiles;
 		}
 
-		// If not scanning all, only scan daily notes folder
+		// If not scanning all, filter by folder and optional format
+		return allFiles.filter((f) => this.isValidDailyNoteFile(f, settings));
+	}
+
+	/**
+	 * Check if a file is a valid daily note based on settings.
+	 * Only checks folder and template format.
+	 */
+	private isValidDailyNoteFile(file: TFile, settings: PluginSettings): boolean {
+		// 1. Folder check
 		const dailyFolder = this.getDailyNotesFolder(settings);
 		if (dailyFolder) {
-			return allFiles.filter((f) => f.path.startsWith(dailyFolder));
+			// Ensure path starts with folder + slash, or is exactly the folder (unlikely for a file)
+			const normalizedFolder = dailyFolder.endsWith("/") ? dailyFolder : dailyFolder + "/";
+			if (!file.path.startsWith(normalizedFolder)) {
+				return false;
+			}
 		}
 
-		return allFiles;
+		// 2. Format check (optional)
+		if (!settings.dailyNoteFormat) {
+			return true; // No format specified = accept all in folder
+		}
+
+		// Convert {{date}} template to a YYYY-MM-DD regex pattern
+		const pattern = settings.dailyNoteFormat
+			.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') // Escape regex chars
+			.replace(/\\\{\\\{date\\\}\\\}/g, "\\d{4}-\\d{2}-\\d{2}"); // Replace {{date}} with date regex
+		
+		const regex = new RegExp(`^${pattern}$`);
+		return regex.test(file.basename);
 	}
 
 	/**
@@ -281,10 +373,9 @@ export class TaskWatcher {
 		if (!settings.enableTaskWatcher) return;
 		if (file.extension !== "md") return;
 
-		// If not scanning all files, check if file is in a relevant folder
+		// If not scanning all files, check if file is in a relevant folder/format
 		if (!settings.scanAllFiles) {
-			const dailyFolder = this.getDailyNotesFolder(settings);
-			if (dailyFolder && !file.path.startsWith(dailyFolder)) {
+			if (!this.isValidDailyNoteFile(file, settings)) {
 				return;
 			}
 		}
@@ -296,6 +387,8 @@ export class TaskWatcher {
 				file.path
 			);
 
+			// Sync quest names to registry for persistence
+			this.syncQuestRegistry(currentTasks);
 			// Get previously cached tasks for this file
 			const previousTasks = this.taskCache.get(file.path) || [];
 
@@ -339,6 +432,24 @@ export class TaskWatcher {
 		}
 	}
 
+	/**
+	 * Sync quest names and metadata from a list of tasks into the global registry.
+	 */
+	private syncQuestRegistry(tasks: TrackedTask[]): void {
+		for (const task of tasks) {
+			if (task.questId) {
+				const cleanName = getTaskText(task.text);
+				if (cleanName) {
+					const metadata = parseTaskMetadata(task.text);
+					this.stateManager.registerQuestMetadata(task.questId, {
+						...metadata,
+						name: cleanName
+					});
+				}
+			}
+		}
+	}
+
 	// -------------------------------------------------------------------
 	// Task Parsing
 	// -------------------------------------------------------------------
@@ -366,9 +477,11 @@ export class TaskWatcher {
 
 				// The ID uses standard logic representing the exact file context so it's extremely robust
 				const id = `${filePath}_line_${i}`;
+				const questId = parseQuestId(line);
 
 				const task: TrackedTask = {
 					id,
+					questId,
 					line: i,
 					text: line,
 					completed: isTaskCompleted(line),
@@ -482,7 +595,15 @@ export class TaskWatcher {
 		task: TrackedTask,
 		settings: PluginSettings
 	): Promise<void> {
-		const metadata = parseTaskMetadata(task.text);
+		// 1. Get Metadata (Registry Priority)
+		let metadata = parseTaskMetadata(task.text);
+		if (task.questId) {
+			const registeredMeta = this.stateManager.getQuestMetadata(task.questId);
+			if (registeredMeta) {
+				metadata = { ...metadata, ...registeredMeta };
+			}
+		}
+
 		const taskText = getTaskText(task.text);
 
 		// Skip empty task text
@@ -508,6 +629,16 @@ export class TaskWatcher {
 		const skills = this.stateManager.getSkills();
 		const modifiers = this.stateManager.getGlobalModifiers();
 
+		// Determine if parent is a heading
+		let parentIsHeading = false;
+		if (task.isSubtask && task.parentId) {
+			const siblings = this.taskCache.get(task.filePath) || [];
+			const parent = siblings.find(t => t.id === task.parentId);
+			if (parent && parent.questId) {
+				parentIsHeading = this.stateManager.getQuestMetadata(parent.questId)?.isHeading || false;
+			}
+		}
+
 		// Process the task through the GameEngine
 		const result = processTaskCompletion(
 			character,
@@ -517,6 +648,7 @@ export class TaskWatcher {
 			settings,
 			modifiers,
 			task.isSubtask,
+			parentIsHeading,
 			comboCount
 		);
 
@@ -572,8 +704,19 @@ export class TaskWatcher {
 		// --- Dungeon progress ---
 		const activeDungeon = this.stateManager.getActiveDungeon();
 		if (activeDungeon && activeDungeon.active) {
-			const dungeonResult = advanceDungeonProgress(activeDungeon);
+			const dungeonResult = advanceDungeonProgress(activeDungeon, character.attributes, modifiers);
 			this.stateManager.setActiveDungeon(dungeonResult.dungeon);
+			
+			// Apply Attrition Damage
+			if (dungeonResult.damage > 0) {
+				const actualHpGain = settings.hpPerLevel + (character.attributes.wis.level * 10);
+				const hpResult = processHpDamage(this.stateManager.getCharacter(), dungeonResult.damage, actualHpGain);
+				this.stateManager.setCharacter(hpResult.character);
+				if (hpResult.died) {
+					hpResult.logEntries.forEach(log => this.stateManager.addLogEntry(log));
+				}
+			}
+
 			for (const entry of dungeonResult.logEntries) {
 				this.stateManager.addLogEntry(entry);
 			}
@@ -613,15 +756,26 @@ export class TaskWatcher {
 		const skills = this.stateManager.getSkills();
 		const modifiers = this.stateManager.getGlobalModifiers();
 
+		// Determine if parent is a heading
+		let parentIsHeading = false;
+		if (task.isSubtask && task.parentId) {
+			const siblings = this.taskCache.get(task.filePath) || [];
+			const parent = siblings.find(t => t.id === task.parentId);
+			if (parent && parent.questId) {
+				parentIsHeading = this.stateManager.getQuestMetadata(parent.questId)?.isHeading || false;
+			}
+		}
+
 		// Revert completion
 		const result = processTaskUncompletion(
 			character,
 			skills,
 			metadata,
-			taskText,
 			settings,
 			modifiers,
-			task.isSubtask
+			task.isSubtask,
+			taskText,
+			parentIsHeading
 		);
 
 		// Revert SP if lost
@@ -646,7 +800,7 @@ export class TaskWatcher {
 		const activeBoss = this.stateManager.getActiveBoss();
 		if (activeBoss && settings.bossEnabled && !activeBoss.defeated) {
 			const bossHealAmount = Math.abs(result.result.xp);
-			const bossResult = healBoss(activeBoss, bossHealAmount);
+			const bossResult = healBoss(activeBoss, bossHealAmount, character.attributes, modifiers, 0);
 
 			this.stateManager.setActiveBoss(bossResult.boss);
 			for (const entry of bossResult.logEntries) {

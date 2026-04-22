@@ -6,6 +6,7 @@
 import { setIcon } from "obsidian";
 import { type Item, ItemSlot, ItemRarity } from "../../types";
 import { type StateManager } from "../../state/StateManager";
+import { renderIcon } from "../../utils/uiUtils";
 
 export class InventoryPanel {
 	private containerEl: HTMLElement;
@@ -70,10 +71,8 @@ export class InventoryPanel {
 			if (item.icon.startsWith("assets/")) {
 				iconEl.style.backgroundImage = `url('${this.stateManager.getAssetPath(item.icon)}')`;
 				iconEl.addClass("has-custom-img");
-			} else if (/^[a-z0-9-]+$/.test(item.icon)) {
-				setIcon(iconEl, item.icon);
 			} else {
-				iconEl.setText(item.icon);
+				renderIcon(iconEl, item.icon);
 			}
 			itemInfo.createEl("span", { text: item.name, cls: "life-rpg-slot-item-name" });
 			
@@ -98,10 +97,8 @@ export class InventoryPanel {
 		if (item.icon.startsWith("assets/")) {
 			iconEl.style.backgroundImage = `url('${this.stateManager.getAssetPath(item.icon)}')`;
 			iconEl.addClass("has-custom-img");
-		} else if (/^[a-z0-9-]+$/.test(item.icon)) {
-			setIcon(iconEl, item.icon);
 		} else {
-			iconEl.setText(item.icon);
+			renderIcon(iconEl, item.icon);
 		}
 		
 		const nameGroup = header.createDiv({ cls: "life-rpg-item-name-group" });

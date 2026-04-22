@@ -7,6 +7,7 @@ import { setIcon } from "obsidian";
 import { type StateManager } from "../../state/StateManager";
 import { type SkillTreeNode, type CharacterState, Attribute } from "../../types";
 import { SKILL_TREE_NODES } from "../../constants";
+import { renderIcon } from "../../utils/uiUtils";
 
 export class SkillTreePanel {
 	private containerEl: HTMLElement;
@@ -33,7 +34,8 @@ export class SkillTreePanel {
 		titleGroup.createEl("span", { text: "Channel your unspent potential into new abilities.", cls: "subtitle" });
 		
 		const spDisplay = header.createDiv({ cls: "life-rpg-sp-display" });
-		spDisplay.createEl("span", { text: availableSP.toString(), cls: "sp-value" });
+		const totalSP = this.stateManager.getTotalSkillPoints();
+		spDisplay.createEl("span", { text: `${availableSP} / ${totalSP}`, cls: "sp-value" });
 		spDisplay.createEl("span", { text: " SP AVAILABLE", cls: "sp-label" });
 
 		const respecBtn = header.createEl("button", {
@@ -70,11 +72,12 @@ export class SkillTreePanel {
 	}
 
 	private drawConnector(svg: SVGSVGElement, from: SkillTreeNode, to: SkillTreeNode, active: boolean): void {
+		const HALF = 26; // half of 52px node
 		const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-		line.setAttribute("x1", (from.x + 40).toString());
-		line.setAttribute("y1", (from.y + 40).toString());
-		line.setAttribute("x2", (to.x + 40).toString());
-		line.setAttribute("y2", (to.y + 40).toString());
+		line.setAttribute("x1", (from.x + HALF).toString());
+		line.setAttribute("y1", (from.y + HALF).toString());
+		line.setAttribute("x2", (to.x + HALF).toString());
+		line.setAttribute("y2", (to.y + HALF).toString());
 		line.setAttribute("class", active ? "line-active" : "line-inactive");
 		svg.appendChild(line);
 	}
@@ -88,21 +91,21 @@ export class SkillTreePanel {
 		const canUnlock = !isUnlocked && hasDeps && attrOk && sp >= node.cost;
 		
 		const nodeEl = parent.createDiv({ 
-			cls: `life-rpg-skill-node ${isUnlocked ? "is-unlocked" : (canUnlock ? "can-unlock" : "is-locked")} branch-${node.branch}`
+			cls: `life-rpg-skill-node constellation-node ${isUnlocked ? "is-unlocked" : (canUnlock ? "can-unlock" : "is-locked")} branch-${node.branch}`
 		});
 		
 		nodeEl.style.left = `${node.x}px`;
 		nodeEl.style.top = `${node.y}px`;
 
+		// Outer aura ring (subtle glow around the star)
 		const aura = nodeEl.createDiv({ cls: "node-aura" });
+		// Star core (the bright center point)
+		const starCore = nodeEl.createDiv({ cls: "star-core" });
+		// Icon inside star
 		const iconBox = nodeEl.createDiv({ cls: "node-icon" });
-		if (/^[a-z0-9-]+$/.test(node.icon)) {
-			setIcon(iconBox, node.icon);
-		} else {
-			iconBox.setText(node.icon);
-		}
+		renderIcon(iconBox, node.icon);
 
-		// Node name label below icon
+		// Node name label below
 		nodeEl.createDiv({ cls: "life-rpg-node-label", text: node.name });
 
 		// Click to unlock
@@ -201,6 +204,42 @@ export class SkillTreePanel {
 			el.scrollLeft = scrollLeft - walkX;
 			el.scrollTop = scrollTop - walkY;
 		});
+
+		const workspace = el.querySelector(".life-rpg-tree-workspace") as HTMLElement;
+		if (workspace) {
+			let scale = 1;
+			workspace.style.transformOrigin = "0 0";
+			
+			el.addEventListener("wheel", (e) => {
+				if (e.ctrlKey || e.metaKey || !e.shiftKey) { 
+					// Allow standard vertical scroll if shift is held, otherwise zoom
+					e.preventDefault();
+					
+					// Find mouse position relative to workspace
+					const rect = workspace.getBoundingClientRect();
+					const mouseX = e.clientX - rect.left;
+					const mouseY = e.clientY - rect.top;
+					
+					const zoomSpeed = 0.0015;
+					const delta = -e.deltaY * zoomSpeed;
+					
+					const oldScale = scale;
+					scale = Math.max(0.4, Math.min(scale + delta, 2.5));
+					
+					// Adjust scroll position to keep the mouse point stationary
+					if (scale !== oldScale) {
+						workspace.style.transform = `scale(${scale})`;
+						
+						const scaleRatio = scale / oldScale;
+						const dx = mouseX * (scaleRatio - 1);
+						const dy = mouseY * (scaleRatio - 1);
+						
+						el.scrollLeft += dx;
+						el.scrollTop += dy;
+					}
+				}
+			}, { passive: false });
+		}
 	}
 
 	destroy(): void {

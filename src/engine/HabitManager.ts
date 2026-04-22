@@ -30,6 +30,37 @@ import {
 } from "./GameEngine";
 import { INITIAL_ITEMS } from "../constants";
 
+/**
+ * Robust check if a habit is due today based on recurrence and backlog.
+ */
+export function isHabitDue(habit: Habit): boolean {
+	const today = new Date().toISOString().split("T")[0];
+	
+	// 1. Backlog is always due
+	if ((habit.outstandingDays || 0) > 0) return true;
+	
+	// 2. Daily is always due
+	if ((habit.recurrenceDays || 1) <= 1) return true;
+	
+	// 3. Completed today (so user can see their success inside the main list)
+	if (habit.lastCompleted && habit.lastCompleted.startsWith(today)) return true;
+	
+	// 4. Calculate if mathematically due today based on start date anchor
+	const anchorDateStr = habit.startDate || habit.createdAt.split("T")[0];
+	const [ay, am, ad] = anchorDateStr.split("-").map(Number);
+	const anchorDate = new Date(ay, am - 1, ad);
+	
+	const todayParsed = new Date();
+	const anchorTime = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), anchorDate.getDate()).getTime();
+	const todayTime = new Date(todayParsed.getFullYear(), todayParsed.getMonth(), todayParsed.getDate()).getTime();
+	
+	const diffDays = Math.round((todayTime - anchorTime) / (1000 * 60 * 60 * 24));
+	
+	if (diffDays >= 0 && diffDays % (habit.recurrenceDays || 1) === 0) return true;
+	
+	return false;
+}
+
 // ---------------------------------------------------------------------------
 // Good Habit Logging
 // ---------------------------------------------------------------------------
@@ -84,7 +115,7 @@ export function logGoodHabit(
 	updatedHabit.history[todayStr] = true;
 
 	// Calculate rewards with streak bonus and gear modifiers
-	const baseReward = calculateHabitReward("good", habit.difficulty, settings, currentChar.attributes, modifiers);
+	const baseReward = calculateHabitReward(updatedHabit, settings, currentChar.attributes, modifiers);
 	const bonus = streakBonusMultiplier(updatedHabit.streak);
 	const xpGain = Math.round(baseReward.xp * bonus);
 	const gpGain = Math.round(baseReward.gp * bonus);
@@ -147,10 +178,11 @@ export function logGoodHabit(
 		hpDelta: 0,
 	});
 
-	// Chance to find an item (5% base + CHA bonus)
+	// Chance to find an item (5% base + CHA bonus + dropChance modifier)
 	let foundItem = null;
 	const chaBonus = (currentChar.attributes.cha.level + modifiers.cha) * 0.01;
-	if (Math.random() < 0.05 + chaBonus) {
+	const totalDropChance = 0.05 + chaBonus + modifiers.dropChance;
+	if (Math.random() < totalDropChance) {
 		const randomIndex = Math.floor(Math.random() * INITIAL_ITEMS.length);
 		foundItem = { ...INITIAL_ITEMS[randomIndex], id: generateId() };
 		
@@ -208,7 +240,7 @@ export function logBadHabit(
 	}
 
 	// Calculate damage
-	const reward = calculateHabitReward("bad", habit.difficulty, settings, currentChar.attributes, modifiers);
+	const reward = calculateHabitReward(updatedHabit, settings, currentChar.attributes, modifiers);
 	const damage = reward.hpDamage;
 
 	// Update habit tracking
@@ -224,7 +256,7 @@ export function logBadHabit(
 	const wisBonus = 10;
 	const actualHpGain = settings.hpPerLevel + (currentChar.attributes.wis.level * wisBonus);
 	const wasLevelGreaterThanOne = currentChar.level > 1;
-	const hpResult = processHpDamage(currentChar, damage, actualHpGain);
+	const hpResult = processHpDamage(currentChar, damage, actualHpGain, modifiers);
 	if (hpResult.died && wasLevelGreaterThanOne) {
 		updatedHabit.causedDeathLevelDown = true;
 	} else {
@@ -311,7 +343,12 @@ export function evaluateDailyHabits(
 		}
 
 		// 3. Recalculate dynamic status
-		h.outstandingDays = calculateOutstandingDates(h).length;
+		// Bad habits should NEVER accumulate outstanding days — the goal is to NOT do them.
+		if (h.type === "good") {
+			h.outstandingDays = calculateOutstandingDates(h).length;
+		} else {
+			h.outstandingDays = 0;
+		}
 		h.lastEvaluatedDate = todayStr;
 		h.streak = recalculateHabitStreak(h);
 
@@ -405,7 +442,7 @@ export function resolveOutstandingHabit(
 
 	if (wasCompleted) {
 		// Award rewards
-		const reward = calculateHabitReward("good", h.difficulty, settings, c.attributes, modifiers);
+		const reward = calculateHabitReward(h, settings, c.attributes, modifiers);
 		const xpGain = reward.xp;
 		const gpGain = reward.gp;
 
@@ -452,7 +489,7 @@ export function resolveOutstandingHabit(
 		h.history[targetDateStr] = true;
 	} else {
 		// Mark as missed (False)
-		const reward = calculateHabitReward("bad", h.difficulty, settings, c.attributes, modifiers);
+		const reward = calculateHabitReward(h, settings, c.attributes, modifiers);
 		const wisBonus = 10;
 		const actualHpGain = settings.hpPerLevel + (c.attributes.wis.level * wisBonus);
 		const hpResult = processHpDamage(c, reward.hpDamage, actualHpGain);
@@ -633,7 +670,7 @@ export function applyRetroactiveHabitHistoryChange(
 	}
 	
 	// Calculate rewards/penalties for this habit
-	const reward = calculateHabitReward(h.type, h.difficulty, settings, c.attributes, modifiers);
+	const reward = calculateHabitReward(h, settings, c.attributes, modifiers);
 	
 	if (h.type === "good") {
 		const xpDelta = completed ? reward.xp : -reward.xp;
@@ -767,7 +804,7 @@ export function recalculateHabitStreak(habit: Habit): number {
 	const anchorTime = new Date(ay, am - 1, ad).getTime();
 	
 	// Robustly collect completion dates from history OR lastCompleted (legacy)
-	let historyKeys = Object.keys(history).filter(k => history[k] === true);
+	let historyKeys = Object.keys(history).filter(k => history[k] === true || history[k] === "freeze");
 	if (habit.lastCompleted && !historyKeys.includes(habit.lastCompleted.split("T")[0])) {
 		historyKeys.push(habit.lastCompleted.split("T")[0]);
 	}
@@ -789,28 +826,31 @@ export function recalculateHabitStreak(habit: Habit): number {
 		const mostRecentStr = historyKeys[0];
 		const mostRecentTime = parseLocalDate(mostRecentStr).getTime();
 		
-		// 2. Check if the gap is valid (Recurrence + Backlog)
+		// 2. Check if the gap from today to most recent is valid
 		const diffDays = Math.floor((todayTime - mostRecentTime) / (1000 * 60 * 60 * 24));
 		const backlogDays = (habit.outstandingDays || 0) * recurrence;
 		const maxAllowedGap = recurrence + backlogDays;
 
 		if (diffDays > maxAllowedGap) {
-			return 0; // Streak broken
+			return 0; // Streak broken because it's been too long since last logged
 		}
 
-		// 3. Count backwards from the most recent completion
-		let streak = 0;
-		let checkDate = parseLocalDate(mostRecentStr);
+		// 3. Count backwards through actual completions
+		// Start at 1 because we have at least one valid completion that hasn't decayed
+		let streak = 1;
 		
-		while (true) {
-			const dateStr = formatDate(checkDate);
-			if (history[dateStr] || (habit.lastCompleted && habit.lastCompleted.startsWith(dateStr))) {
+		for (let i = 0; i < historyKeys.length - 1; i++) {
+			const currTime = parseLocalDate(historyKeys[i]).getTime();
+			const prevTime = parseLocalDate(historyKeys[i + 1]).getTime();
+			
+			const gap = Math.floor((currTime - prevTime) / (1000 * 60 * 60 * 24));
+			
+			// As long as the gap between consecutive completions is <= recurrence,
+			// the chain is unbroken. (Allowing early completions)
+			if (gap <= recurrence) {
 				streak++;
-				checkDate.setDate(checkDate.getDate() - recurrence);
-				
-				// Stop if we go before creation/start or too far back
-				if (checkDate.getTime() < anchorTime - 43200000) break; 
 			} else {
+				// The gap was too large, chain was broken in the past
 				break;
 			}
 		}
@@ -825,20 +865,22 @@ export function recalculateHabitStreak(habit: Habit): number {
 		}
 
 		let streak = 0;
-		const backlogDays = (habit.outstandingDays || 0) * recurrence;
 		let checkDate = parseLocalDate(todayStr);
-		checkDate.setDate(checkDate.getDate() - backlogDays - 1); // Start before backlog
 		
-		const maxLookback = 365;
-		for (let i = 0; i < maxLookback; i++) {
+		// Loop back day by day starting from today until we hit the start date
+		while (true) {
 			// HARD STOP: Don't count before the ritual start date!
-			if (checkDate.getTime() < anchorTime - 43200000) break;
+			// We use a small buffer (12 hours = 43200000ms) to avoid timezone/daylight saving time boundary issues.
+			if (checkDate.getTime() < anchorTime - 43200000) {
+				break;
+			}
 
 			const dateStr = formatDate(checkDate);
 			if (!history[dateStr]) {
 				streak++;
 				checkDate.setDate(checkDate.getDate() - 1);
 			} else {
+				// Hit a day where the bad habit was done (logged), which breaks the resisted streak.
 				break;
 			}
 		}

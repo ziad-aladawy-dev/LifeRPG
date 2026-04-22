@@ -9,9 +9,11 @@
 
 /** Task difficulty levels with their associated multipliers */
 export enum Difficulty {
-	Easy = 1,
-	Medium = 2,
-	Hard = 3,
+	Passive = 1,
+	Easy = 2,
+	Challenging = 3,
+	Hardcore = 4,
+	Madhouse = 5,
 }
 
 /** Item Rarity */
@@ -23,11 +25,21 @@ export enum ItemRarity {
 	Legendary = "legendary",
 }
 
+/** Obsidian Tasks Priority Levels */
+export enum TaskPriority {
+	Highest = 4,
+	High = 3,
+	Medium = 2,
+	Low = 1,
+	Lowest = 0,
+}
+
 /** Inventory Slots */
 export enum ItemSlot {
 	Weapon = "weapon",
 	Armor = "armor",
 	Accessory = "accessory",
+	Consumable = "consumable",
 }
 
 /** Core RPG Attributes */
@@ -58,6 +70,7 @@ export interface LockCondition {
 /** Reward Categories */
 export enum RewardCategory {
 	Item = "item",
+	Consumable = "consumable",
 	RealLife = "real",
 }
 
@@ -113,7 +126,24 @@ export interface CharacterState {
 	xpToNextLevel: number;
 	gp: number;
 	attributes: CharacterAttributes;
-	equippedItems: Record<ItemSlot, string | null>; // Maps slot to Item ID
+	equippedItems: {
+		[ItemSlot.Weapon]: null | string,
+		[ItemSlot.Armor]: null | string,
+		[ItemSlot.Accessory]: null | string,
+		[ItemSlot.Consumable]: null | string,
+	};
+	activeBuffs: ActiveBuff[];
+	burntOutYesterday: boolean; // Triggers debuff
+	energyHistory: Record<string, DailyEnergyLoad>; // Historial log of daily effort
+}
+
+/** Daily Energy snapshot for history */
+export interface DailyEnergyLoad {
+	m: number;
+	p: number;
+	w: number;
+	total: number;
+	cap: number;
 }
 
 /** A custom skill that can be leveled independently */
@@ -125,6 +155,12 @@ export interface Skill {
 	xp: number;
 	xpToNextLevel: number;
 	attribute: Attribute; // The governing attribute for this skill
+}
+
+export interface ActiveBuff {
+	type: string;
+	value: number;
+	expiresAt: string; // ISO date string
 }
 
 /** Skill Tree Node */
@@ -171,10 +207,15 @@ export interface Habit {
 	outstandingDays: number;
 	lastEvaluatedDate: string | null; // ISO date string without time
 	recurrenceDays?: number; // number of days between occurrences (e.g. 1 for daily, 5 for every 5 days)
-	history?: Record<string, boolean>; // Retroactive history tracking: DateStr -> Completed
+	history?: Record<string, boolean | "freeze">; // Retroactive history tracking: DateStr -> Completed or Frozen
 	maxStreak?: number;
 	createdAt: string; // ISO date string
 	startDate?: string; // Optional manual start date (YYYY-MM-DD)
+	
+	// Energy scores (M, P, W)
+	energyM?: number;
+	energyP?: number;
+	energyW?: number;
 }
 
 /** A custom reward the player can purchase with GP */
@@ -209,9 +250,13 @@ export interface Item {
 		gpBonus?: number;
 		damageBonus?: number;
 		damageReduction?: number;
+		hpRegen?: number;
 		dropChance?: number;
 		wisdomSave?: number;
-		hpRegen?: number;
+	};
+	consumableEffect?: {
+		type: "heal" | "energy_boost" | "streak_freeze" | "respec";
+		value: number;
 	};
 }
 
@@ -232,15 +277,27 @@ export interface EventLogEntry {
 
 /** Metadata parsed from a task line's inline annotations */
 export interface TaskMetadata {
+	name?: string;
 	difficulty: Difficulty;
+	energyM?: number; // 0-5
+	energyP?: number; // 0-5
+	energyW?: number; // 0-5
 	skillId: string | null;
-	deadline: string | null; // ISO date string
+	deadline: string | null; // ISO date string (Legacy support)
+	startDate?: string | null; // ISO string
+	endDate?: string | null; // ISO string
+	includeTime?: boolean;
+	priority?: TaskPriority;
+	penalizedAt?: string | null; // ISO timestamp of last penalty trigger
+	isHeading?: boolean;
 }
 
 /** Represents a tracked task's checkbox state for change detection */
 export interface TrackedTask {
 	/** Unique deterministic ID for this task instance */
 	id: string;
+	/** The unique ID for metadata lookup (Sticky ID) */
+	questId?: string | null;
 	/** The line number in the file */
 	line: number;
 	/** The full text content of the task line */
@@ -287,6 +344,8 @@ export interface BossTemplate {
 	flavor: string;
 	abilities?: BossAbility[];
 	lootTable?: BossLoot[];
+	scalingAttribute?: Attribute; // Attribute this boss resonates with
+	scalingFactor?: number;      // Multiplier for resonance scaling
 }
 
 /** An active or completed boss fight */
@@ -305,6 +364,8 @@ export interface Boss {
 	defeatedAt: string | null;
 	abilities?: BossAbility[];
 	lootTable?: BossLoot[];
+	scalingAttribute?: Attribute;
+	scalingFactor?: number;
 }
 
 /** A single dungeon stage */
@@ -385,6 +446,9 @@ export interface GameState {
 	lastOverdueCheckDate: string; // ISO date string
 	totalTasksCompleted: number;
 	totalHabitsCompleted: number;
+
+	// Quest Registry
+	questRegistry: Record<string, TaskMetadata>;
 }
 
 // ---------------------------------------------------------------------------
@@ -417,14 +481,31 @@ export interface PluginSettings {
 
 	// Daily Notes integration
 	dailyNotesFolder: string;
+	dailyNoteFormat: string;
 	scanAllFiles: boolean;
 
 	// General
 	showNotifications: boolean;
 	skillToAttributeRatio: number;
 
+	// Habit notes
+	habitNotesFolder: string;
+
 	// Boss enrage timer (hours before boss enrages)
 	bossEnrageHours: number;
+
+	// Image Caching
+	imageCacheSizeCap: number; // in MB
+	lastImageCachePrune: string;
+
+	// Editor
+	enableEditorSuggestions: boolean;
+	dailyEnergyCap: number; // The "Rule of 30"
+	energyWeights: {
+		mental: number;
+		physical: number;
+		willpower: number;
+	};
 }
 
 // ---------------------------------------------------------------------------

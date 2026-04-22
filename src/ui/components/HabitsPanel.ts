@@ -3,15 +3,15 @@
 // Renders good and bad habits with log buttons and streak tracking.
 // ============================================================================
 
-import { setIcon } from "obsidian";
+import { setIcon, Notice, normalizePath, TFile, TFolder } from "obsidian";
 import { type Habit, type Skill, Difficulty, ItemSlot } from "../../types";
 import { type StateManager } from "../../state/StateManager";
-import { logGoodHabit, logBadHabit, resolveOutstandingHabit, undoHabit, recalculateHabitStreak } from "../../engine/HabitManager";
+import { logGoodHabit, logBadHabit, resolveOutstandingHabit, undoHabit, recalculateHabitStreak, isHabitDue } from "../../engine/HabitManager";
 import { calculateHabitReward, streakBonusMultiplier } from "../../engine/GameEngine";
-import { Notice } from "obsidian";
 import { generateId } from "../../constants";
 import { HabitDetailModal } from "../modals/HabitDetailModal";
 import { HabitHistoryModal } from "../modals/HabitHistoryModal";
+import { renderIcon } from "../../utils/uiUtils";
 
 export class HabitsPanel {
 	private containerEl: HTMLElement;
@@ -27,25 +27,35 @@ export class HabitsPanel {
 	}
 
 	private isHabitDue(habit: Habit): boolean {
-		const today = new Date().toISOString().split("T")[0];
+		const { isHabitDue } = require("../../engine/HabitManager");
+		return isHabitDue(habit);
+	}
+
+	private calculateNextDueDate(habit: Habit): Date {
+		const recurrence = habit.recurrenceDays || 1;
+		const anchorDateStr = habit.startDate || habit.createdAt.split("T")[0];
+		const [ay, am, ad] = anchorDateStr.split("-").map(Number);
+		const anchorDate = new Date(ay, am - 1, ad);
 		
-		// 1. Backlog is always due
-		if ((habit.outstandingDays || 0) > 0) return true;
+		const todayParsed = new Date();
+		const todayTime = new Date(todayParsed.getFullYear(), todayParsed.getMonth(), todayParsed.getDate()).getTime();
+		const anchorTime = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), anchorDate.getDate()).getTime();
 		
-		// 2. Daily is always due
-		if ((habit.recurrenceDays || 1) <= 1) return true;
+		const diffDays = Math.round((todayTime - anchorTime) / (1000 * 60 * 60 * 24));
 		
-		// 3. Cycle day matches today
-		if (habit.lastEvaluatedDate === today) return true;
+		if (diffDays < 0) return anchorDate;
 		
-		// 4. Completed today (so user can see their success)
-		if (habit.lastCompleted && habit.lastCompleted.startsWith(today)) return true;
-		
-		return false;
+		// Find the next multiple of recurrence strictly greater than diffDays
+		// unless it's due today, in which case we might still want to show today or the one after.
+		// Since this is used for cards NOT due today, we find the next one.
+		const nextDueOffset = Math.ceil((diffDays + 0.1) / recurrence) * recurrence;
+		return new Date(anchorTime + (nextDueOffset * 24 * 60 * 60 * 1000));
 	}
 
 	render(habits: Habit[], skills: Skill[]): void {
 		const el = this.containerEl;
+		const oldScrollTop = el.scrollTop;
+		
 		el.empty();
 
 		// Header with Add button
@@ -154,17 +164,18 @@ export class HabitsPanel {
 		const iconEl = nameRow.createEl("span", {
 			cls: "life-rpg-habit-icon",
 		});
-		// Check if it's an obsidian icon (doesn't contain emoji/special char)
-		if (/^[a-z0-9-]+$/.test(habit.icon)) {
-			setIcon(iconEl, habit.icon);
-		} else {
-			iconEl.setText(habit.icon);
-		}
+		renderIcon(iconEl, habit.icon);
 
-		nameRow.createEl("span", {
+		const habitNameEl = nameRow.createEl("span", {
 			text: habit.name,
-			cls: "life-rpg-habit-name",
+			cls: "life-rpg-habit-name clickable-habit-name",
 		});
+		habitNameEl.style.cursor = "pointer";
+		habitNameEl.title = "Click to open habit note";
+		habitNameEl.onclick = (e) => {
+			e.stopPropagation();
+			this.openHabitNote(habit);
+		};
 
 		// Streak & info
 		const infoRow = cardContent.createDiv({ cls: "life-rpg-habit-info" });
@@ -186,25 +197,51 @@ export class HabitsPanel {
 		const character = this.stateManager.getCharacter();
 		const modifiers = this.stateManager.getGlobalModifiers();
 
-		const baseReward = calculateHabitReward(habit.type, habit.difficulty, settings, character.attributes, modifiers);
+		const baseReward = calculateHabitReward(habit, settings, character.attributes, modifiers);
 
-		// --- Streak Badge (for both good & bad habits) ---
+		// --- Entire Card Intense Streak System ---
 		if (liveStreak > 0) {
-			const streakTier = liveStreak >= 30 ? "legendary" : liveStreak >= 14 ? "epic" : liveStreak >= 7 ? "rare" : liveStreak >= 3 ? "uncommon" : "common";
-			const streakIcon = habit.type === "good"
-				? (liveStreak >= 30 ? "🌟" : liveStreak >= 14 ? "💎" : liveStreak >= 7 ? "🔥" : "✨")
-				: (liveStreak >= 7 ? "🛡️" : liveStreak >= 3 ? "💪" : "🙏");
+			let streakTier: string;
 			const streakLabel = habit.type === "good" ? "streak" : "resisted";
 
-			const streakBadge = infoRow.createEl("span", {
-				text: `${streakIcon} ${liveStreak} ${streakLabel}`,
-				cls: `life-rpg-streak-badge life-rpg-streak-${streakTier} ${habit.type === "bad" ? "life-rpg-streak-resist" : ""}`,
-			});
+			if (habit.type === "good") {
+				if (liveStreak >= 365) { streakTier = "fire-ascendant"; }
+				else if (liveStreak >= 250) { streakTier = "fire-quasar"; }
+				else if (liveStreak >= 180) { streakTier = "fire-hypernova"; }
+				else if (liveStreak >= 100) { streakTier = "fire-supernova"; }
+				else if (liveStreak >= 60) { streakTier = "fire-inferno"; }
+				else if (liveStreak >= 30) { streakTier = "fire-blaze"; }
+				else if (liveStreak >= 14) { streakTier = "fire-flame"; }
+				else if (liveStreak >= 7) { streakTier = "fire-kindle"; }
+				else if (liveStreak >= 3) { streakTier = "fire-spark"; }
+				else { streakTier = "fire-ember"; }
+			} else {
+				if (liveStreak >= 365) { streakTier = "frost-stasis"; }
+				else if (liveStreak >= 250) { streakTier = "frost-void"; }
+				else if (liveStreak >= 180) { streakTier = "frost-absolute"; }
+				else if (liveStreak >= 100) { streakTier = "frost-permafrost"; }
+				else if (liveStreak >= 60) { streakTier = "frost-glacial"; }
+				else if (liveStreak >= 30) { streakTier = "frost-frozen"; }
+				else if (liveStreak >= 14) { streakTier = "frost-cold"; }
+				else if (liveStreak >= 7) { streakTier = "frost-chill"; }
+				else if (liveStreak >= 3) { streakTier = "frost-cool"; }
+				else { streakTier = "frost-calm"; }
+			}
 
-			// Add bonus multiplier indicator for good habits with decent streak
+			// Add the intensity tier DIRECTLY to the overall card wrapper
+			card.addClass(`intensity-${streakTier}`);
+
+			// Replace tiny pill badge with an intense thematic stat block
+			const intenseStat = cardContent.createEl("div", {
+				cls: `life-rpg-intense-streak life-rpg-intense-${habit.type}`,
+			});
+			
+			intenseStat.createEl("span", { text: `${liveStreak}`, cls: "streak-big-number" });
+			intenseStat.createEl("span", { text: ` ${streakLabel}`, cls: "streak-big-label" });
+
 			if (habit.type === "good" && liveStreak >= 7) {
 				const bonus = streakBonusMultiplier(liveStreak);
-				streakBadge.title = `${bonus.toFixed(1)}x streak bonus active!`;
+				intenseStat.title = `${bonus.toFixed(1)}x streak bonus active!`;
 			}
 		}
 
@@ -247,6 +284,13 @@ export class HabitsPanel {
 		} else if (this.isHabitDue(habit)) {
 			// If it's due today but not done, or has backlog
 			dateContainer.setText(`🗓️ Today`);
+		} else if (habit.recurrenceDays && habit.recurrenceDays > 1) {
+			const nextDue = this.calculateNextDueDate(habit);
+			const dateStr = nextDue.toLocaleDateString(undefined, {
+				month: "short",
+				day: "numeric",
+			});
+			dateContainer.setText(`🗓️ Next: ${dateStr}`);
 		} else if (habit.lastCompleted) {
 			const dateStr = new Date(habit.lastCompleted).toLocaleDateString(undefined, {
 				month: "short",
@@ -260,8 +304,8 @@ export class HabitsPanel {
 		// Action buttons row
 		const actions = card.createDiv({ cls: "life-rpg-habit-actions" });
 
-		if ((habit.outstandingDays || 0) > 0) {
-			// Outstanding Backlog State
+		if (habit.type === "good" && (habit.outstandingDays || 0) > 0) {
+			// Outstanding Backlog State (ONLY for good habits)
 			const outstandingContainer = actions.createDiv({ cls: "life-rpg-outstanding-actions" });
 			outstandingContainer.createEl("span", { 
 				text: `🚨 ${habit.outstandingDays} Owed: `, 
@@ -413,6 +457,50 @@ export class HabitsPanel {
 			this.stateManager.addLogEntry(entry);
 		}
 	}
+	private async openHabitNote(habit: Habit): Promise<void> {
+		const app = (this.stateManager as any).app || (this.stateManager as any).plugin.app;
+		const settings = this.stateManager.getSettings();
+		const folderPath = settings.habitNotesFolder || "Atlas/Habits";
+		
+		// Ensure folder exists
+		try {
+			if (!(await app.vault.adapter.exists(folderPath))) {
+				await app.vault.createFolder(folderPath);
+			}
+		} catch (err) {
+			// Folder might already exist or be nested
+			const folders = folderPath.split("/");
+			let currentPath = "";
+			for (const folder of folders) {
+				currentPath = currentPath ? `${currentPath}/${folder}` : folder;
+				if (!(await app.vault.adapter.exists(currentPath))) {
+					await app.vault.createFolder(currentPath);
+				}
+			}
+		}
+
+		const fileName = `${habit.name.replace(/[\\/:*?"<>|]/g, "-")}.md`;
+		const filePath = normalizePath(`${folderPath}/${fileName}`);
+		
+		let file = app.vault.getAbstractFileByPath(filePath);
+		
+		if (!file) {
+			const content = `# 🔄 Habit: ${habit.name}\n\n` +
+				`- **Icon**: ${habit.icon}\n` +
+				`- **Type**: ${habit.type === "good" ? "✅ Good" : "⛔ Bad"}\n` +
+				`- **Difficulty**: ${Difficulty[habit.difficulty] || "Passive"}\n\n` +
+				`---\n\n` +
+				`## Notes\n`;
+			
+			file = await app.vault.create(filePath, content);
+		}
+
+		if (file instanceof TFile) {
+			const leaf = app.workspace.getLeaf(false);
+			await leaf.openFile(file);
+		}
+	}
+
 	private logHabit(habit: Habit): void {
 		const character = this.stateManager.getCharacter();
 		const skills = this.stateManager.getSkills();
@@ -456,6 +544,18 @@ export class HabitsPanel {
 			const result = logBadHabit(habit, character, settings, modifiers);
 			this.stateManager.setCharacter(result.character);
 			this.stateManager.updateHabit(habit.id, result.habit);
+
+			// Notification
+			if (settings.showNotifications) {
+				const damage = result.habit.hpPenalty || 0;
+				if (damage > 0) {
+					new Notice(`💔 Bad Habit: "${habit.name}" → -${damage} HP`, 4000);
+				}
+				if (result.character.level < character.level) {
+					new Notice(`💀 YOU DIED! Level dropped to ${result.character.level}.`, 6000);
+				}
+			}
+
 			for (const entry of result.logEntries) {
 				this.stateManager.addLogEntry(entry);
 			}
@@ -500,13 +600,17 @@ export class HabitsPanel {
 		diffRow.createEl("label", { text: "Difficulty:" });
 		const diffSelect = diffRow.createEl("select", { cls: "life-rpg-select" });
 		diffSelect.addEventListener("keydown", (e) => e.stopPropagation());
-		const optEasy = diffSelect.createEl("option", { value: "1", text: "⭐ Easy" });
-		const optMed = diffSelect.createEl("option", { value: "2", text: "⭐⭐ Medium" });
-		const optHard = diffSelect.createEl("option", { value: "3", text: "⭐⭐⭐ Hard" });
+		const optPass = diffSelect.createEl("option", { value: "1", text: "⚪ Passive" });
+		const optEasy = diffSelect.createEl("option", { value: "2", text: "🟢 Easy" });
+		const optChall = diffSelect.createEl("option", { value: "3", text: "🟡 Challenging" });
+		const optHardc = diffSelect.createEl("option", { value: "4", text: "🟠 Hardcore" });
+		const optMad = diffSelect.createEl("option", { value: "5", text: "🟣 Madhouse" });
 		
-		if (habit.difficulty === 1) optEasy.selected = true;
-		else if (habit.difficulty === 2) optMed.selected = true;
-		else if (habit.difficulty === 3) optHard.selected = true;
+		if (habit.difficulty === 1) optPass.selected = true;
+		else if (habit.difficulty === 2) optEasy.selected = true;
+		else if (habit.difficulty === 3) optChall.selected = true;
+		else if (habit.difficulty === 4) optHardc.selected = true;
+		else if (habit.difficulty === 5) optMad.selected = true;
 
 		// Skill Selector
 		const skillsList = this.stateManager.getSkills();
@@ -589,9 +693,11 @@ export class HabitsPanel {
 		diffRow.createEl("label", { text: "Difficulty:" });
 		const diffSelect = diffRow.createEl("select", { cls: "life-rpg-select" });
 		diffSelect.addEventListener("keydown", (e) => e.stopPropagation());
-		diffSelect.createEl("option", { value: "1", text: "⭐ Easy" });
-		diffSelect.createEl("option", { value: "2", text: "⭐⭐ Medium" });
-		diffSelect.createEl("option", { value: "3", text: "⭐⭐⭐ Hard" });
+		diffSelect.createEl("option", { value: "1", text: "⚪ Passive" });
+		diffSelect.createEl("option", { value: "2", text: "🟢 Easy" });
+		diffSelect.createEl("option", { value: "3", text: "🟡 Challenging" });
+		diffSelect.createEl("option", { value: "4", text: "🟠 Hardcore" });
+		diffSelect.createEl("option", { value: "5", text: "🟣 Madhouse" });
 
 		// Recurrence
 		const recurRow = form.createDiv({ cls: "life-rpg-form-row" });

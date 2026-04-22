@@ -5,6 +5,7 @@
 
 import { type Plugin, Notice } from "obsidian";
 import { getTodayStr } from "../utils/dateUtils";
+import { isHabitDue } from "../engine/HabitManager";
 import {
 	type GameState,
 	type Skill,
@@ -21,9 +22,11 @@ import {
 	ItemRarity,
 	RewardCategory,
 	EventType,
+	type TaskMetadata,
 } from "../types";
 import { DEFAULT_GAME_STATE, DEFAULT_SETTINGS, DEFAULT_ATTRIBUTES, INITIAL_ITEMS, SKILL_TREE_NODES, generateId } from "../constants";
 import { calculateGlobalModifiers } from "../engine/GameEngine";
+import { ImageCacheManager } from "../utils/ImageCacheManager";
 
 /** Deep-merge two objects. Source values override target values. */
 function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>): T {
@@ -95,6 +98,15 @@ export class StateManager {
 		}
 		// Migrate missing character profile info
 		if (!this.state.character.name) this.state.character.name = "Hero";
+		
+		// Day rollover check
+		const today = getTodayStr();
+		if (this.state.lastPlayedDate && this.state.lastPlayedDate !== today) {
+			this.processBurnoutRollover(this.state.lastPlayedDate);
+			this.updateLastPlayedDate();
+		} else if (!this.state.lastPlayedDate) {
+			this.updateLastPlayedDate();
+		}
 		if (!this.state.character.avatarUrl) this.state.character.avatarUrl = "⚔️";
 		
 		if (!this.state.character.classId) {
@@ -120,8 +132,10 @@ export class StateManager {
 				[ItemSlot.Weapon]: null,
 				[ItemSlot.Armor]: null,
 				[ItemSlot.Accessory]: null,
+				[ItemSlot.Consumable]: null,
 			};
 		}
+
 		
 		// Migrate missing inventory/unseen log
 		if (!this.state.inventory) this.state.inventory = [];
@@ -131,27 +145,35 @@ export class StateManager {
 		// Migrate missing Skill Tree data
 		if (this.state.unspentSkillPoints === undefined) this.state.unspentSkillPoints = 0;
 		if (this.state.unlockedSkillNodes === undefined) this.state.unlockedSkillNodes = [];
+		if (!this.state.character.energyHistory) this.state.character.energyHistory = {};
 
 		// Migrate missing createdAt for habits
 		for (const habit of this.state.habits) {
 			if (!habit.createdAt) {
-				habit.createdAt = habit.lastCompleted || new Date().toISOString();
 			}
 		}
+
+		// Migrate missing quest registry
+		if (!this.state.questRegistry) {
+			this.state.questRegistry = {};
+		}
+
+		// Clean expired buffs
+		this.cleanExpiredBuffs();
 
 		// Inject INITIAL_ITEMS into rewards store if they don't exist
 		for (const itemTemplate of INITIAL_ITEMS) {
 			const rewardExists = this.state.rewards.some(r => r.name === itemTemplate.name);
 			if (!rewardExists) {
-				const cost = itemTemplate.rarity === ItemRarity.Common ? 50 : 250; // Increased base cost
+				const isConsumable = itemTemplate.slot === ItemSlot.Consumable;
 				const reward: Reward = {
 					id: generateId(),
 					name: itemTemplate.name,
 					description: itemTemplate.description,
 					icon: itemTemplate.icon,
-					cost,
+					cost: itemTemplate.value,
 					purchaseCount: 0,
-					category: RewardCategory.Item,
+					category: isConsumable ? RewardCategory.Consumable : RewardCategory.Item,
 					item: itemTemplate
 				};
 				this.state.rewards.push(reward);
@@ -371,12 +393,46 @@ export class StateManager {
 		);
 	}
 
+	/** Get current daily energy cap (including buffs) */
+	getDailyEnergyCap(): number {
+		const baseCap = this.settings.dailyEnergyCap || 30;
+		const buffBonus = (this.state.character.activeBuffs || [])
+			.filter(b => b.type === "energy_cap")
+			.reduce((total, b) => total + b.value, 0);
+		return baseCap + buffBonus;
+	}
+
+	/** Clean up any expired temporary buffs */
+	private cleanExpiredBuffs(): void {
+		if (!this.state.character.activeBuffs) {
+			this.state.character.activeBuffs = [];
+			return;
+		}
+		const now = new Date().toISOString();
+		const initialCount = this.state.character.activeBuffs.length;
+		this.state.character.activeBuffs = this.state.character.activeBuffs.filter(b => b.expiresAt > now);
+		if (this.state.character.activeBuffs.length !== initialCount) {
+			this.save();
+		}
+	}
+
 	// -----------------------------------------------------------------------
 	// Skill Tree Operations
 	// -----------------------------------------------------------------------
 
+	getTotalSkillPoints(): number {
+		return this.state.skills.reduce((total, skill) => total + (skill.level - 1), 0);
+	}
+
+	getSpentSkillPoints(): number {
+		return this.state.unlockedSkillNodes.reduce((total, nodeId) => {
+			const node = SKILL_TREE_NODES.find(n => n.id === nodeId);
+			return total + (node ? node.cost : 0);
+		}, 0);
+	}
+
 	getSkillPoints(): number {
-		return this.state.unspentSkillPoints;
+		return this.getTotalSkillPoints() - this.getSpentSkillPoints();
 	}
 
 	getUnlockedSkillNodes(): string[] {
@@ -390,15 +446,18 @@ export class StateManager {
 
 	/** Get items available for purchase in store */
 	getStoreItems(): Item[] {
-		// Filter out items already in inventory (unless they are consumables, which we don't distinguish yet)
-		// For now, let's just return the INITIAL_ITEMS that aren't equipped or in inventory
-		return INITIAL_ITEMS.filter(item => !this.state.inventory.some(i => i.name === item.name));
+		// Filter out items already in inventory (unless they are consumables)
+		return INITIAL_ITEMS.filter(item => {
+			const isConsumable = item.slot === ItemSlot.Consumable;
+			if (isConsumable) return true; // Can always buy more
+			return !this.state.inventory.some(i => i.name === item.name);
+		});
 	}
 
 	unlockSkillNode(nodeId: string): boolean {
 		const node = SKILL_TREE_NODES.find(n => n.id === nodeId);
 		if (!node) return false;
-		if (this.state.unspentSkillPoints < node.cost) return false;
+		if (this.getSkillPoints() < node.cost) return false;
 		if (this.state.unlockedSkillNodes.includes(nodeId)) return false;
 
 		// Check requirements
@@ -411,7 +470,6 @@ export class StateManager {
 			if (!attr || attr.level < node.attributeThreshold.level) return false;
 		}
 
-		this.state.unspentSkillPoints -= node.cost;
 		this.state.unlockedSkillNodes.push(nodeId);
 		
 		this.addLogEntry({
@@ -431,13 +489,6 @@ export class StateManager {
 
 	/** Reset Skill Tree (Mirror of Rebirth logic) */
 	respecSkillTree(): void {
-		let totalRefund = 0;
-		for (const nodeId of this.state.unlockedSkillNodes) {
-			const node = SKILL_TREE_NODES.find(n => n.id === nodeId);
-			if (node) totalRefund += node.cost;
-		}
-		
-		this.state.unspentSkillPoints += totalRefund;
 		this.state.unlockedSkillNodes = [];
 		
 		this.addLogEntry({
@@ -454,6 +505,88 @@ export class StateManager {
 		this.notify();
 	}
 
+	/** Use a consumable item from inventory */
+	useConsumable(itemId: string): void {
+		const item = this.state.inventory.find(i => i.id === itemId);
+		if (!item || !item.consumableEffect) return;
+
+		const char = this.state.character;
+		const effect = item.consumableEffect;
+
+		this.batchUpdates(() => {
+			if (effect.type === "heal") {
+				const modifiers = this.getGlobalModifiers();
+				const finalMaxHp = char.maxHp + (modifiers.hpMax || 0);
+				const oldHp = char.hp;
+				char.hp = Math.min(finalMaxHp, char.hp + effect.value);
+				new Notice(`🧪 Drank ${item.name}: Healed ${char.hp - oldHp} HP!`);
+				this.addLogEntry({
+					id: generateId(),
+					timestamp: new Date().toISOString(),
+					type: EventType.HpRegen,
+					message: `🧪 Drank ${item.name}: Healed ${char.hp - oldHp} HP.`,
+					xpDelta: 0, gpDelta: 0, hpDelta: char.hp - oldHp
+				});
+			} else if (effect.type === "energy_boost") {
+				const expiresAt = new Date();
+				expiresAt.setHours(23, 59, 59, 999); // Expires at end of today
+				
+				if (!char.activeBuffs) char.activeBuffs = [];
+				char.activeBuffs.push({
+					type: "energy_cap",
+					value: effect.value,
+					expiresAt: expiresAt.toISOString()
+				});
+				
+				new Notice(`🌩️ ${item.name} used: Daily Energy Cap +${effect.value} for today!`);
+				this.addLogEntry({
+					id: generateId(),
+					timestamp: new Date().toISOString(),
+					type: EventType.ItemEquipped,
+					message: `🌩️ Used ${item.name}: Daily Energy Cap +${effect.value} until midnight.`,
+					xpDelta: 0, gpDelta: 0, hpDelta: 0
+				});
+			} else if (effect.type === "respec") {
+				this.respecSkillTree();
+				new Notice(`🔮 Mirror of Rebirth used: Skills reset!`);
+			}
+
+			// Remove item from inventory
+			this.removeItem(itemId);
+		});
+	}
+
+	/** Apply a streak freeze to a specific habit missed day */
+	applyStreakFreeze(habitId: string, dateStr: string, itemId: string): boolean {
+		const habit = this.state.habits.find(h => h.id === habitId);
+		const item = this.state.inventory.find(i => i.id === itemId);
+		
+		if (!habit || !item || item.consumableEffect?.type !== "streak_freeze") return false;
+
+		this.batchUpdates(() => {
+			if (!habit.history) habit.history = {};
+			habit.history[dateStr] = "freeze";
+			
+			// Recalculate streak immediately
+			const { recalculateHabitStreak } = require("../engine/HabitManager");
+			habit.streak = recalculateHabitStreak(habit);
+			
+			// Consumes the item
+			this.removeItem(itemId);
+			
+			this.addLogEntry({
+				id: generateId(),
+				timestamp: new Date().toISOString(),
+				type: EventType.ItemEquipped,
+				message: `❄️ Streak Seal used on "${habit.name}" for ${dateStr}. Streak preserved!`,
+				xpDelta: 0, gpDelta: 0, hpDelta: 0
+			});
+		});
+
+		new Notice(`❄️ Streak Seal applied to ${habit.name}!`);
+		return true;
+	}
+
 
 
 	// -----------------------------------------------------------------------
@@ -463,6 +596,12 @@ export class StateManager {
 	/** Update character fields */
 	updateCharacter(partial: Partial<CharacterState>): void {
 		this.state.character = { ...this.state.character, ...partial };
+		
+		// If avatar URL changed and is external, trigger cache
+		if (partial.avatarUrl && partial.avatarUrl.startsWith("http")) {
+			ImageCacheManager.getInstance(this.plugin.app).cacheImage(partial.avatarUrl, this.settings);
+		}
+
 		this.save();
 		this.notify();
 	}
@@ -573,7 +712,7 @@ export class StateManager {
 			for (const newSkill of this.state.skills) {
 				const oldSkill = oldSkills.find(os => os.id === newSkill.id);
 				if (oldSkill && newSkill.level > oldSkill.level) {
-					new Notice(`🎯 SKILL UP: ${newSkill.name} reached Level ${newSkill.level}!`, 4000); //newSkill.name, newSkill.level);
+					new Notice(`🎯 SKILL UP: ${newSkill.name} reached Level ${newSkill.level}!`, 4000);
 				}
 			}
 		}
@@ -608,6 +747,12 @@ export class StateManager {
 		const idx = this.state.rewards.findIndex((r) => r.id === id);
 		if (idx !== -1) {
 			this.state.rewards[idx] = { ...this.state.rewards[idx], ...partial };
+			
+			// If icon changed and is external, trigger cache
+			if (partial.icon && partial.icon.startsWith("http")) {
+				ImageCacheManager.getInstance(this.plugin.app).cacheImage(partial.icon, this.settings);
+			}
+
 			this.save();
 			this.notify();
 		}
@@ -758,6 +903,7 @@ export class StateManager {
 	// Settings Mutations
 	// -----------------------------------------------------------------------
 
+
 	/** Update settings */
 	updateSettings(partial: Partial<PluginSettings>): void {
 		this.settings = { ...this.settings, ...partial };
@@ -769,8 +915,121 @@ export class StateManager {
 	// Utilities
 	// -----------------------------------------------------------------------
 
-	/** Deep clone game state */
 	private cloneState(state: GameState): GameState {
 		return JSON.parse(JSON.stringify(state));
+	}
+
+	// -----------------------------------------------------------------------
+	// Quest Registry
+	// -----------------------------------------------------------------------
+
+	getQuestMetadata(questId: string): TaskMetadata | null {
+		return this.state.questRegistry[questId] || null;
+	}
+
+	/** Register or update quest metadata with merging logic */
+	registerQuestMetadata(qId: string, metadata: TaskMetadata): void {
+		const oldMeta = this.state.questRegistry[qId];
+		
+		if (!oldMeta) {
+			this.state.questRegistry[qId] = metadata;
+		} else {
+			// Reset penalty if the deadline has changed
+			if (metadata.deadline !== undefined && oldMeta.deadline !== metadata.deadline) {
+				metadata.penalizedAt = null;
+			}
+			
+			// Deep merge
+			this.state.questRegistry[qId] = {
+				...oldMeta,
+				...metadata
+			};
+		}
+
+		this.save();
+		this.notify();
+	}
+
+	/**
+	 * Calculate the total energy load for a specific day.
+	 * Includes good habits and dated tasks (deadline, start, or end date matches target date).
+	 */
+	calculateDailyEnergyLoad(dateStr?: string): { m: number, p: number, w: number, total: number } {
+		const targetDate = dateStr || getTodayStr();
+		let m = 0, p = 0, w = 0;
+
+		// 1. Habits (Good only and Due today)
+		for (const habit of this.state.habits) {
+			if (habit.type === "good" && isHabitDue(habit)) {
+				m += habit.energyM || 0;
+				p += habit.energyP || 0;
+				w += habit.energyW || 0;
+			}
+		}
+
+		// 2. Dated Tasks
+		for (const qId in this.state.questRegistry) {
+			const meta = this.state.questRegistry[qId];
+			const dates = [meta.deadline, meta.startDate, meta.endDate]
+				.filter(d => !!d)
+				.map(d => d!.split("T")[0]);
+			
+			if (dates.includes(targetDate)) {
+				m += meta.energyM || 0;
+				p += meta.energyP || 0;
+				w += meta.energyW || 0;
+			}
+		}
+
+		return { m, p, w, total: m + p + w };
+	}
+
+	/**
+	 * Detect burnout based on energy load and apply penalties.
+	 * Triggered during daily rollover.
+	 */
+	processBurnoutRollover(yesterdayStr: string): void {
+		const load = this.calculateDailyEnergyLoad(yesterdayStr);
+		const cap = this.getDailyEnergyCap();
+
+		// Record in history
+		if (!this.state.character.energyHistory) this.state.character.energyHistory = {};
+		this.state.character.energyHistory[yesterdayStr] = { ...load, cap };
+		
+		// Prune history (keep last 14 days)
+		const historyKeys = Object.keys(this.state.character.energyHistory).sort();
+		if (historyKeys.length > 14) {
+			for (let i = 0; i < historyKeys.length - 14; i++) {
+				delete this.state.character.energyHistory[historyKeys[i]];
+			}
+		}
+
+		if (load.total > cap) {
+			const damage = 20; // Base burnout damage
+			this.state.character.burntOutYesterday = true;
+			this.state.character.hp = Math.max(1, this.state.character.hp - damage);
+			
+			this.addLogEntry({
+				id: generateId(),
+				timestamp: new Date().toISOString(),
+				type: EventType.HpDamage,
+				message: `🔥 BURNOUT! Yesterday's energy load (${load.total}) exceeded your cap of ${cap}. You have taken ${damage} damage and have a -25% XP debuff today.`,
+				xpDelta: 0,
+				gpDelta: 0,
+				hpDelta: -damage,
+			});
+		} else {
+			this.state.character.burntOutYesterday = false;
+		}
+	}
+
+	generateQuestId(): string {
+		let id: string;
+		let attempts = 0;
+		do {
+			id = Math.random().toString(36).substring(2, 6);
+			attempts++;
+		} while (this.state.questRegistry[id] && attempts < 100);
+		return id;
 	}
 }

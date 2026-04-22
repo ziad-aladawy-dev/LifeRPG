@@ -8,19 +8,17 @@ import { VIEW_TYPE_CHARACTER_SHEET } from "../constants";
 import { type StateManager } from "../state/StateManager";
 import { type GameState, ItemSlot } from "../types";
 import { StatsPanel } from "./components/StatsPanel";
-import { SkillsPanel } from "./components/SkillsPanel";
 import { QuestsPanel } from "./components/QuestsPanel";
 import { HabitsPanel } from "./components/HabitsPanel";
 import { RewardsPanel } from "./components/RewardsPanel";
 import { BossPanel } from "./components/BossPanel";
 import { ActivityLogPanel } from "./components/ActivityLogPanel";
-import { ProfilePanel } from "./components/ProfilePanel";
-import { InventoryPanel } from "./components/InventoryPanel";
 import { HabitHistoryModal } from "./modals/HabitHistoryModal";
 import { EventType } from "../types";
 import { SkillTreePanel } from "./components/SkillTreePanel";
+import { EnergyPanel } from "./components/EnergyPanel";
 
-type TabId = "stats" | "profile" | "inventory" | "quests" | "skills" | "skill_tree" | "habits" | "rewards" | "boss" | "log";
+type TabId = "stats" | "energy" | "quests" | "skill_tree" | "habits" | "rewards" | "boss" | "log";
 
 interface TabDefinition {
 	id: TabId;
@@ -30,14 +28,12 @@ interface TabDefinition {
 
 const TABS: TabDefinition[] = [
 	{ id: "stats", label: "📊 Stats", icon: "sword" },
-	{ id: "profile", label: "👤 Profile", icon: "user" },
-	{ id: "inventory", label: "🎒 Inventory", icon: "briefcase" },
-	{ id: "quests", label: "📜 Quests", icon: "scroll" },
-	{ id: "skills", label: "🎯 Skills", icon: "bar-chart" },
-	{ id: "skill_tree", label: "🌳 Tree", icon: "tree" },
-	{ id: "habits", label: "🔄 Habits", icon: "refresh-cw" },
-	{ id: "rewards", label: "💰 Store", icon: "shopping-cart" },
+	{ id: "energy", label: "🔋 Energy", icon: "zap" },
 	{ id: "boss", label: "💀 Boss", icon: "skull" },
+	{ id: "quests", label: "📜 Quests", icon: "scroll" },
+	{ id: "habits", label: "🔄 Habits", icon: "refresh-cw" },
+	{ id: "skill_tree", label: "🌳 Tree", icon: "tree" },
+	{ id: "rewards", label: "💰 Store", icon: "shopping-cart" },
 	{ id: "log", label: "📝 Log", icon: "list" },
 ];
 
@@ -49,15 +45,13 @@ export class CharacterSheetView extends ItemView {
 
 	// Panel instances (lazy-created)
 	private statsPanel: StatsPanel | null = null;
-	private profilePanel: ProfilePanel | null = null;
 	private questsPanel: QuestsPanel | null = null;
-	private skillsPanel: SkillsPanel | null = null;
 	private habitsPanel: HabitsPanel | null = null;
 	private rewardsPanel: RewardsPanel | null = null;
 	private bossPanel: BossPanel | null = null;
 	private activityLogPanel: ActivityLogPanel | null = null;
-	private inventoryPanel: InventoryPanel | null = null;
 	private skillTreePanel: SkillTreePanel | null = null;
+	private energyPanel: EnergyPanel | null = null;
 	private isChroniclePlaying = false;
 
 	constructor(leaf: WorkspaceLeaf, stateManager: StateManager) {
@@ -211,22 +205,19 @@ export class CharacterSheetView extends ItemView {
 
 		switch (this.activeTab) {
 			case "stats":
-				this.statsPanel = new StatsPanel(this.tabContentEl, this.stateManager);
-				this.statsPanel.render(state.character);
+				this.statsPanel = new StatsPanel(this.tabContentEl, this.stateManager, this.app);
+				this.statsPanel.render(state);
 				break;
 
-			case "profile":
-				this.profilePanel = new ProfilePanel(this.tabContentEl, this.stateManager);
-				this.profilePanel.render(state.character);
+			case "energy": {
+				this.energyPanel = new EnergyPanel(this.tabContentEl, this.stateManager);
+				const plugin = (this.stateManager as any).plugin;
+				this.energyPanel.render(state, plugin.taskWatcher.getActiveTasks());
 				break;
-
-			case "inventory":
-				this.inventoryPanel = new InventoryPanel(this.tabContentEl, this.stateManager);
-				this.inventoryPanel.render();
-				break;
+			}
 
 			case "quests": {
-				this.questsPanel = new QuestsPanel(this.tabContentEl, this.app);
+				this.questsPanel = new QuestsPanel(this.tabContentEl as HTMLElement, this.app, this.stateManager);
 				const plugin = (this.stateManager as any).plugin;
 				
 				const modifiers = this.stateManager.getGlobalModifiers();
@@ -239,14 +230,6 @@ export class CharacterSheetView extends ItemView {
 				);
 				break;
 			}
-
-			case "skills":
-				this.skillsPanel = new SkillsPanel(
-					this.tabContentEl,
-					this.stateManager
-				);
-				this.skillsPanel.render(state.skills);
-				break;
 
 			case "skill_tree":
 				this.skillTreePanel = new SkillTreePanel(
@@ -301,18 +284,28 @@ export class CharacterSheetView extends ItemView {
 		ribbon.empty();
 
 		const char = this.stateManager.getCharacter();
+		const modifiers = this.stateManager.getGlobalModifiers();
+		const finalMaxHp = char.maxHp + (modifiers.hpMax || 0);
+
 		const el = ribbon as HTMLElement;
+
+		const energy = this.stateManager.calculateDailyEnergyLoad();
+		const cap = this.stateManager.getSettings().dailyEnergyCap || 30;
 
 		const items = [
 			{ icon: "🏅", text: `Lv.${char.level}` },
-			{ icon: "❤️", text: `${char.hp}/${char.maxHp}` },
+			{ icon: "❤️", text: `${char.hp}/${finalMaxHp}` },
+			{ icon: "⚡", text: `${energy.total}/${cap}` },
 			{ icon: "✨", text: `${char.xp}/${char.xpToNextLevel}` },
-			{ icon: "⭐", text: `${this.stateManager.getSkillPoints()} SP` },
+			{ icon: "⭐", text: `${this.stateManager.getSkillPoints()} / ${this.stateManager.getTotalSkillPoints()} SP` },
 			{ icon: "💰", text: `${char.gp}` },
 		];
 
 		for (const item of items) {
 			const span = el.createEl("span", { cls: "life-rpg-ribbon-item" });
+			if (item.icon === "⭐") {
+				span.title = `Available / Total Skill Points\nTotal is earned from skill levels.`;
+			}
 			const iconEl = span.createEl("span", { cls: "life-rpg-ribbon-icon" });
 			iconEl.setText(item.icon);
 			span.createEl("span", {
@@ -324,23 +317,21 @@ export class CharacterSheetView extends ItemView {
 
 	private destroyPanels(): void {
 		this.statsPanel?.destroy();
-		this.profilePanel?.destroy();
 		this.questsPanel?.destroy();
-		this.skillsPanel?.destroy();
 		this.habitsPanel?.destroy();
 		this.rewardsPanel?.destroy();
 		this.bossPanel?.destroy();
 		this.activityLogPanel?.destroy();
 		this.skillTreePanel?.destroy();
+		this.energyPanel?.destroy();
 
 		this.statsPanel = null;
-		this.profilePanel = null;
 		this.questsPanel = null;
-		this.skillsPanel = null;
 		this.habitsPanel = null;
 		this.rewardsPanel = null;
 		this.bossPanel = null;
 		this.activityLogPanel = null;
 		this.skillTreePanel = null;
+		this.energyPanel = null;
 	}
 }

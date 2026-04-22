@@ -37,7 +37,8 @@ export class TaskModifierSuggest extends EditorSuggest<SuggestionItem> {
 		file: TFile | null
 	): EditorSuggestTriggerInfo | null {
 		// Only trigger if we are inside a markdown file and task watcher is enabled
-		if (!this.plugin.stateManager.getSettings().enableTaskWatcher) return null;
+		const settings = this.plugin.stateManager.getSettings();
+		if (!settings.enableTaskWatcher || !settings.enableEditorSuggestions) return null;
 
 		const lineToCursor = editor.getLine(cursor.line).substring(0, cursor.ch);
 
@@ -67,9 +68,11 @@ export class TaskModifierSuggest extends EditorSuggest<SuggestionItem> {
 		if (query.startsWith("d") && (query.includes("diff") || query.startsWith("d:"))) {
 			const subQuery = query.split(":")[1]?.trim() || "";
 			const options = [
-				{ label: "easy", insert: "difficulty: easy]", icon: "🟢", desc: "x1 Multiplier" },
-				{ label: "medium", insert: "difficulty: medium]", icon: "🟡", desc: "x2 Multiplier" },
-				{ label: "hard", insert: "difficulty: hard]", icon: "🔴", desc: "x3 Multiplier" }
+				{ label: "passive", insert: "difficulty: passive]", icon: "⚪", desc: "x1 Multiplier" },
+				{ label: "easy", insert: "difficulty: easy]", icon: "🟢", desc: "x1.5 Multiplier" },
+				{ label: "challenging", insert: "difficulty: challenging]", icon: "🟡", desc: "x2 Multiplier" },
+				{ label: "hardcore", insert: "difficulty: hardcore]", icon: "🟠", desc: "x2.5 Multiplier" },
+				{ label: "madhouse", insert: "difficulty: madhouse]", icon: "🟣", desc: "x3 Multiplier" }
 			];
 
 			for (const opt of options) {

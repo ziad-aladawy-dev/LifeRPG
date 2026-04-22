@@ -11,10 +11,11 @@ import {
 	type EventLogEntry,
 	type DungeonTemplate,
 	type CharacterAttributes,
+	type PluginSettings,
 	EventType,
 } from "../types";
 import { generateId } from "../constants";
-import { dealDamageToBoss, calculateGlobalModifiers } from "./GameEngine";
+import { dealDamageToBoss, calculateGlobalModifiers, calculateBossAttackDamage } from "./GameEngine";
 
 // ---------------------------------------------------------------------------
 // Boss Factory
@@ -23,13 +24,18 @@ import { dealDamageToBoss, calculateGlobalModifiers } from "./GameEngine";
 /**
  * Create a new Boss instance from a template.
  */
-export function createBossFromTemplate(template: BossTemplate): Boss {
+export function createBossFromTemplate(template: BossTemplate, attributes: CharacterAttributes): Boss {
+	// Base HP scaling: +2% per total attribute point
+	const totalAttrLevel = attributes.str.level + attributes.int.level + attributes.wis.level + attributes.cha.level;
+	const hpMultiplier = 1 + (totalAttrLevel * 0.02);
+	const scaledMaxHp = Math.round(template.baseHp * hpMultiplier);
+
 	return {
 		id: generateId(),
 		name: template.name,
 		icon: template.icon,
-		hp: template.baseHp,
-		maxHp: template.baseHp,
+		hp: scaledMaxHp,
+		maxHp: scaledMaxHp,
 		attackPower: template.attackPower,
 		xpReward: template.xpReward,
 		gpReward: template.gpReward,
@@ -39,12 +45,44 @@ export function createBossFromTemplate(template: BossTemplate): Boss {
 		defeatedAt: null,
 		abilities: template.abilities || [],
 		lootTable: template.lootTable || [],
+		scalingAttribute: template.scalingAttribute,
+		scalingFactor: template.scalingFactor || 1.0,
 	};
 }
 
 // ---------------------------------------------------------------------------
 // Boss Combat
 // ---------------------------------------------------------------------------
+
+/**
+ * Helper to calculate final damage dealt to a boss including all multipliers.
+ */
+function calculateFinalDamage(
+	baseDamage: number,
+	boss: Boss,
+	attributes: CharacterAttributes,
+	modifiers: ReturnType<typeof calculateGlobalModifiers>,
+	comboCount: number = 0
+): number {
+	let finalDamage = baseDamage;
+
+	// 1. Attribute Bonus: STR applies a 2% bonus to damage per level + gear bonuses
+	const strBonus = 1 + ((attributes.str.level + modifiers.str) * 0.02) + modifiers.damageBonus;
+	finalDamage = Math.round(finalDamage * strBonus);
+
+	// 2. Combo Bonus: 5% bonus per combo hit (max 50%)
+	const comboMultiplier = 1 + Math.min(0.5, (comboCount * 0.05));
+	finalDamage = Math.round(finalDamage * comboMultiplier);
+
+	// 3. Boss Rage: Bosses are more vulnerable when enraged
+	const hpPct = boss.hp / boss.maxHp;
+	let rageMultiplier = 1.0;
+	if (hpPct <= 0.25) rageMultiplier = 2.0; // Critical: 2x damage taken
+	else if (hpPct <= 0.5) rageMultiplier = 1.5; // Enraged: 1.5x damage taken
+	
+	finalDamage = Math.round(finalDamage * rageMultiplier);
+	return finalDamage;
+}
 
 /**
  * Process player dealing damage to the active boss.
@@ -62,23 +100,7 @@ export function playerAttacksBoss(
 	logEntries: EventLogEntry[];
 } {
 	const logEntries: EventLogEntry[] = [];
-	let finalDamage = damage;
-
-	// 1. Attribute Bonus: STR applies a 2% bonus to damage per level + gear bonuses
-	const strBonus = 1 + ((attributes.str.level + modifiers.str) * 0.02) + modifiers.damageBonus;
-	finalDamage = Math.round(finalDamage * strBonus);
-
-	// 2. Combo Bonus: 5% bonus per combo hit (max 50%)
-	const comboMultiplier = 1 + Math.min(0.5, (comboCount * 0.05));
-	finalDamage = Math.round(finalDamage * comboMultiplier);
-
-	// 3. Boss Rage: Bosses are more vulnerable when enraged
-	const hpPct = boss.hp / boss.maxHp;
-	let rageMultiplier = 1.0;
-	if (hpPct <= 0.25) rageMultiplier = 2.0; // Critical: 2x damage taken
-	else if (hpPct <= 0.5) rageMultiplier = 1.5; // Enraged: 1.5x damage taken
-	
-	finalDamage = Math.round(finalDamage * rageMultiplier);
+	const finalDamage = calculateFinalDamage(damage, boss, attributes, modifiers, comboCount);
 
 	const { newHp, defeated } = dealDamageToBoss(boss.hp, boss.maxHp, finalDamage);
 
@@ -116,16 +138,21 @@ export function playerAttacksBoss(
 
 /**
  * Heal the boss when a task is unchecked.
+ * Applies the same multipliers as attacking to ensure fair recovery.
  */
 export function healBoss(
 	boss: Boss,
-	amount: number
+	baseAmount: number,
+	attributes: CharacterAttributes,
+	modifiers: ReturnType<typeof calculateGlobalModifiers>,
+	comboCount: number = 0
 ): {
 	boss: Boss;
 	logEntries: EventLogEntry[];
 } {
 	const logEntries: EventLogEntry[] = [];
-	const newHp = Math.min(boss.maxHp, boss.hp + amount);
+	const healAmount = calculateFinalDamage(baseAmount, boss, attributes, modifiers, comboCount);
+	const newHp = Math.min(boss.maxHp, boss.hp + healAmount);
 
 	const updatedBoss: Boss = {
 		...boss,
@@ -150,27 +177,83 @@ export function healBoss(
  * Returns damage amount and log entry.
  */
 export function bossAttacksPlayer(
-	boss: Boss
+	boss: Boss,
+	attributes: CharacterAttributes,
+	modifiers: ReturnType<typeof calculateGlobalModifiers>,
+	settings: PluginSettings
 ): { damage: number; logEntry: EventLogEntry } {
-	let damage = boss.attackPower;
+	// 1. Level Scaling: +10% base power per character level
+	const avgAttrLevel = (attributes.str.level + attributes.int.level + attributes.wis.level + attributes.cha.level) / 4;
+	const levelBonus = 1 + (avgAttrLevel * 0.1); 
+	
+	let rawDamage = Math.round(boss.attackPower * levelBonus);
 
-	// Boss Rage: Bosses deal more damage when enraged
+	// 2. Attribute Resonance (Adversary Mechanic)
+	// Add 50% of the player's scaled attribute to boss damage
+	if (boss.scalingAttribute) {
+		const playerAttr = attributes[boss.scalingAttribute];
+		if (playerAttr) {
+			const resonance = (playerAttr.level * 0.5) * (boss.scalingFactor || 1.0);
+			rawDamage += Math.round(resonance);
+		}
+	}
+
+	// 3. Time-based Enrage: If the fight has lasted too long, damage increases by 50%
+	const enrageHours = settings.bossEnrageHours ?? 48;
+	const elapsedMs = Date.now() - new Date(boss.startedAt).getTime();
+	const elapsedHours = elapsedMs / (1000 * 60 * 60);
+	const isTimeEnraged = elapsedHours >= enrageHours;
+	
+	if (isTimeEnraged) {
+		rawDamage = Math.round(rawDamage * 1.5);
+	}
+
+	// 4. HP-based Rage: Bosses deal more damage when at low HP
 	const hpPct = boss.hp / boss.maxHp;
-	if (hpPct <= 0.25) damage = Math.round(damage * 1.5); // Desperate: 1.5x damage dealt
-	else if (hpPct <= 0.5) damage = Math.round(damage * 1.25); // Enraged: 1.25x damage dealt
+	if (hpPct <= 0.25) rawDamage = Math.round(rawDamage * 1.5); // Desperate: 1.5x damage dealt
+	else if (hpPct <= 0.5) rawDamage = Math.round(rawDamage * 1.25); // Enraged: 1.25x damage dealt
+
+	// 5. Difficulty Step (Final amplification)
+	// Base was already multiplied in calculateBossAttackDamage, but we can add a Madhouse specific boost here
+	// if we wanted, but let's stick to the GameEngine logic for now.
+
+
+	// 3. Apply mitigation (WIS and gear)
+	const finalDamage = calculateBossAttackDamage(rawDamage, attributes, modifiers);
 
 	return {
-		damage,
+		damage: finalDamage,
 		logEntry: {
 			id: generateId(),
 			timestamp: new Date().toISOString(),
 			type: EventType.BossAttack,
-			message: `💥 ${boss.icon} ${boss.name} attacks you for ${damage} HP damage!`,
+			message: `💥 ${boss.icon} ${boss.name} attacks you for ${finalDamage} HP damage!${isTimeEnraged ? " (💢 Time-Enraged!)" : ""}`,
 			xpDelta: 0,
 			gpDelta: 0,
-			hpDelta: -damage,
+			hpDelta: -finalDamage,
 		},
 	};
+}
+
+/**
+ * Calculate damage for environmental hazards (like missed deadlines).
+ * Scales with player level and applies piercing mitigation.
+ */
+export function calculateOverdueHazardDamage(
+	settings: PluginSettings,
+	attributes: CharacterAttributes,
+	modifiers: ReturnType<typeof calculateGlobalModifiers>
+): number {
+	const base = settings.bossDamageOnMissedDeadline || 15;
+	
+	// Apply Level-based scaling (+10% per avg attribute level)
+	const avgAttrLevel = (attributes.str.level + attributes.int.level + attributes.wis.level + attributes.cha.level) / 4;
+	const levelBonus = 1 + (avgAttrLevel * 0.1); 
+	
+	const scaledRaw = Math.round(base * levelBonus);
+	
+	// Apply mitigation with piercing (reusing Boss mitigation logic)
+	return calculateBossAttackDamage(scaledRaw, attributes, modifiers);
 }
 
 // ---------------------------------------------------------------------------
@@ -180,7 +263,7 @@ export function bossAttacksPlayer(
 /**
  * Create a new Dungeon instance from a template.
  */
-export function createDungeonFromTemplate(template: DungeonTemplate): Dungeon {
+export function createDungeonFromTemplate(template: DungeonTemplate, attributes: CharacterAttributes): Dungeon {
 	return {
 		id: generateId(),
 		name: template.name,
@@ -192,7 +275,7 @@ export function createDungeonFromTemplate(template: DungeonTemplate): Dungeon {
 			tasksCompleted: 0,
 		})),
 		currentStage: 0,
-		boss: createBossFromTemplate(template.bossTemplate),
+		boss: createBossFromTemplate(template.bossTemplate, attributes),
 		active: true,
 		completedAt: null,
 	};
@@ -213,18 +296,22 @@ export function getCurrentDungeonStage(
  * Returns updated dungeon, whether the stage was completed, and log entries.
  */
 export function advanceDungeonProgress(
-	dungeon: Dungeon
+	dungeon: Dungeon,
+	attributes: CharacterAttributes,
+	modifiers: ReturnType<typeof calculateGlobalModifiers>
 ): {
 	dungeon: Dungeon;
 	stageCompleted: boolean;
 	dungeonCleared: boolean;
+	damage: number;
 	logEntries: EventLogEntry[];
 } {
 	const logEntries: EventLogEntry[] = [];
 	const updated: Dungeon = JSON.parse(JSON.stringify(dungeon));
+	let damageDealt = 0;
 
 	if (updated.currentStage >= updated.stages.length) {
-		return { dungeon: updated, stageCompleted: false, dungeonCleared: false, logEntries };
+		return { dungeon: updated, stageCompleted: false, dungeonCleared: false, damage: 0, logEntries };
 	}
 
 	const stage = updated.stages[updated.currentStage];
@@ -264,8 +351,19 @@ export function advanceDungeonProgress(
 			});
 		}
 	}
+	// --- Dungeon Attrition Damage ---
+	// Pushing through a dungeon is taxing. Each task deals small attrition damage.
+	// Base: 2 + (StageIndex * 2)
+	const baseAttrition = 2 + (updated.currentStage * 2);
+	damageDealt = calculateOverdueHazardDamage({ bossDamageOnMissedDeadline: baseAttrition } as any, attributes, modifiers);
 
-	return { dungeon: updated, stageCompleted, dungeonCleared, logEntries };
+	return { 
+		dungeon: updated, 
+		stageCompleted, 
+		dungeonCleared, 
+		damage: damageDealt,
+		logEntries 
+	};
 }
 
 /**
