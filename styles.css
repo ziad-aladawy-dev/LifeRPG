@@ -1571,9 +1571,11 @@
   border: 1px solid var(--border-subtle);
 }
 
+.life-rpg-badge-passive { color: var(--text-muted); border-color: var(--border-subtle); }
 .life-rpg-badge-easy { color: var(--nature-bright); border-color: var(--nature-dark); }
-.life-rpg-badge-medium { color: var(--gold-light); border-color: var(--gold-dark); }
-.life-rpg-badge-hard { color: var(--ember-bright); border-color: var(--ember-dark); }
+.life-rpg-badge-challenging { color: var(--gold-light); border-color: var(--gold-dark); }
+.life-rpg-badge-hardcore { color: var(--ember-bright); border-color: var(--ember-dark); }
+.life-rpg-badge-madhouse { color: var(--blood-light); border-color: var(--blood-mid); background: var(--blood-dark); }
 .life-rpg-badge-skill { color: var(--arcane-light); border-color: var(--arcane-dark); }
 .life-rpg-badge-deadline { color: var(--frost-light); border-color: var(--frost-dark); }
 .life-rpg-badge-overdue {

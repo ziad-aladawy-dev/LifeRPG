@@ -53,6 +53,7 @@ export class CharacterSheetView extends ItemView {
 	private skillTreePanel: SkillTreePanel | null = null;
 	private energyPanel: EnergyPanel | null = null;
 	private isChroniclePlaying = false;
+	private lastActiveTabId: TabId | null = null;
 
 	constructor(leaf: WorkspaceLeaf, stateManager: StateManager) {
 		super(leaf);
@@ -197,34 +198,36 @@ export class CharacterSheetView extends ItemView {
 		// Update the quick stats ribbon
 		this.updateRibbon();
 
-		// Destroy current panels
-		this.destroyPanels();
-		this.tabContentEl.empty();
-
 		const state = this.stateManager.getState();
+		const settings = this.stateManager.getSettings();
+		const plugin = (this.stateManager as any).plugin;
+
+		// Only empty the tab content if we are switching tabs
+		if (this.activeTab !== this.lastActiveTabId) {
+			this.lastActiveTabId = this.activeTab;
+			this.tabContentEl.empty();
+			
+			// We don't fully destroy all panels anymore to keep their internal state,
+			// but we ensure the DOM is cleared so the new tab can mount its container.
+		}
 
 		switch (this.activeTab) {
 			case "stats":
-				this.statsPanel = new StatsPanel(this.tabContentEl, this.stateManager, this.app);
+				if (!this.statsPanel) this.statsPanel = new StatsPanel(this.tabContentEl, this.stateManager, this.app);
 				this.statsPanel.render(state);
 				break;
 
-			case "energy": {
-				this.energyPanel = new EnergyPanel(this.tabContentEl, this.stateManager);
-				const plugin = (this.stateManager as any).plugin;
+			case "energy":
+				if (!this.energyPanel) this.energyPanel = new EnergyPanel(this.tabContentEl, this.stateManager);
 				this.energyPanel.render(state, plugin.taskWatcher.getActiveTasks());
 				break;
-			}
 
 			case "quests": {
-				this.questsPanel = new QuestsPanel(this.tabContentEl as HTMLElement, this.app, this.stateManager);
-				const plugin = (this.stateManager as any).plugin;
-				
+				if (!this.questsPanel) this.questsPanel = new QuestsPanel(this.tabContentEl as HTMLElement, this.app, this.stateManager);
 				const modifiers = this.stateManager.getGlobalModifiers();
-
 				this.questsPanel.render(
 					plugin.taskWatcher.getActiveTasks(),
-					this.stateManager.getSettings(),
+					settings,
 					state.character,
 					modifiers
 				);
@@ -232,34 +235,22 @@ export class CharacterSheetView extends ItemView {
 			}
 
 			case "skill_tree":
-				this.skillTreePanel = new SkillTreePanel(
-					this.tabContentEl,
-					this.stateManager
-				);
+				if (!this.skillTreePanel) this.skillTreePanel = new SkillTreePanel(this.tabContentEl, this.stateManager);
 				this.skillTreePanel.render();
 				break;
 
 			case "habits":
-				this.habitsPanel = new HabitsPanel(
-					this.tabContentEl,
-					this.stateManager
-				);
+				if (!this.habitsPanel) this.habitsPanel = new HabitsPanel(this.tabContentEl, this.stateManager);
 				this.habitsPanel.render(state.habits, state.skills);
 				break;
 
 			case "rewards":
-				this.rewardsPanel = new RewardsPanel(
-					this.tabContentEl,
-					this.stateManager
-				);
+				if (!this.rewardsPanel) this.rewardsPanel = new RewardsPanel(this.tabContentEl, this.stateManager);
 				this.rewardsPanel.render(state.rewards, state.character.gp);
 				break;
 
 			case "boss":
-				this.bossPanel = new BossPanel(
-					this.tabContentEl,
-					this.stateManager
-				);
+				if (!this.bossPanel) this.bossPanel = new BossPanel(this.tabContentEl, this.stateManager);
 				this.bossPanel.render(
 					state.activeBoss,
 					state.activeDungeon,
@@ -269,10 +260,7 @@ export class CharacterSheetView extends ItemView {
 				break;
 
 			case "log":
-				this.activityLogPanel = new ActivityLogPanel(
-					this.tabContentEl,
-					this.stateManager
-				);
+				if (!this.activityLogPanel) this.activityLogPanel = new ActivityLogPanel(this.tabContentEl, this.stateManager);
 				this.activityLogPanel.render(state.eventLog);
 				break;
 		}

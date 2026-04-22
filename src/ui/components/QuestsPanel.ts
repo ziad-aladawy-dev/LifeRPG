@@ -15,7 +15,6 @@ export class QuestsPanel {
 	private app: any;
 	private containerEl: HTMLElement;
 	private stateManager: StateManager;
-	private expandedQuestIds: Set<string> = new Set();
 
 	constructor(parentEl: HTMLElement, app: any, stateManager: StateManager) {
 		this.containerEl = parentEl.createDiv({ cls: "life-rpg-quests-panel" });
@@ -108,7 +107,11 @@ export class QuestsPanel {
 
 	render(activeTasks: TrackedTask[], settings: PluginSettings, character: CharacterState, globalModifiers: ReturnType<typeof calculateGlobalModifiers>): void {
 		const el = this.containerEl;
-		const oldScrollTop = el.scrollTop;
+		
+		// Capture scroll of the nearest scrollable ancestor (usually .life-rpg-container)
+		const scrollContainer = el.closest(".life-rpg-container") || el;
+		const oldScrollTop = scrollContainer.scrollTop;
+		
 		el.empty();
 		el.addClass("life-rpg-quests-page");
 
@@ -238,7 +241,10 @@ export class QuestsPanel {
 			}
 		}
 
-		requestAnimationFrame(() => { el.scrollTop = oldScrollTop; });
+		requestAnimationFrame(() => { 
+			const scrollContainer = el.closest(".life-rpg-container") || el;
+			scrollContainer.scrollTop = oldScrollTop; 
+		});
 	}
 
 	private renderTaskCard(
@@ -296,12 +302,25 @@ export class QuestsPanel {
 			badgesRow.createEl("span", { text: prioText, cls: `life-rpg-quest-badge ${prioClass}` });
 		}
 
+		if (metadata.skillId) {
+			const skill = this.stateManager.getSkill(metadata.skillId);
+			if (skill) renderBadge(badgesRow, skill.name, skill.icon, "life-rpg-badge-skill");
+		}
+
+		if (metadata.deadline) {
+			const dateStr = metadata.deadline.split("T")[0];
+			badgesRow.createEl("span", { text: `📅 ${dateStr}`, cls: "life-rpg-quest-badge life-rpg-badge-deadline" });
+		}
+
 		const actionButtons = card.createDiv({ cls: "life-rpg-quest-actions" });
 		const editBtn = actionButtons.createEl("button", { cls: "life-rpg-btn-icon", title: "Quest Settings" });
 		setIcon(editBtn, "settings");
 		editBtn.addEventListener("click", (e) => {
 			e.stopPropagation();
-			new QuestEditModal(this.app, task, this.stateManager, this.stateManager.getSkills(), () => {}).open();
+			new QuestEditModal(this.app, task, this.stateManager, this.stateManager.getSkills(), () => {
+				// Re-render the panel to show immediate changes
+				this.stateManager.forceNotify();
+			}).open();
 		});
 
 		if (metadata.deadline && metadata.deadline.split("T")[0] < new Date().toISOString().split("T")[0]) {
@@ -310,17 +329,32 @@ export class QuestsPanel {
 
 		if (!flattened && hasChildren && renderChildren) {
 			const subtasksContainer = card.createDiv({ cls: "life-rpg-subtasks-container" });
-			const isExpanded = this.expandedQuestIds.has(task.questId || task.id);
+			const stableId = task.questId || task.id;
+			const isExpanded = settings.expandedQuestIds.includes(stableId);
+			
 			subtasksContainer.style.display = isExpanded ? "block" : "none";
 			if (isExpanded) toggleBtn?.addClass("is-expanded");
 			if (toggleBtn) {
 				toggleBtn.innerText = isExpanded ? "▼" : "▶";
-				toggleBtn.addEventListener("click", (e) => {
+				toggleBtn.addEventListener("click", async (e) => {
 					e.stopPropagation();
-					const isHidden = subtasksContainer.style.display === "none";
-					subtasksContainer.style.display = isHidden ? "block" : "none";
-					if (isHidden) { this.expandedQuestIds.add(task.questId || task.id); toggleBtn!.innerText = "▼"; }
-					else { this.expandedQuestIds.delete(task.questId || task.id); toggleBtn!.innerText = "▶"; }
+					const isCurrentlyHidden = subtasksContainer.style.display === "none";
+					
+					// Update local UI
+					subtasksContainer.style.display = isCurrentlyHidden ? "block" : "none";
+					toggleBtn!.innerText = isCurrentlyHidden ? "▼" : "▶";
+					if (isCurrentlyHidden) toggleBtn!.addClass("is-expanded");
+					else toggleBtn!.removeClass("is-expanded");
+
+					// Persist to settings
+					let newExpanded = [...settings.expandedQuestIds];
+					if (isCurrentlyHidden) {
+						if (!newExpanded.includes(stableId)) newExpanded.push(stableId);
+					} else {
+						newExpanded = newExpanded.filter(id => id !== stableId);
+					}
+					
+					await this.stateManager.updateSettings({ expandedQuestIds: newExpanded });
 				});
 			}
 			renderChildren(subtasksContainer);

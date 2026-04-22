@@ -14,15 +14,29 @@ import { Difficulty, TaskPriority, type TaskMetadata } from "../types";
  * All fields are optional and case-insensitive.
  */
 export function parseTaskMetadata(lineText: string): TaskMetadata {
+	const result: any = {};
+	
 	const energy = parseEnergyScores(lineText);
-	return {
-		difficulty: parseDifficulty(lineText),
-		skillId: parseSkillId(lineText),
-		deadline: parseDeadline(lineText),
-		priority: parsePriority(lineText),
-		isHeading: parseIsHeading(lineText),
-		...energy
-	};
+	if (energy.energyM !== undefined) result.energyM = energy.energyM;
+	if (energy.energyP !== undefined) result.energyP = energy.energyP;
+	if (energy.energyW !== undefined) result.energyW = energy.energyW;
+
+	const diff = parseDifficulty(lineText);
+	if (diff !== undefined) result.difficulty = diff;
+
+	const skillId = parseSkillId(lineText);
+	if (skillId !== undefined) result.skillId = skillId;
+
+	const deadline = parseDeadline(lineText);
+	if (deadline !== undefined) result.deadline = deadline;
+
+	const prio = parsePriority(lineText);
+	if (prio !== undefined) result.priority = prio;
+
+	const isHeading = parseIsHeading(lineText);
+	if (isHeading !== undefined) result.isHeading = isHeading;
+
+	return result as TaskMetadata;
 }
 
 /**
@@ -43,7 +57,7 @@ function parseEnergyScores(text: string): { energyM?: number, energyP?: number, 
 	if (wMatch) result.energyW = Math.min(5, Math.max(0, parseInt(wMatch[1])));
 	
 	// Composite match: [m: 5, p: 2, w: 1]
-	const compositeMatch = text.match(/\[(m|p|w|mental|physical|willpower)[^\]]+\]/gi);
+	const compositeMatch = text.match(/\[(?:mental|physical|willpower|m|p|w)\s*:[^\]]+\]/gi);
 	if (compositeMatch) {
 		for (const m of compositeMatch) {
 			const content = m.slice(1, -1); // remove [ and ]
@@ -78,18 +92,18 @@ export function parseQuestId(lineText: string): string | null {
 /**
  * Detect if a task is a heading [type: heading] or [heading: true]
  */
-function parseIsHeading(text: string): boolean {
-	return /\[(?:type|heading)\s*:\s*(heading|true)\]/i.test(text);
+function parseIsHeading(text: string): boolean | undefined {
+	if (!/\[(?:type|heading)\s*:\s*(heading|true)/i.test(text)) return undefined;
+	return true;
 }
 
 /**
  * Extract difficulty from inline text.
  * Matches: [difficulty: easy], [diff: medium], [d: hard]
- * Default: Medium
  */
-function parseDifficulty(text: string): Difficulty {
+function parseDifficulty(text: string): Difficulty | undefined {
 	const match = text.match(/\[(?:difficulty|diff|d)\s*:\s*(passive|pass|easy|challenging|chall|hardcore|hardc|hc|madhouse|mad)\]/i);
-	if (!match) return Difficulty.Passive;
+	if (!match) return undefined;
 
 	const raw = match[1].toLowerCase();
 	switch (raw) {
@@ -109,7 +123,7 @@ function parseDifficulty(text: string): Difficulty {
 		case "madhouse":
 			return Difficulty.Madhouse;
 		default:
-			return Difficulty.Passive;
+			return undefined;
 	}
 }
 
@@ -117,38 +131,38 @@ function parseDifficulty(text: string): Difficulty {
  * Extract skill ID from inline text.
  * Matches: [skill: Programming], [s: Fitness]
  */
-function parseSkillId(text: string): string | null {
+function parseSkillId(text: string): string | undefined {
 	const match = text.match(/\[(?:skill|s)\s*:\s*([^\]]+)\]/i);
-	if (!match) return null;
+	if (!match) return undefined;
 	return match[1].trim();
 }
 
 /**
  * Extract deadline from inline text.
  * Matches: [deadline: 2026-04-20], [due: 2026-04-20]
- * Returns ISO date string or null.
+ * Returns ISO date string or undefined.
  */
-function parseDeadline(text: string): string | null {
+function parseDeadline(text: string): string | undefined {
 	const match = text.match(
 		/\[(?:deadline|due|dl)\s*:\s*(\d{4}-\d{2}-\d{2})\]/i
 	);
-	if (!match) return null;
+	if (!match) return undefined;
 
 	const date = new Date(match[1]);
-	if (isNaN(date.getTime())) return null;
+	if (isNaN(date.getTime())) return undefined;
 	return date.toISOString();
 }
 
 /**
  * Extract Obsidian Tasks priority emoji.
  */
-function parsePriority(text: string): TaskPriority {
+function parsePriority(text: string): TaskPriority | undefined {
 	if (text.includes("🔺")) return TaskPriority.Highest;
 	if (text.includes("⏫")) return TaskPriority.High;
 	if (text.includes("🔼")) return TaskPriority.Medium;
 	if (text.includes("🔽")) return TaskPriority.Low;
 	if (text.includes("⏬")) return TaskPriority.Lowest;
-	return TaskPriority.Medium;
+	return undefined;
 }
 
 /**

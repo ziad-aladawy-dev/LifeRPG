@@ -512,6 +512,7 @@ export interface PluginSettings {
 	questSortBy: "none" | "mental" | "physical" | "willpower" | "total" | "difficulty" | "priority" | "deadline";
 	questSortDir: "asc" | "desc";
 	questSearch: string;
+	expandedQuestIds: string[];
 }
 
 // ---------------------------------------------------------------------------

@@ -159,7 +159,7 @@ export class QuestEditModal extends Modal {
 
 		// Footer
 		const footer = contentEl.createDiv({ cls: "life-rpg-modal-footer" });
-		const saveBtn = footer.createEl("button", { text: "Save Quest", cls: "life-rpg-btn life-rpg-btn-primary" });
+		const saveBtn = footer.createEl("button", { text: "Save Changes", cls: "life-rpg-btn life-rpg-btn-primary" });
 		saveBtn.onclick = async () => {
 			let qId = this.task.questId;
 			if (!qId) {
@@ -173,13 +173,13 @@ export class QuestEditModal extends Modal {
 			
 			this.task.questId = qId; // Update locally for immediate UI response
 			this.stateManager.registerQuestMetadata(qId, this.metadata);
-			new Notice("✅ Quest updated and bound to file.");
+			new Notice("✅ Settings applied.");
 			this.onSave();
-			this.close();
+			// Stay open for further edits as requested
 		};
 
-		const cancelBtn = footer.createEl("button", { text: "Cancel", cls: "life-rpg-btn" });
-		cancelBtn.onclick = () => this.close();
+		const closeBtn = footer.createEl("button", { text: "Close", cls: "life-rpg-btn" });
+		closeBtn.onclick = () => this.close();
 	}
 
 	private formatDateForInput(iso: string | null | undefined): string {
