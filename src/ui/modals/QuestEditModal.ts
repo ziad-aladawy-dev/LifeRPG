@@ -172,7 +172,7 @@ export class QuestEditModal extends Modal {
 			}
 			
 			this.task.questId = qId; // Update locally for immediate UI response
-			this.stateManager.setQuestMetadata(qId, this.metadata);
+			this.stateManager.registerQuestMetadata(qId, this.metadata);
 			new Notice("✅ Quest updated and bound to file.");
 			this.onSave();
 			this.close();

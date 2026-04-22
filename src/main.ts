@@ -248,7 +248,8 @@ export default class LifeRpgPlugin extends Plugin {
 			const char = this.stateManager.getCharacter();
 
 			// 1. Process Burnout from yesterday's load
-			this.stateManager.processBurnoutRollover();
+			this.stateManager.processBurnoutRollover(state.lastPlayedDate || today);
+
 
 			// 2. Regenerate HP
 			const newHp = Math.min(

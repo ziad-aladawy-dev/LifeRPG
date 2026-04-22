@@ -41,6 +41,8 @@ export class StatsPanel {
 		this.prevValues.set("gp", character.gp);
 
 		const el = this.containerEl;
+		const oldScrollTop = el.scrollTop;
+
 		el.empty();
 		el.addClass("life-rpg-stats-container");
 
@@ -107,6 +109,11 @@ export class StatsPanel {
 				this.renderInventoryContent(contentArea);
 				break;
 		}
+
+		// Restore scroll position
+		requestAnimationFrame(() => {
+			el.scrollTop = oldScrollTop;
+		});
 	}
 
 	// ─── Mode Toggle ───────────────────────────────────────────────────
@@ -535,6 +542,11 @@ export class StatsPanel {
 		const actions = card.createDiv({ cls: "life-rpg-item-actions" });
 		if (isEquipped) {
 			actions.createEl("button", { text: "Equipped", cls: "life-rpg-btn-disabled", attr: { disabled: "true" } });
+		} else if (item.slot === ItemSlot.Consumable) {
+			const useBtn = actions.createEl("button", { text: "Use", cls: "life-rpg-btn-primary life-rpg-btn-small" });
+			useBtn.addEventListener("click", () => {
+				this.stateManager.useConsumable(item.id);
+			});
 		} else {
 			const equipBtn = actions.createEl("button", { text: "Equip", cls: "life-rpg-btn-primary life-rpg-btn-small" });
 			equipBtn.addEventListener("click", () => {

@@ -27,6 +27,14 @@ export class RewardsPanel {
 
 	render(rewards: Reward[], currentGp: number): void {
 		const el = this.containerEl;
+		
+		// If already has layout, just update the grid
+		if (el.querySelector(".life-rpg-store-header")) {
+			this.renderGrid(rewards, currentGp);
+			this.updateGpDisplay(currentGp);
+			return;
+		}
+
 		el.empty();
 		el.addClass("life-rpg-rewards-page");
 
@@ -54,7 +62,7 @@ export class RewardsPanel {
 		});
 		searchInput.oninput = () => {
 			this.searchQuery = searchInput.value.toLowerCase();
-			this.render(rewards, currentGp);
+			this.renderGrid(rewards, currentGp);
 		};
 
 		// Toggles
@@ -65,7 +73,7 @@ export class RewardsPanel {
 		hideLockedLabel.createEl("span", { text: "Hide Locked" });
 		hideLockedCheck.onchange = () => {
 			this.hideLocked = hideLockedCheck.checked;
-			this.render(rewards, currentGp);
+			this.renderGrid(rewards, currentGp);
 		};
 
 		const addBtn = toggleGroup.createEl("button", { text: "+ Custom Reward", cls: "life-rpg-btn-subtle" });
@@ -78,6 +86,7 @@ export class RewardsPanel {
 			{ id: "weapon", label: "Weapons", icon: "sword" },
 			{ id: "armor", label: "Armor", icon: "shirt" },
 			{ id: "accessory", label: "Trinkets", icon: "gem" },
+			{ id: "consumable", label: "Alchemy", icon: "beaker" },
 			{ id: "real", label: "Mortal", icon: "heart" }
 		];
 
@@ -89,25 +98,45 @@ export class RewardsPanel {
 			tab.createEl("span", { text: cat.label });
 			tab.onclick = () => {
 				this.currentCategory = cat.id;
-				this.render(rewards, currentGp);
+				tabsWrapper.querySelectorAll(".life-rpg-store-tab").forEach(t => t.removeClass("is-active"));
+				tab.addClass("is-active");
+				this.renderGrid(rewards, currentGp);
 			};
 		});
 
 		// --- Grid Section ---
-		const grid = el.createDiv({ cls: "life-rpg-rewards-grid" });
+		el.createDiv({ cls: "life-rpg-rewards-grid" });
+		this.renderGrid(rewards, currentGp);
+	}
 
-		// Filter logic
+	private updateGpDisplay(gp: number): void {
+		const val = this.containerEl.querySelector(".gp-value");
+		if (val) val.textContent = formatNumber(gp);
+	}
+
+	private renderGrid(rewards: Reward[], currentGp: number): void {
+		const grid = this.containerEl.querySelector(".life-rpg-rewards-grid") as HTMLElement;
+		if (!grid) return;
+		grid.empty();
+
 		const inventoryNames = new Set(this.stateManager.getInventory().map(i => i.name));
 		const character = this.stateManager.getCharacter();
 
 		const filtered = rewards.filter(entry => {
 			// Skip single-purchase unique base items if already owned
+			// BUT allow consumables to stay in store
 			if (entry.category === RewardCategory.Item && entry.item) {
 				if (inventoryNames.has(entry.item.name)) return false;
 			}
 
 			// Category Filter
-			const entryCat = entry.category === RewardCategory.Item && entry.item ? entry.item.slot : "real";
+			let entryCat = "real";
+			if (entry.category === RewardCategory.Item && entry.item) {
+				entryCat = entry.item.slot;
+			} else if (entry.category === RewardCategory.Consumable) {
+				entryCat = "consumable";
+			}
+
 			if (this.currentCategory !== "all" && entryCat !== this.currentCategory) return false;
 
 			// Search Filter

@@ -189,6 +189,9 @@ export function getTaskText(line: string): string {
 	// 6. Remove hashtags (#tag) - handles cases like #ticktick
 	text = text.replace(/(^|\s)#[a-zA-Z0-9_\-]+/g, "$1");
 	
-	// 7. Final cleanup: collapse extra spaces and trim
+	// 7. Remove Obsidian block IDs (^blockid)
+	text = text.replace(/\s\^[a-z0-9-]+$/i, "");
+	
+	// 8. Final cleanup: collapse extra spaces and trim
 	return text.replace(/\s{2,}/g, " ").trim();
 }

@@ -5260,5 +5260,86 @@
   opacity: 1;
 }
 
+/* --- ENERGY HISTORY --- */
+.life-rpg-energy-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.life-rpg-energy-history-card {
+  background: var(--stone-dark);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--gold-mid);
+  border-radius: var(--radius-md);
+  padding: 10px;
+  box-shadow: var(--shadow-card);
+  transition: all var(--t-normal);
+}
+
+.life-rpg-energy-history-card:hover {
+  border-color: var(--gold-mid);
+  transform: translateX(2px);
+}
+
+.history-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.history-date {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gold-light);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.history-total {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-bright);
+  font-variant-numeric: tabular-nums;
+}
+
+.history-mini-bars {
+  display: flex;
+  gap: 4px;
+  height: 4px;
+}
+
+.mini-bar-outer {
+  flex: 1;
+  height: 100%;
+  background: var(--stone-darker);
+  border-radius: 2px;
+  overflow: hidden;
+  border: 1px solid hsla(0, 0%, 0%, 0.2);
+}
+
+.mini-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+.bar-m .mini-bar-fill { background: var(--rpg-int); box-shadow: 0 0 4px var(--arcane-glow); }
+.bar-p .mini-bar-fill { background: var(--rpg-str); box-shadow: 0 0 4px var(--blood-glow); }
+.bar-w .mini-bar-fill { background: var(--rpg-wis); box-shadow: 0 0 4px var(--frost-glow); }
+
+.life-rpg-empty-history {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+  text-align: center;
+  padding: 20px;
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: hsla(0, 0%, 0%, 0.1);
+}
+
 
 

@@ -119,6 +119,10 @@ export class TaskWatcher {
 				const content = await this.app.vault.cachedRead(file);
 				const tasks = this.parseTasksFromContent(content, file.path);
 				this.taskCache.set(file.path, tasks);
+				
+				// Sync names to registry for existing quests
+				this.syncQuestRegistry(tasks);
+				
 				scanned++;
 			} catch {
 				// File may have been deleted during scan
@@ -205,7 +209,7 @@ export class TaskWatcher {
 				// Mark task as penalized in memory/registry
 				if (task.questId) {
 					processedQuestIds.push(task.questId);
-					this.stateManager.setQuestMetadata(task.questId, {
+					this.stateManager.registerQuestMetadata(task.questId, {
 						...meta,
 						penalizedAt: now.toISOString()
 					});
@@ -383,6 +387,8 @@ export class TaskWatcher {
 				file.path
 			);
 
+			// Sync quest names to registry for persistence
+			this.syncQuestRegistry(currentTasks);
 			// Get previously cached tasks for this file
 			const previousTasks = this.taskCache.get(file.path) || [];
 
@@ -423,6 +429,24 @@ export class TaskWatcher {
 			this.stateManager.forceNotify();
 		} catch (error) {
 			console.error("Life RPG: Error processing file change:", error);
+		}
+	}
+
+	/**
+	 * Sync quest names and metadata from a list of tasks into the global registry.
+	 */
+	private syncQuestRegistry(tasks: TrackedTask[]): void {
+		for (const task of tasks) {
+			if (task.questId) {
+				const cleanName = getTaskText(task.text);
+				if (cleanName) {
+					const metadata = parseTaskMetadata(task.text);
+					this.stateManager.registerQuestMetadata(task.questId, {
+						...metadata,
+						name: cleanName
+					});
+				}
+			}
 		}
 	}
 
@@ -776,7 +800,7 @@ export class TaskWatcher {
 		const activeBoss = this.stateManager.getActiveBoss();
 		if (activeBoss && settings.bossEnabled && !activeBoss.defeated) {
 			const bossHealAmount = Math.abs(result.result.xp);
-			const bossResult = healBoss(activeBoss, bossHealAmount);
+			const bossResult = healBoss(activeBoss, bossHealAmount, character.attributes, modifiers, 0);
 
 			this.stateManager.setActiveBoss(bossResult.boss);
 			for (const entry of bossResult.logEntries) {

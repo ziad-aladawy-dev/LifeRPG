@@ -55,22 +55,16 @@ export function createBossFromTemplate(template: BossTemplate, attributes: Chara
 // ---------------------------------------------------------------------------
 
 /**
- * Process player dealing damage to the active boss.
- * Returns updated boss, whether defeated, and log entries.
+ * Helper to calculate final damage dealt to a boss including all multipliers.
  */
-export function playerAttacksBoss(
+function calculateFinalDamage(
+	baseDamage: number,
 	boss: Boss,
-	damage: number,
 	attributes: CharacterAttributes,
 	modifiers: ReturnType<typeof calculateGlobalModifiers>,
 	comboCount: number = 0
-): {
-	boss: Boss;
-	defeated: boolean;
-	logEntries: EventLogEntry[];
-} {
-	const logEntries: EventLogEntry[] = [];
-	let finalDamage = damage;
+): number {
+	let finalDamage = baseDamage;
 
 	// 1. Attribute Bonus: STR applies a 2% bonus to damage per level + gear bonuses
 	const strBonus = 1 + ((attributes.str.level + modifiers.str) * 0.02) + modifiers.damageBonus;
@@ -87,6 +81,26 @@ export function playerAttacksBoss(
 	else if (hpPct <= 0.5) rageMultiplier = 1.5; // Enraged: 1.5x damage taken
 	
 	finalDamage = Math.round(finalDamage * rageMultiplier);
+	return finalDamage;
+}
+
+/**
+ * Process player dealing damage to the active boss.
+ * Returns updated boss, whether defeated, and log entries.
+ */
+export function playerAttacksBoss(
+	boss: Boss,
+	damage: number,
+	attributes: CharacterAttributes,
+	modifiers: ReturnType<typeof calculateGlobalModifiers>,
+	comboCount: number = 0
+): {
+	boss: Boss;
+	defeated: boolean;
+	logEntries: EventLogEntry[];
+} {
+	const logEntries: EventLogEntry[] = [];
+	const finalDamage = calculateFinalDamage(damage, boss, attributes, modifiers, comboCount);
 
 	const { newHp, defeated } = dealDamageToBoss(boss.hp, boss.maxHp, finalDamage);
 
@@ -124,16 +138,21 @@ export function playerAttacksBoss(
 
 /**
  * Heal the boss when a task is unchecked.
+ * Applies the same multipliers as attacking to ensure fair recovery.
  */
 export function healBoss(
 	boss: Boss,
-	amount: number
+	baseAmount: number,
+	attributes: CharacterAttributes,
+	modifiers: ReturnType<typeof calculateGlobalModifiers>,
+	comboCount: number = 0
 ): {
 	boss: Boss;
 	logEntries: EventLogEntry[];
 } {
 	const logEntries: EventLogEntry[] = [];
-	const newHp = Math.min(boss.maxHp, boss.hp + amount);
+	const healAmount = calculateFinalDamage(baseAmount, boss, attributes, modifiers, comboCount);
+	const newHp = Math.min(boss.maxHp, boss.hp + healAmount);
 
 	const updatedBoss: Boss = {
 		...boss,
@@ -292,7 +311,7 @@ export function advanceDungeonProgress(
 	let damageDealt = 0;
 
 	if (updated.currentStage >= updated.stages.length) {
-		return { dungeon: updated, stageCompleted: false, dungeonCleared: false, logEntries };
+		return { dungeon: updated, stageCompleted: false, dungeonCleared: false, damage: 0, logEntries };
 	}
 
 	const stage = updated.stages[updated.currentStage];

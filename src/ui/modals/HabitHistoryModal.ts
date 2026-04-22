@@ -1,5 +1,5 @@
 import { App, Modal, Setting } from "obsidian";
-import { type Habit } from "../../types";
+import { type Habit, ItemSlot } from "../../types";
 import { type StateManager } from "../../state/StateManager";
 import { getTodayStr, formatDate } from "../../utils/dateUtils";
 
@@ -19,43 +19,75 @@ export class HabitHistoryModal extends Modal {
 
 		contentEl.createEl("h2", { text: `📜 History: ${this.habit.icon} ${this.habit.name}` });
 		contentEl.createEl("p", { 
-			text: "Retroactively mark days as completed or missed. Stats will be adjusted automatically.",
+			text: "Retroactively mark days as completed or missed. Stats will be adjusted automatically. Use Streak Seals to protect missed days.",
 			cls: "life-rpg-modal-desc"
 		});
 
 		const historyContainer = contentEl.createDiv({ cls: "life-rpg-history-list" });
 		
-		// Generate last 14 days
 		const today = new Date();
+		const inventory = this.stateManager.getInventory();
+		const streakSeal = inventory.find(i => i.consumableEffect?.type === "streak_freeze");
+
 		for (let i = 0; i < 14; i++) {
 			const date = new Date(today);
 			date.setDate(date.getDate() - i);
 			const dateStr = formatDate(date);
 			const isToday = i === 0;
 
-			const isCompleted = this.habit.history?.[dateStr] ?? false;
+			const historyVal = this.habit.history?.[dateStr];
+			const isCompleted = historyVal === true;
+			const isFrozen = historyVal === "freeze";
 
-			new Setting(historyContainer)
+			const setting = new Setting(historyContainer)
 				.setName(`${isToday ? "⭐️ Today" : date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}`)
-				.setDesc(dateStr)
-				.addToggle(toggle => {
+				.setDesc(isFrozen ? `❄️ Frozen (Streak Preserved)` : dateStr);
+			
+			if (isFrozen) {
+				setting.setDesc(`❄️ Frozen - ${dateStr}`);
+				setting.addButton(btn => {
+					btn.setButtonText("Unfreeze")
+					   .onClick(async () => {
+							await this.stateManager.setHabitHistory(this.habit.id, dateStr, false);
+							this.refreshModal();
+					   });
+				});
+			} else {
+				setting.addToggle(toggle => {
 					toggle.setValue(isCompleted)
 						.onChange(async (value) => {
 							await this.stateManager.setHabitHistory(this.habit.id, dateStr, value);
-							// Refresh modal view to update other days if streaks changed
-							const updatedHabit = this.stateManager.getHabits().find(h => h.id === this.habit.id);
-							if (updatedHabit) {
-								this.habit = updatedHabit;
-								this.onOpen();
-							}
+							this.refreshModal();
 						});
 				});
+
+				// Add Freeze button if missed and seal owned
+				if (!isCompleted && streakSeal) {
+					setting.addButton(btn => {
+						btn.setButtonText("❄️ Freeze")
+						   .setTooltip("Use a Streak Seal to protect your streak")
+						   .onClick(async () => {
+								if (this.stateManager.applyStreakFreeze(this.habit.id, dateStr, streakSeal!.id)) {
+									this.refreshModal();
+								}
+						   });
+					});
+				}
+			}
 		}
 
 		contentEl.createDiv({ cls: "life-rpg-modal-footer" }).createEl("button", {
 			text: "Close",
 			cls: "life-rpg-btn life-rpg-btn-primary",
 		}).onclick = () => this.close();
+	}
+
+	private refreshModal(): void {
+		const updatedHabit = this.stateManager.getHabits().find(h => h.id === this.habit.id);
+		if (updatedHabit) {
+			this.habit = updatedHabit;
+			this.onOpen();
+		}
 	}
 
 	onClose(): void {

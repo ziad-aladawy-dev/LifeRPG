@@ -93,8 +93,11 @@ export const DEFAULT_CHARACTER: CharacterState = {
 		[ItemSlot.Weapon]: null,
 		[ItemSlot.Armor]: null,
 		[ItemSlot.Accessory]: null,
+		[ItemSlot.Consumable]: null,
 	},
+	activeBuffs: [],
 	burntOutYesterday: false,
+	energyHistory: {},
 };
 
 // ---------------------------------------------------------------------------
@@ -443,6 +446,38 @@ export const INITIAL_ITEMS: Item[] = [
 		icon: "🗡️", rarity: ItemRarity.Legendary, slot: ItemSlot.Weapon, value: 35000, 
 		modifiers: { str: 40, damageBonus: 0.4 },
 		lockCondition: { type: ConditionType.AttrStr, value: 30, description: "Requires STR Level 30" }
+	},
+
+	// --- CONSUMABLES ---
+	{ 
+		id: "minor-health-potion", name: "Minor Health Potion", description: "Heals 25 HP.", 
+		icon: "🧪", rarity: ItemRarity.Common, slot: ItemSlot.Consumable, value: 25, 
+		modifiers: {},
+		consumableEffect: { type: "heal", value: 25 }
+	},
+	{ 
+		id: "greater-health-potion", name: "Greater Health Potion", description: "Heals 75 HP.", 
+		icon: "🧪", rarity: ItemRarity.Uncommon, slot: ItemSlot.Consumable, value: 60, 
+		modifiers: {},
+		consumableEffect: { type: "heal", value: 75 }
+	},
+	{ 
+		id: "spirit-of-haste", name: "Spirit of Haste", description: "Increases Daily Energy Cap by 10 for today.", 
+		icon: "🌩️", rarity: ItemRarity.Rare, slot: ItemSlot.Consumable, value: 100, 
+		modifiers: {},
+		consumableEffect: { type: "energy_boost", value: 10 }
+	},
+	{ 
+		id: "streak-seal", name: "Streak Seal", description: "Protects one missed habit day.", 
+		icon: "❄️", rarity: ItemRarity.Rare, slot: ItemSlot.Consumable, value: 150, 
+		modifiers: {},
+		consumableEffect: { type: "streak_freeze", value: 1 }
+	},
+	{ 
+		id: "mirror-of-rebirth-item", name: "Mirror of Rebirth", description: "Reset all skill points.", 
+		icon: "🪞", rarity: ItemRarity.Epic, slot: ItemSlot.Consumable, value: 300, 
+		modifiers: {},
+		consumableEffect: { type: "respec", value: 1 }
 	}
 ];
 

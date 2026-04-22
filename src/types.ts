@@ -39,6 +39,7 @@ export enum ItemSlot {
 	Weapon = "weapon",
 	Armor = "armor",
 	Accessory = "accessory",
+	Consumable = "consumable",
 }
 
 /** Core RPG Attributes */
@@ -69,6 +70,7 @@ export interface LockCondition {
 /** Reward Categories */
 export enum RewardCategory {
 	Item = "item",
+	Consumable = "consumable",
 	RealLife = "real",
 }
 
@@ -124,8 +126,24 @@ export interface CharacterState {
 	xpToNextLevel: number;
 	gp: number;
 	attributes: CharacterAttributes;
-	equippedItems: Record<ItemSlot, string | null>; // Maps slot to Item ID
+	equippedItems: {
+		[ItemSlot.Weapon]: null | string,
+		[ItemSlot.Armor]: null | string,
+		[ItemSlot.Accessory]: null | string,
+		[ItemSlot.Consumable]: null | string,
+	};
+	activeBuffs: ActiveBuff[];
 	burntOutYesterday: boolean; // Triggers debuff
+	energyHistory: Record<string, DailyEnergyLoad>; // Historial log of daily effort
+}
+
+/** Daily Energy snapshot for history */
+export interface DailyEnergyLoad {
+	m: number;
+	p: number;
+	w: number;
+	total: number;
+	cap: number;
 }
 
 /** A custom skill that can be leveled independently */
@@ -137,6 +155,12 @@ export interface Skill {
 	xp: number;
 	xpToNextLevel: number;
 	attribute: Attribute; // The governing attribute for this skill
+}
+
+export interface ActiveBuff {
+	type: string;
+	value: number;
+	expiresAt: string; // ISO date string
 }
 
 /** Skill Tree Node */
@@ -183,7 +207,7 @@ export interface Habit {
 	outstandingDays: number;
 	lastEvaluatedDate: string | null; // ISO date string without time
 	recurrenceDays?: number; // number of days between occurrences (e.g. 1 for daily, 5 for every 5 days)
-	history?: Record<string, boolean>; // Retroactive history tracking: DateStr -> Completed
+	history?: Record<string, boolean | "freeze">; // Retroactive history tracking: DateStr -> Completed or Frozen
 	maxStreak?: number;
 	createdAt: string; // ISO date string
 	startDate?: string; // Optional manual start date (YYYY-MM-DD)
@@ -226,9 +250,13 @@ export interface Item {
 		gpBonus?: number;
 		damageBonus?: number;
 		damageReduction?: number;
+		hpRegen?: number;
 		dropChance?: number;
 		wisdomSave?: number;
-		hpRegen?: number;
+	};
+	consumableEffect?: {
+		type: "heal" | "energy_boost" | "streak_freeze" | "respec";
+		value: number;
 	};
 }
 
@@ -249,6 +277,7 @@ export interface EventLogEntry {
 
 /** Metadata parsed from a task line's inline annotations */
 export interface TaskMetadata {
+	name?: string;
 	difficulty: Difficulty;
 	energyM?: number; // 0-5
 	energyP?: number; // 0-5

@@ -4,7 +4,7 @@
 // ============================================================================
 
 import { setIcon } from "obsidian";
-import { Difficulty, TaskPriority, type TrackedTask, type PluginSettings, type CharacterState, type CharacterAttributes, type TaskMetadata } from "../../types";
+import { Difficulty, TaskPriority, type TrackedTask, type PluginSettings, type CharacterState, type TaskMetadata } from "../../types";
 import { parseTaskMetadata, getTaskText } from "../../utils/parser";
 import { calculateTaskReward, calculateGlobalModifiers } from "../../engine/GameEngine";
 import { type StateManager } from "../../state/StateManager";
@@ -15,6 +15,7 @@ export class QuestsPanel {
 	private app: any;
 	private containerEl: HTMLElement;
 	private stateManager: StateManager;
+	private expandedQuestIds: Set<string> = new Set();
 
 	constructor(parentEl: HTMLElement, app: any, stateManager: StateManager) {
 		this.containerEl = parentEl.createDiv({ cls: "life-rpg-quests-panel" });
@@ -24,7 +25,12 @@ export class QuestsPanel {
 
 	render(activeTasks: TrackedTask[], settings: PluginSettings, character: CharacterState, globalModifiers: ReturnType<typeof calculateGlobalModifiers>): void {
 		const el = this.containerEl;
+		
+		// Save scroll position
+		const oldScrollTop = el.scrollTop;
+		
 		el.empty();
+		el.addClass("life-rpg-quests-page");
 
 		const header = el.createDiv({ cls: "life-rpg-panel-header" });
 		header.createEl("h3", { text: "📜 Active Quests" });
@@ -109,7 +115,7 @@ export class QuestsPanel {
 				// Display name
 				const nameEl = headerRow.createEl("span", { text: taskText, cls: "life-rpg-quest-name" });
 
-				// Rewards Info Row (Beautifully written under title)
+				// Rewards Info Row
 				let parentIsHeading = false;
 				if (task.isSubtask && task.parentId) {
 					const parent = tasks.find(t => t.id === task.parentId);
@@ -132,7 +138,6 @@ export class QuestsPanel {
 				if (metadata.isHeading) {
 					badgesRow.createEl("span", { text: "Heading", cls: "life-rpg-quest-badge life-rpg-badge-heading" });
 				} else {
-					// Difficulty badge
 					let diffClass = "life-rpg-badge-passive";
 					let diffText = "Passive";
 					switch (metadata.difficulty) {
@@ -141,11 +146,9 @@ export class QuestsPanel {
 						case Difficulty.Hardcore: diffClass = "life-rpg-badge-hardcore"; diffText = "Hardcore"; break;
 						case Difficulty.Madhouse: diffClass = "life-rpg-badge-madhouse"; diffText = "Madhouse"; break;
 					}
-					
 					badgesRow.createEl("span", { text: diffText, cls: `life-rpg-quest-badge ${diffClass}` });
 				}
 				
-				// Priority Badge (Obsidian Tasks compatibility)
 				if (metadata.priority !== undefined) {
 					let prioText = "";
 					let prioClass = "";
@@ -156,116 +159,59 @@ export class QuestsPanel {
 						case TaskPriority.Low: prioText = "Low Priority"; prioClass = "life-rpg-badge-priority-low"; break;
 						case TaskPriority.Lowest: prioText = "Lowest Priority"; prioClass = "life-rpg-badge-priority-lowest"; break;
 					}
-					if (prioClass) {
-						badgesRow.createEl("span", { text: prioText, cls: `life-rpg-quest-badge ${prioClass}` });
-					}
+					if (prioClass) badgesRow.createEl("span", { text: prioText, cls: `life-rpg-quest-badge ${prioClass}` });
 				}
 				
 				if (metadata.skillId) {
 					const skill = this.stateManager.getSkill(metadata.skillId);
-					if (skill) {
-						renderBadge(badgesRow, skill.name, skill.icon, "life-rpg-badge-skill");
-					} else {
-						renderBadge(badgesRow, metadata.skillId, undefined, "life-rpg-badge-skill");
-					}
+					if (skill) renderBadge(badgesRow, skill.name, skill.icon, "life-rpg-badge-skill");
 				}
-				
 
-
-				// --- Action Buttons ---
 				const actionButtons = card.createDiv({ cls: "life-rpg-quest-actions" });
-				
-				const editBtn = actionButtons.createEl("button", { 
-					cls: "life-rpg-btn-icon",
-					title: "Edit Quest Settings"
-				});
+				const editBtn = actionButtons.createEl("button", { cls: "life-rpg-btn-icon", title: "Edit Quest Settings" });
 				setIcon(editBtn, "settings");
 				editBtn.addEventListener("click", (e) => {
 					e.stopPropagation();
-					new QuestEditModal(
-						this.app, 
-						task, 
-						this.stateManager, 
-						this.stateManager.getSkills(),
-						() => {
-							// Refresh will happen via state manager notify
-						}
-					).open();
+					new QuestEditModal(this.app, task, this.stateManager, this.stateManager.getSkills(), () => {}).open();
 				});
 
-				// Date Badges (Range & Time support)
 				if (metadata.startDate || metadata.endDate || metadata.deadline) {
-					const startStr = metadata.startDate;
 					const endStr = metadata.endDate || metadata.deadline;
-					const includeTime = !!metadata.includeTime;
-
-					const format = (iso: string) => {
-						const d = new Date(iso);
-						const ds = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-						if (!includeTime) return ds;
-						const ts = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
-						return `${ds} ${ts}`;
-					};
-
 					const now = new Date();
 					const today = new Date().toISOString().split("T")[0];
-					let dateText = "";
-					let isOverdue = false;
-
-					if (startStr && endStr) {
-						dateText = `${format(startStr)} - ${format(endStr)}`;
-					} else if (endStr) {
-						dateText = `Due: ${format(endStr)}`;
-					} else if (startStr) {
-						dateText = `Starts: ${format(startStr)}`;
-					}
-
-					if (endStr) {
-						const dlDateObj = new Date(endStr);
-						if (includeTime) {
-							isOverdue = now.getTime() > dlDateObj.getTime();
-						} else {
-							const dlDay = endStr.split("T")[0];
-							isOverdue = dlDay < today;
-						}
-					}
-
-					if (isOverdue) {
-						card.addClass("life-rpg-quest-card-overdue");
-						badgesRow.createEl("span", { text: `🚨 OVERDUE: ${dateText}`, cls: `life-rpg-quest-badge life-rpg-badge-overdue` });
-					} else {
-						badgesRow.createEl("span", { text: `📅 ${dateText}`, cls: `life-rpg-quest-badge life-rpg-badge-deadline` });
-					}
+					let isOverdue = endStr ? (endStr.split("T")[0] < today) : false;
+					if (isOverdue) card.addClass("life-rpg-quest-card-overdue");
 				}
 
-				// If it has children, render them wrapped below
 				if (hasChildren) {
-					subtasksContainer = parentEl.createDiv({ cls: "life-rpg-subtasks-container" });
-					subtasksContainer.style.display = "none";
+					subtasksContainer = card.createDiv({ cls: "life-rpg-subtasks-container" });
+					const isExpanded = this.expandedQuestIds.has(task.questId || task.id);
+					subtasksContainer.style.display = isExpanded ? "block" : "none";
+					if (isExpanded) toggleBtn?.addClass("is-expanded");
+					if (toggleBtn) toggleBtn.innerText = isExpanded ? "▼" : "▶";
 
 					toggleBtn?.addEventListener("click", (e) => {
 						e.stopPropagation();
-						if (!subtasksContainer) return;
-						const isHidden = subtasksContainer.style.display === "none";
-						subtasksContainer.style.display = isHidden ? "block" : "none";
-						if (toggleBtn) {
-							toggleBtn.innerText = isHidden ? "▼" : "▶";
+						const isHidden = subtasksContainer!.style.display === "none";
+						subtasksContainer!.style.display = isHidden ? "block" : "none";
+						if (isHidden) {
+							this.expandedQuestIds.add(task.questId || task.id);
+							toggleBtn!.innerText = "▼";
+						} else {
+							this.expandedQuestIds.delete(task.questId || task.id);
+							toggleBtn!.innerText = "▶";
 						}
 					});
 
-					for (const child of children) {
-						renderTaskNode(subtasksContainer, child);
-					}
+					for (const child of children) renderTaskNode(subtasksContainer, child);
 				}
 			};
 
-			for (const root of roots) {
-				renderTaskNode(list, root);
-			}
+			for (const root of roots) renderTaskNode(list, root);
 		}
+
+		requestAnimationFrame(() => { el.scrollTop = oldScrollTop; });
 	}
 
-	destroy(): void {
-		this.containerEl.remove();
-	}
+	destroy(): void { this.containerEl.remove(); }
 }

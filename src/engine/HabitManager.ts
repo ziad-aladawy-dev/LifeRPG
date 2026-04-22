@@ -804,7 +804,7 @@ export function recalculateHabitStreak(habit: Habit): number {
 	const anchorTime = new Date(ay, am - 1, ad).getTime();
 	
 	// Robustly collect completion dates from history OR lastCompleted (legacy)
-	let historyKeys = Object.keys(history).filter(k => history[k] === true);
+	let historyKeys = Object.keys(history).filter(k => history[k] === true || history[k] === "freeze");
 	if (habit.lastCompleted && !historyKeys.includes(habit.lastCompleted.split("T")[0])) {
 		historyKeys.push(habit.lastCompleted.split("T")[0]);
 	}

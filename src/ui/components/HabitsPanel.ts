@@ -54,6 +54,8 @@ export class HabitsPanel {
 
 	render(habits: Habit[], skills: Skill[]): void {
 		const el = this.containerEl;
+		const oldScrollTop = el.scrollTop;
+		
 		el.empty();
 
 		// Header with Add button

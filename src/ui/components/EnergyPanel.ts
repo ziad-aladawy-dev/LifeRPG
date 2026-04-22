@@ -1,4 +1,4 @@
-import { setIcon, TFile, WorkspaceLeaf } from "obsidian";
+import { setIcon, TFile } from "obsidian";
 import { type StateManager } from "../../state/StateManager";
 import { type GameState, type TrackedTask } from "../../types";
 import { getTodayStr } from "../../utils/dateUtils";
@@ -18,7 +18,7 @@ export class EnergyPanel {
 		el.empty();
 
 		const load = this.stateManager.calculateDailyEnergyLoad();
-		const cap = this.stateManager.getSettings().dailyEnergyCap || 30;
+		const cap = this.stateManager.getDailyEnergyCap();
 		const pct = Math.min(100, (load.total / cap) * 100);
 
 		// --- HEADER ---
@@ -51,6 +51,9 @@ export class EnergyPanel {
 		el.createEl("h3", { text: "📋 Today's Contributors", cls: "life-rpg-section-title" });
 		const list = el.createDiv({ cls: "life-rpg-energy-list" });
 
+		// Task Rollover Logic Check (Internal)
+		const { isHabitDue } = require("../../engine/HabitManager");
+
 		// Dated Tasks
 		const today = getTodayStr();
 		for (const qId in state.questRegistry) {
@@ -62,19 +65,58 @@ export class EnergyPanel {
 			if (dates.includes(today)) {
 				const loadVal = (meta.energyM || 0) + (meta.energyP || 0) + (meta.energyW || 0);
 				const task = activeTasks.find(t => t.questId === qId);
-				const taskText = task ? getTaskText(task.text) : `Quest ${qId}`;
-				this.renderContributor(list, "Quest", taskText, loadVal, meta, task);
+				const taskName = meta.name || (task ? getTaskText(task.text) : `Quest ${qId}`);
+				this.renderContributor(list, "Quest", taskName, loadVal, meta, task);
 			}
 		}
 
 		// Habits
 		for (const habit of state.habits) {
-			const { isHabitDue } = require("../../engine/HabitManager");
 			if (habit.type === "good" && isHabitDue(habit)) {
 				const loadVal = (habit.energyM || 0) + (habit.energyP || 0) + (habit.energyW || 0);
 				this.renderContributor(list, "Habit", habit.name, loadVal, habit);
 			}
 		}
+
+		// --- HISTORY ---
+		this.renderHistory(el, state.character.energyHistory);
+	}
+
+	private renderHistory(parent: HTMLElement, history: Record<string, any> = {}): void {
+		parent.createEl("h3", { text: "📈 Energy Timeline (Last 7 Days)", cls: "life-rpg-section-title" });
+		const historyKeys = Object.keys(history).sort().reverse();
+		
+		if (historyKeys.length === 0) {
+			parent.createDiv({ 
+				text: "No historical data recorded yet. History is saved during the daily rollover.", 
+				cls: "life-rpg-empty-history" 
+			});
+			return;
+		}
+
+		const historyContainer = parent.createDiv({ cls: "life-rpg-energy-history-list" });
+
+		for (const dateKey of historyKeys.slice(0, 7)) {
+			const entry = history[dateKey];
+			const dayCard = historyContainer.createDiv({ cls: "life-rpg-energy-history-card" });
+			
+			const dayHeader = dayCard.createDiv({ cls: "history-card-header" });
+			dayHeader.createEl("span", { text: dateKey, cls: "history-date" });
+			dayHeader.createEl("span", { text: `${entry.total} / ${entry.cap} pts`, cls: "history-total" });
+
+			const barContainer = dayCard.createDiv({ cls: "history-mini-bars" });
+			this.renderMiniBar(barContainer, "m", entry.m);
+			this.renderMiniBar(barContainer, "p", entry.p);
+			this.renderMiniBar(barContainer, "w", entry.w);
+		}
+	}
+
+	private renderMiniBar(parent: HTMLElement, type: string, val: number): void {
+		const outer = parent.createDiv({ cls: `mini-bar-outer bar-${type}` });
+		const fill = outer.createDiv({ cls: "mini-bar-fill" });
+		const pct = Math.min(100, (val / 15) * 100);
+		fill.style.width = `${pct}%`;
+		outer.title = `${type.toUpperCase()}: ${val} pts`;
 	}
 
 	private renderBattery(parent: HTMLElement, label: string, val: number, type: string): void {
