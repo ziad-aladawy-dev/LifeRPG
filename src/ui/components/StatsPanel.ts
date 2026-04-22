@@ -81,8 +81,7 @@ export class StatsPanel {
 		// --- RESOURCE BARS SECTION ---
 		const resourceSection = el.createDiv({ cls: "life-rpg-resource-section" });
 		
-		const modifiers = this.stateManager.getGlobalModifiers();
-		const finalMaxHp = character.maxHp + (modifiers.hpMax || 0);
+		const finalMaxHp = this.stateManager.getEffectiveMaxHp();
 		
 		this.renderResourceBar(resourceSection, "Health", character.hp, finalMaxHp, "hp");
 		this.renderResourceBar(resourceSection, "Experience", character.xp, character.xpToNextLevel, "xp");

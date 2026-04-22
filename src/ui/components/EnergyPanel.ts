@@ -54,19 +54,24 @@ export class EnergyPanel {
 		// Task Rollover Logic Check (Internal)
 		const { isHabitDue } = require("../../engine/HabitManager");
 
-		// Dated Tasks
+		// Dated Tasks (Strict Deadline & Carryover)
 		const today = getTodayStr();
-		for (const qId in state.questRegistry) {
-			const meta = state.questRegistry[qId];
-			const dates = [meta.deadline, meta.startDate, meta.endDate]
-				.filter(d => !!d)
-				.map(d => d!.split("T")[0]);
-			
-			if (dates.includes(today)) {
-				const loadVal = (meta.energyM || 0) + (meta.energyP || 0) + (meta.energyW || 0);
-				const task = activeTasks.find(t => t.questId === qId);
-				const taskName = meta.name || (task ? getTaskText(task.text) : `Quest ${qId}`);
-				this.renderContributor(list, "Quest", taskName, loadVal, meta, task);
+		if (state.activeQuestIds) {
+			for (const qId of state.activeQuestIds) {
+				const meta = state.questRegistry[qId];
+				if (!meta || !meta.deadline) continue;
+				
+				const deadlineDate = meta.deadline.split("T")[0];
+				
+				// Carryover logic: if deadline is today OR in the past, it drains energy
+				if (deadlineDate <= today) {
+					const loadVal = (meta.energyM || 0) + (meta.energyP || 0) + (meta.energyW || 0);
+					if (loadVal === 0) continue;
+					
+					const task = activeTasks.find(t => t.questId === qId);
+					const taskName = meta.name || (task ? getTaskText(task.text) : `Quest ${qId}`);
+					this.renderContributor(list, "Quest", taskName, loadVal, meta, task);
+				}
 			}
 		}
 

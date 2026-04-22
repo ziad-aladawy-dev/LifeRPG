@@ -449,6 +449,8 @@ export interface GameState {
 
 	// Quest Registry
 	questRegistry: Record<string, TaskMetadata>;
+	activeQuestIds: string[];
+	completedTodayQuestIds: string[];
 }
 
 // ---------------------------------------------------------------------------

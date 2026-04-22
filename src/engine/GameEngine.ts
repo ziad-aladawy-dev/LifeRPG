@@ -702,14 +702,15 @@ export function processTaskUncompletion(
 	globalModifiers: ReturnType<typeof calculateGlobalModifiers>,
 	isSubtask: boolean,
 	taskText: string,
-	parentIsHeading: boolean = false
+	parentIsHeading: boolean = false,
+	comboCount: number = 0
 ): {
 	character: CharacterState;
 	skills: Skill[];
 	logEntries: EventLogEntry[];
 	result: RewardResult & { spEarned: number };
 } {
-	const reward = calculateTaskReward(metadata, settings, character.attributes, globalModifiers, isSubtask, parentIsHeading);
+	const reward = calculateTaskReward(metadata, settings, character.attributes, globalModifiers, isSubtask, parentIsHeading, comboCount);
 	const logEntries: EventLogEntry[] = [];
 	let currentChar = { ...character };
 	let updatedSkills = skills.map((s) => ({ ...s }));

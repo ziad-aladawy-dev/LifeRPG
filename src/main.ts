@@ -252,8 +252,9 @@ export default class LifeRpgPlugin extends Plugin {
 
 
 			// 2. Regenerate HP
+			const maxHp = this.stateManager.getEffectiveMaxHp();
 			const newHp = Math.min(
-				char.maxHp,
+				maxHp,
 				char.hp + settings.dailyHpRegen
 			);
 			if (newHp !== char.hp) {

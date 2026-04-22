@@ -266,6 +266,58 @@ export class StateManager {
 	// -----------------------------------------------------------------------
 
 	/** Get a shallow copy of the current game state */
+	/** Update the list of active (incomplete) quests for energy calculation */
+	updateActiveQuestIds(ids: string[]): void {
+		this.state.activeQuestIds = ids;
+		this.notify();
+	}
+
+	/** Mark a quest as completed today for effort tracking */
+	addCompletedTodayQuestId(id: string): void {
+		if (!this.state.completedTodayQuestIds.includes(id)) {
+			this.state.completedTodayQuestIds.push(id);
+			this.notify();
+		}
+	}
+
+	/** Remove a quest from today's completed list (e.g. on undo) */
+	removeCompletedTodayQuestId(id: string): void {
+		this.state.completedTodayQuestIds = this.state.completedTodayQuestIds.filter(qId => qId !== id);
+		this.notify();
+	}
+
+	/** Restore character HP to its maximum value */
+	restoreFullHp(): void {
+		const char = this.state.character;
+		const maxHp = this.getEffectiveMaxHp();
+		
+		if (char.hp < maxHp) {
+			const regen = maxHp - char.hp;
+			this.state.character.hp = maxHp;
+			
+			this.addLogEntry({
+				id: Date.now().toString(36),
+				timestamp: new Date().toISOString(),
+				type: EventType.HpRegen,
+				message: `✨ SACRED RESTORATION: HP fully restored! (+${regen} HP)`,
+				xpDelta: 0,
+				gpDelta: 0,
+				hpDelta: regen,
+			});
+			
+			this.notify();
+			this.save();
+		}
+	}
+
+	/**
+	 * Get the character's total Max HP including all bonuses from equipment and skills.
+	 */
+	getEffectiveMaxHp(): number {
+		const modifiers = this.getGlobalModifiers();
+		return this.state.character.maxHp + (modifiers.hpMax || 0);
+	}
+
 	getState(): GameState {
 		return this.cloneState(this.state);
 	}
@@ -967,14 +1019,25 @@ export class StateManager {
 			}
 		}
 
-		// 2. Dated Tasks
-		for (const qId in this.state.questRegistry) {
-			const meta = this.state.questRegistry[qId];
-			const dates = [meta.deadline, meta.startDate, meta.endDate]
-				.filter(d => !!d)
-				.map(d => d!.split("T")[0]);
-			
-			if (dates.includes(targetDate)) {
+		// 2. Remaining Burden (Dated Tasks - Strict Deadline & Carryover)
+		if (this.state.activeQuestIds) {
+			for (const qId of this.state.activeQuestIds) {
+				const meta = this.state.questRegistry[qId];
+				if (!meta || !meta.deadline) continue;
+				const deadlineDate = meta.deadline.split("T")[0];
+				if (deadlineDate <= targetDate) {
+					m += meta.energyM || 0;
+					p += meta.energyP || 0;
+					w += meta.energyW || 0;
+				}
+			}
+		}
+
+		// 3. Expended Effort (Tasks completed TODAY)
+		if (this.state.completedTodayQuestIds) {
+			for (const qId of this.state.completedTodayQuestIds) {
+				const meta = this.state.questRegistry[qId];
+				if (!meta) continue;
 				m += meta.energyM || 0;
 				p += meta.energyP || 0;
 				w += meta.energyW || 0;
@@ -1021,6 +1084,10 @@ export class StateManager {
 		} else {
 			this.state.character.burntOutYesterday = false;
 		}
+
+		// Reset Daily Effort Tracking for the new day
+		this.state.completedTodayQuestIds = [];
+		this.save();
 	}
 
 	generateQuestId(): string {

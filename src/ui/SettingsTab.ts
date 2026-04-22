@@ -565,6 +565,25 @@ export class LifeRpgSettingsTab extends PluginSettingTab {
 		});
 
 		// ---------------------------------------------------------------
+		// Tools & Maintenance
+		// ---------------------------------------------------------------
+		containerEl.createEl("h2", { text: "🛠️ Tools & Maintenance" });
+
+		new Setting(containerEl)
+			.setName("Sacred Restoration")
+			.setDesc("Force a full HP restoration. Useful for testing or emergency recovery from tough dungeons.")
+			.addButton((btn) => 
+				btn
+					.setButtonText("Full Heal")
+					.setCta() // Highlight as call to action
+					.onClick(async () => {
+						this.plugin.stateManager.restoreFullHp();
+						new Notice("✨ Sacred Restoration complete! HP restored to maximum.");
+						this.display(); // Refresh settings view
+					})
+			);
+
+		// ---------------------------------------------------------------
 		// Danger Zone
 		// ---------------------------------------------------------------
 		containerEl.createEl("h2", { text: "⚠️ Danger Zone" });
