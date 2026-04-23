@@ -127,17 +127,21 @@ export class EnergyPanel {
 			dayHeader.createEl("span", { text: `${entry.total} / ${entry.cap} pts`, cls: "history-total" });
 
 			const barContainer = dayCard.createDiv({ cls: "history-mini-bars" });
-			this.renderMiniBar(barContainer, "m", entry.m);
-			this.renderMiniBar(barContainer, "p", entry.p);
-			this.renderMiniBar(barContainer, "w", entry.w);
+			this.renderMiniBar(barContainer, "m", entry.m || 0);
+			this.renderMiniBar(barContainer, "p", entry.p || 0);
+			this.renderMiniBar(barContainer, "w", entry.w || 0);
 		}
 	}
 
 	private renderMiniBar(parent: HTMLElement, type: string, val: number): void {
-		const outer = parent.createDiv({ cls: `mini-bar-outer bar-${type}` });
+		const row = parent.createDiv({ cls: "history-mini-bar-row" });
+		
+		const outer = row.createDiv({ cls: `mini-bar-outer bar-${type}` });
 		const fill = outer.createDiv({ cls: "mini-bar-fill" });
 		const pct = Math.min(100, (val / 15) * 100);
 		fill.style.width = `${pct}%`;
+		
+		row.createEl("span", { text: `${type.toUpperCase()}: ${val}`, cls: "mini-bar-value" });
 		outer.title = `${type.toUpperCase()}: ${val} pts`;
 	}
 

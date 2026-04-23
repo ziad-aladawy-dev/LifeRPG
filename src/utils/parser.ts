@@ -47,14 +47,23 @@ function parseEnergyScores(text: string): { energyM?: number, energyP?: number, 
 	const result: { energyM?: number, energyP?: number, energyW?: number } = {};
 	
 	// Individual matches
-	const mMatch = text.match(/\[(?:mental|m)\s*:\s*(\d)\]/i);
-	if (mMatch) result.energyM = Math.min(5, Math.max(0, parseInt(mMatch[1])));
+	const mMatch = text.match(/\[(?:mental|m)\s*:\s*(\d+)\]/i);
+	if (mMatch) {
+		const val = parseInt(mMatch[1]);
+		if (!isNaN(val)) result.energyM = Math.min(5, Math.max(0, val));
+	}
 	
-	const pMatch = text.match(/\[(?:physical|p)\s*:\s*(\d)\]/i);
-	if (pMatch) result.energyP = Math.min(5, Math.max(0, parseInt(pMatch[1])));
+	const pMatch = text.match(/\[(?:physical|p)\s*:\s*(\d+)\]/i);
+	if (pMatch) {
+		const val = parseInt(pMatch[1]);
+		if (!isNaN(val)) result.energyP = Math.min(5, Math.max(0, val));
+	}
 	
-	const wMatch = text.match(/\[(?:willpower|w)\s*:\s*(\d)\]/i);
-	if (wMatch) result.energyW = Math.min(5, Math.max(0, parseInt(wMatch[1])));
+	const wMatch = text.match(/\[(?:willpower|w)\s*:\s*(\d+)\]/i);
+	if (wMatch) {
+		const val = parseInt(wMatch[1]);
+		if (!isNaN(val)) result.energyW = Math.min(5, Math.max(0, val));
+	}
 	
 	// Composite match: [m: 5, p: 2, w: 1]
 	const compositeMatch = text.match(/\[(?:mental|physical|willpower|m|p|w)\s*:[^\]]+\]/gi);
@@ -140,7 +149,7 @@ function parseSkillId(text: string): string | undefined {
 /**
  * Extract deadline from inline text.
  * Matches: [deadline: 2026-04-20], [due: 2026-04-20]
- * Returns ISO date string or undefined.
+ * Returns date string in YYYY-MM-DD format (handles local timezone correctly).
  */
 function parseDeadline(text: string): string | undefined {
 	const match = text.match(
@@ -148,9 +157,16 @@ function parseDeadline(text: string): string | undefined {
 	);
 	if (!match) return undefined;
 
-	const date = new Date(match[1]);
-	if (isNaN(date.getTime())) return undefined;
-	return date.toISOString();
+	const dateStr = match[1]; // e.g., "2026-04-20"
+	
+	// Validate it's a valid date by parsing and back-formatting
+	const [year, month, day] = dateStr.split("-").map(Number);
+	if (isNaN(year) || isNaN(month) || isNaN(day) || month < 1 || month > 12 || day < 1 || day > 31) {
+		return undefined;
+	}
+	
+	// Return as YYYY-MM-DD (no timezone issues with string comparison)
+	return dateStr;
 }
 
 /**

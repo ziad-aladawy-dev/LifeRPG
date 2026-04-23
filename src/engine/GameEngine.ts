@@ -119,11 +119,25 @@ export function calculateTaskReward(
 
 	if (hasEnergy) {
 		const weights = settings.energyWeights || { mental: 0.2, physical: 0.2, willpower: 0.2 };
-		energyMult = (
-			(metadata.energyM || 0) * weights.mental +
-			(metadata.energyP || 0) * weights.physical +
-			(metadata.energyW || 0) * weights.willpower
+		
+		// Validate and normalize weights to prevent balance-breaking values
+		const totalWeight = weights.mental + weights.physical + weights.willpower;
+		const normalizedWeights = totalWeight > 0 ? {
+			mental: weights.mental / totalWeight,
+			physical: weights.physical / totalWeight,
+			willpower: weights.willpower / totalWeight
+		} : { mental: 0.333, physical: 0.333, willpower: 0.334 };
+		
+		const rawEnergy = (
+			(metadata.energyM || 0) * normalizedWeights.mental +
+			(metadata.energyP || 0) * normalizedWeights.physical +
+			(metadata.energyW || 0) * normalizedWeights.willpower
 		);
+		
+		// Cap at 3.0 (same as max difficulty multiplier: Madhouse)
+		// Max energy input is 5+5+5=15 points, normalized by equal weights gives max 5.0,
+		// then capped at 3.0 to prevent balance-breaking multipliers
+		energyMult = Math.min(3.0, rawEnergy);
 	}
 
 	const multiplier = diffMult * energyMult;
@@ -171,11 +185,23 @@ export function calculateHabitReward(
 
 	if (hasEnergy) {
 		const weights = settings.energyWeights || { mental: 0.2, physical: 0.2, willpower: 0.2 };
-		energyMult = (
-			(habit.energyM || 0) * weights.mental +
-			(habit.energyP || 0) * weights.physical +
-			(habit.energyW || 0) * weights.willpower
+		
+		// Validate and normalize weights to prevent balance-breaking values
+		const totalWeight = weights.mental + weights.physical + weights.willpower;
+		const normalizedWeights = totalWeight > 0 ? {
+			mental: weights.mental / totalWeight,
+			physical: weights.physical / totalWeight,
+			willpower: weights.willpower / totalWeight
+		} : { mental: 0.333, physical: 0.333, willpower: 0.334 };
+		
+		const rawEnergy = (
+			(habit.energyM || 0) * normalizedWeights.mental +
+			(habit.energyP || 0) * normalizedWeights.physical +
+			(habit.energyW || 0) * normalizedWeights.willpower
 		);
+		
+		// Cap at 3.0 (same as max difficulty multiplier: Madhouse)
+		energyMult = Math.min(3.0, rawEnergy);
 	}
 
 	const multiplier = diffMult * energyMult;
@@ -199,25 +225,18 @@ export function calculateHabitReward(
 		};
 	} else {
 		// --- Bad Habit Scaling ---
-		// Base damage: 5 * levelMultiplier 
-		// levelMultiplier = 1 + (PlayerLevel * 0.1) - Bad habits get significantly harder as you grow
-		const playerLevel = attributes.str.level > 0 ? Math.max(1, Math.floor((attributes.str.level + attributes.int.level + attributes.wis.level + attributes.cha.level) / 4)) : 1; 
-		// Actually, let's use the actual character level if we had it, but we only have attributes here.
-		// Wait, I should probably pass the level. But usually total attribute average is a good proxy or I can use the sum.
-		// Let's assume the caller will pass attributes. We'll use a conservative estimate or update the signature.
+		// Base damage scales with average attribute level (consistent with boss logic)
+		// Average = (STR + INT + WIS + CHA) / 4 gives a smooth, predictable progression
+		const avgAttrLevel = (attributes.str.level + attributes.int.level + attributes.wis.level + attributes.cha.level) / 4;
+		const levelScaling = 1 + (avgAttrLevel * 0.1); // Bad habits get 10% harder per avg attribute level
 		
-		let hpDamage = 5 * multiplier;
+		let hpDamage = 5 * multiplier * levelScaling;
 		
-		// Applying Level-based Base Scaling (Matches boss logic)
-		// Since we don't have character.level here, we'll derive it or use a default of 1 for now, 
-		// BUT I will update the function signature to be cleaner if needed.
-		// Actually, let's look at the caller.
-		
-		// WIS reduces damage by 2% per effect level (max 90% reduction)
+		// WIS reduces damage by 2% per effective level (max 90% reduction)
 		const rawReduction = ((attributes.wis.level + globalModifiers.wis) * 0.02) + globalModifiers.damageReduction + globalModifiers.wisdomSave;
 		
-		// NEW: Resistance Piercing (Level-based)
-		// At higher levels, penalties "pierce" your wisdom.
+		// Resistance Piercing: At higher levels, penalties "pierce" your wisdom
+		// Up to 50% of your reduction can be bypassed based on total attribute investment
 		const totalAttrPoints = (attributes.str.level + attributes.int.level + attributes.wis.level + attributes.cha.level);
 		const piercing = Math.min(0.5, totalAttrPoints * 0.005); // Up to 50% piercing
 		const effectiveReduction = Math.min(0.9, rawReduction * (1 - piercing));
@@ -335,10 +354,17 @@ export function revertXpGain(
 	// Cascading level-downs
 	while (char.xp < 0 && char.level > 1) {
 		char.level--;
-		char.maxHp = Math.max(10, char.maxHp - hpPerLevel);
-		// Note: when reverting XP gain, maxHp is correctly decreased here.
-		const finalMaxHp = char.maxHp + (globalModifiers?.hpMax || 0);
+		// Calculate effective HP loss matching level-up logic for consistency
+		const effectiveHpLoss = globalModifiers 
+			? globalModifiers.hpMax + hpPerLevel
+			: hpPerLevel;
+		char.maxHp = Math.max(10, char.maxHp - effectiveHpLoss);
+		
+		// Adjust current HP if it exceeds new max (ensuring final value is safe)
+		const modifierBonus = Math.max(0, globalModifiers?.hpMax || 0); // Never let modifiers go negative
+		const finalMaxHp = char.maxHp + modifierBonus;
 		if (char.hp > finalMaxHp) char.hp = finalMaxHp;
+		
 		char.xpToNextLevel = xpThresholdForLevel(char.level);
 		char.xp += char.xpToNextLevel;
 		leveledDown = true;
@@ -502,16 +528,24 @@ export function processHpDamage(
 	let died = false;
 
 	if (c.hp <= 0) {
-		const finalMaxHp = c.maxHp + (globalModifiers?.hpMax || 0);
 		died = true;
-		c.hp = finalMaxHp;
 		c.xp = 0;
 		c.gp = 0;
+		
+		// Apply level down penalty - use same logic as revertXpGain for consistency
 		if (c.level > 1) {
 			c.level--;
-			c.maxHp = Math.max(10, c.maxHp - actualHpGain);
+			// Calculate effective HP change (same formula as level-up, just negative)
+			const effectiveHpLoss = globalModifiers 
+				? globalModifiers.hpMax + actualHpGain
+				: actualHpGain;
+			c.maxHp = Math.max(10, c.maxHp - effectiveHpLoss);
 			c.xpToNextLevel = xpThresholdForLevel(c.level);
 		}
+		
+		// Refill to NEW Max HP (includes modifiers)
+		const finalMaxHp = c.maxHp + (globalModifiers?.hpMax || 0);
+		c.hp = finalMaxHp;
 		
 		logEntries.push({
 			id: generateId(),

@@ -107,7 +107,7 @@ export function logGoodHabit(
 	} else {
 		updatedHabit.streak = 1; // Reset streak
 	}
-	updatedHabit.lastCompleted = today.toISOString();
+	updatedHabit.lastCompleted = getTodayStr();
 	
 	// Track in history
 	if (!updatedHabit.history) updatedHabit.history = {};
@@ -128,7 +128,7 @@ export function logGoodHabit(
 	currentChar = processGpGain(currentChar, gpGain);
 
 	// Process character XP
-	const wisBonus = 10;
+	const wisBonus = settings.wisBonus || 10;
 	const actualHpGain = settings.hpPerLevel + (currentChar.attributes.wis.level * wisBonus);
 	const xpResult = processXpGain(currentChar, xpGain, actualHpGain);
 	currentChar = xpResult.character;
@@ -244,7 +244,7 @@ export function logBadHabit(
 	const damage = reward.hpDamage;
 
 	// Update habit tracking
-	updatedHabit.lastCompleted = new Date().toISOString();
+	updatedHabit.lastCompleted = getTodayStr();
 	updatedHabit.streak++; // For bad habits, streak = how many times in a row
 	updatedHabit.hpPenalty = damage;
 
@@ -253,7 +253,7 @@ export function logBadHabit(
 	updatedHabit.history[todayStr] = true;
 
 	// Apply damage
-	const wisBonus = 10;
+	const wisBonus = settings.wisBonus || 10;
 	const actualHpGain = settings.hpPerLevel + (currentChar.attributes.wis.level * wisBonus);
 	const wasLevelGreaterThanOne = currentChar.level > 1;
 	const hpResult = processHpDamage(currentChar, damage, actualHpGain, modifiers);
@@ -447,7 +447,7 @@ export function resolveOutstandingHabit(
 		const gpGain = reward.gp;
 
 		c = processGpGain(c, gpGain);
-		const wisBonus = 10;
+		const wisBonus = settings.wisBonus || 10;
 		const actualHpGain = settings.hpPerLevel + (c.attributes.wis.level * wisBonus);
 		const xpRes = processXpGain(c, xpGain, actualHpGain);
 		c = xpRes.character;
@@ -490,9 +490,9 @@ export function resolveOutstandingHabit(
 	} else {
 		// Mark as missed (False)
 		const reward = calculateHabitReward(h, settings, c.attributes, modifiers);
-		const wisBonus = 10;
+		const wisBonus = settings.wisBonus || 10;
 		const actualHpGain = settings.hpPerLevel + (c.attributes.wis.level * wisBonus);
-		const hpResult = processHpDamage(c, reward.hpDamage, actualHpGain);
+		const hpResult = processHpDamage(c, reward.hpDamage, actualHpGain, modifiers);
 		c = hpResult.character;
 		if (hpResult.died) logEntries.push(...hpResult.logEntries);
 
@@ -553,7 +553,7 @@ export function undoHabit(
 		c.gp = Math.max(0, c.gp - gpToRevert);
 
 		// Revert XP
-		const wisBonus = 10;
+		const wisBonus = settings.wisBonus || 10;
 		const actualHpGain = settings.hpPerLevel + (c.attributes.wis.level * wisBonus);
 		const xpResult = revertXpGain(c, xpToRevert, actualHpGain);
 		c = xpResult.character;
@@ -606,7 +606,7 @@ export function undoHabit(
 
 		if (h.causedDeathLevelDown) {
 			c.level++;
-			const wisBonus = 10;
+			const wisBonus = settings.wisBonus || 10;
 			const actualHpGain = settings.hpPerLevel + (c.attributes.wis.level * wisBonus);
 			c.maxHp += actualHpGain;
 			c.xpToNextLevel = xpThresholdForLevel(c.level);
@@ -754,34 +754,40 @@ export function applyRetroactiveHabitHistoryChange(
 		const hpDelta = completed ? -reward.hpDamage : reward.hpDamage;
 		const oldHp = c.hp;
 
-		if (completed) {
-			// NONE -> COMPLETED (Took damage)
-			const wisBonus = 10;
-			const actualHpGain = settings.hpPerLevel + (c.attributes.wis.level * wisBonus);
-			const hpResult = processHpDamage(c, reward.hpDamage, actualHpGain);
-			c = hpResult.character;
-			if (hpResult.died) logEntries.push(...hpResult.logEntries);
-		} else {
-			// COMPLETED -> NONE (Heal damage)
-			c.hp = Math.min(c.maxHp, c.hp + reward.hpDamage);
-		}
-
-		logEntries.push({
-			id: generateId(),
-			timestamp: new Date().toISOString(),
-			type: EventType.HabitBad,
-			message: `⏪ History Adjusted (${dateStr}): "${h.name}" marked as ${completed ? 'Completed' : 'Cleared'} → ${c.hp - oldHp > 0 ? '+' : ''}${c.hp - oldHp} HP`,
-			xpDelta: 0,
-			gpDelta: 0,
-			hpDelta: c.hp - oldHp,
-		});
+	if (completed) {
+		// NONE -> COMPLETED (Took damage)
+		const wisBonus = settings.wisBonus || 10;
+		const actualHpGain = settings.hpPerLevel + (c.attributes.wis.level * wisBonus);
+		const hpResult = processHpDamage(c, reward.hpDamage, actualHpGain, modifiers);
+		c = hpResult.character;
+		if (hpResult.died) logEntries.push(...hpResult.logEntries);
+	} else {
+		// COMPLETED -> NONE (Heal damage)
+		c.hp = Math.min(c.maxHp, c.hp + reward.hpDamage);
 	}
+
+	const oldHpForLog = c.hp - (completed ? -reward.hpDamage : reward.hpDamage);
+
+	logEntries.push({
+		id: generateId(),
+		timestamp: new Date().toISOString(),
+		type: EventType.HabitBad,
+		message: `⏪ History Adjusted (${dateStr}): "${h.name}" marked as ${completed ? 'Completed' : 'Cleared'} → ${c.hp - oldHp > 0 ? '+' : ''}${c.hp - oldHp} HP`,
+		xpDelta: 0,
+		gpDelta: 0,
+		hpDelta: c.hp - oldHp,
+	});
+}
 
 	// Update history map
 	if (completed) {
 		h.history[dateStr] = true;
 	} else {
 		delete h.history[dateStr];
+		// If un-marking Today, clear lastCompleted to fix ghost streak
+		if (isSameDay(dateStr, getTodayStr())) {
+			h.lastCompleted = null;
+		}
 	}
 
 	// Recalculate streak and backlog
@@ -803,11 +809,8 @@ export function recalculateHabitStreak(habit: Habit): number {
 	const [ay, am, ad] = anchorDateStr.split("-").map(Number);
 	const anchorTime = new Date(ay, am - 1, ad).getTime();
 	
-	// Robustly collect completion dates from history OR lastCompleted (legacy)
+	// History is the absolute source of truth
 	let historyKeys = Object.keys(history).filter(k => history[k] === true || history[k] === "freeze");
-	if (habit.lastCompleted && !historyKeys.includes(habit.lastCompleted.split("T")[0])) {
-		historyKeys.push(habit.lastCompleted.split("T")[0]);
-	}
 	historyKeys = [...new Set(historyKeys)].sort().reverse();
 	
 	const parseLocalDate = (s: string) => {
@@ -839,16 +842,18 @@ export function recalculateHabitStreak(habit: Habit): number {
 		// Start at 1 because we have at least one valid completion that hasn't decayed
 		let streak = 1;
 		
-		for (let i = 0; i < historyKeys.length - 1; i++) {
+		// Optimization: Pre-parse all dates once to avoid repeated parsing in the loop
+		let prevTime = mostRecentTime;
+		
+		for (let i = 1; i < historyKeys.length; i++) {
 			const currTime = parseLocalDate(historyKeys[i]).getTime();
-			const prevTime = parseLocalDate(historyKeys[i + 1]).getTime();
-			
-			const gap = Math.floor((currTime - prevTime) / (1000 * 60 * 60 * 24));
+			const gap = Math.floor((prevTime - currTime) / (1000 * 60 * 60 * 24));
 			
 			// As long as the gap between consecutive completions is <= recurrence,
 			// the chain is unbroken. (Allowing early completions)
 			if (gap <= recurrence) {
 				streak++;
+				prevTime = currTime;
 			} else {
 				// The gap was too large, chain was broken in the past
 				break;

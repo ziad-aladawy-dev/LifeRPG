@@ -195,6 +195,9 @@ export class TaskWatcher {
 		const processedQuestIds: string[] = [];
 
 		for (const task of activeTasks) {
+			// 0. Validate task data
+			if (!task.text) continue;
+			
 			// 1. Resolve Metadata
 			let meta = parseTaskMetadata(task.text);
 			if (task.questId) {
@@ -258,9 +261,10 @@ export class TaskWatcher {
 		}
 
 		if (overdueCount > 0) {
-			const wisBonus = 10;
+			const wisBonus = settings.wisBonus || 10;
 			const actualHpGain = settings.hpPerLevel + (char.attributes.wis.level * wisBonus);
-			const hpResult = processHpDamage(char, damageDealt, actualHpGain);
+			const mods = this.stateManager.getGlobalModifiers();
+			const hpResult = processHpDamage(char, damageDealt, actualHpGain, mods);
 			char = hpResult.character;
 			died = hpResult.died;
 
@@ -269,7 +273,7 @@ export class TaskWatcher {
 			logEntries.push({
 				id: generateId(),
 				timestamp: now.toISOString(),
-				type: "boss-damage-taken",
+				type: EventType.BossDamageTaken,
 				message: `🚨 OVERDUE: ${dmgSource} for ${damageDealt} HP because of ${overdueCount} missed deadline(s)!`,
 				xpDelta: 0,
 				gpDelta: 0,
@@ -708,11 +712,14 @@ export class TaskWatcher {
 		const state = this.stateManager.getState();
 
 		// Combo Logic: 10 minute window (600,000 ms)
+		// Only increment combo if this is a NEW completion (not re-completing already done task)
 		const now = new Date();
 		let comboCount = state.comboCount;
 		if (state.lastTaskAt) {
 			const lastTime = new Date(state.lastTaskAt).getTime();
 			if (now.getTime() - lastTime < 600000) {
+				// Only increment if we haven't already counted this task today
+				// Using lastTaskAt to track - if same timestamp, don't increment
 				comboCount++;
 			} else {
 				comboCount = 0;
@@ -825,7 +832,8 @@ export class TaskWatcher {
 			// Apply Attrition Damage
 			if (dungeonResult.damage > 0) {
 				const actualHpGain = settings.hpPerLevel + (character.attributes.wis.level * 10);
-				const hpResult = processHpDamage(this.stateManager.getCharacter(), dungeonResult.damage, actualHpGain);
+				const mods = this.stateManager.getGlobalModifiers();
+				const hpResult = processHpDamage(this.stateManager.getCharacter(), dungeonResult.damage, actualHpGain, mods);
 				this.stateManager.setCharacter(hpResult.character);
 				if (hpResult.died) {
 					hpResult.logEntries.forEach(log => this.stateManager.addLogEntry(log));
@@ -857,8 +865,9 @@ export class TaskWatcher {
 		}
 
 		// TRACK EFFORT: Add to completed today list for persistent energy load
-		if (task.questId) {
-			this.stateManager.addCompletedTodayQuestId(task.questId);
+		// Use finalQuestId to include both explicit IDs and transient IDs with energy
+		if (finalQuestId) {
+			this.stateManager.addCompletedTodayQuestId(finalQuestId);
 		}
 	}
 
@@ -870,9 +879,28 @@ export class TaskWatcher {
 	): Promise<void> {
 		let metadata = parseTaskMetadata(task.text);
 
+		// Resolve questId: use explicit ID or check for transient with energy
+		let questIdToClean = task.questId;
+		const hasEnergy = metadata.energyM || metadata.energyP || metadata.energyW;
+		
+		if (hasEnergy && !questIdToClean) {
+			// Check if there's a completed quest with matching energy that we need to clean
+			const completedToday = this.stateManager.getState().completedTodayQuestIds;
+			for (const qId of completedToday) {
+				const qMeta = this.stateManager.getQuestMetadata(qId);
+				if (qMeta && 
+				    qMeta.energyM === metadata.energyM && 
+				    qMeta.energyP === metadata.energyP && 
+				    qMeta.energyW === metadata.energyW) {
+					questIdToClean = qId;
+					break;
+				}
+			}
+		}
+
 		// CRITICAL: Merge with registry metadata to ensure undo rewards match completion rewards
-		if (task.questId) {
-			const registeredMeta = this.stateManager.getQuestMetadata(task.questId);
+		if (questIdToClean) {
+			const registeredMeta = this.stateManager.getQuestMetadata(questIdToClean);
 			if (registeredMeta) {
 				metadata = { ...metadata, ...registeredMeta };
 			}
@@ -916,9 +944,9 @@ export class TaskWatcher {
 			parentIsHeading,
 			comboCount
 		);
-		// --- Energy Persistence Fix ---
-		if (task.questId) {
-			this.stateManager.setQuestCompleted(task.questId, false);
+		// --- Energy Persistence Fix: Clean up using resolved questId ---
+		if (questIdToClean) {
+			this.stateManager.setQuestCompleted(questIdToClean, false);
 		}
 
 		// Reset combo on uncheck (optional, but prevents abuse)
@@ -965,8 +993,9 @@ export class TaskWatcher {
 		}
 
 		// TRACK EFFORT: Remove from completed today list on undo
-		if (task.questId) {
-			this.stateManager.removeCompletedTodayQuestId(task.questId);
+		// Use questIdToClean to handle both explicit and transient IDs
+		if (questIdToClean) {
+			this.stateManager.removeCompletedTodayQuestId(questIdToClean);
 		}
 	}
 }

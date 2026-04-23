@@ -138,7 +138,7 @@ export function playerAttacksBoss(
 
 /**
  * Heal the boss when a task is unchecked.
- * Applies the same multipliers as attacking to ensure fair recovery.
+ * Uses simple STR scaling (no combo/rage multipliers for fairness).
  */
 export function healBoss(
 	boss: Boss,
@@ -151,7 +151,11 @@ export function healBoss(
 	logEntries: EventLogEntry[];
 } {
 	const logEntries: EventLogEntry[] = [];
-	const healAmount = calculateFinalDamage(baseAmount, boss, attributes, modifiers, comboCount);
+	
+	// Simple scaling: only apply STR bonus (no combo, no rage)
+	// This prevents asymmetric healing mechanics
+	const strBonus = 1 + ((attributes.str.level + modifiers.str) * 0.02) + modifiers.damageBonus;
+	const healAmount = Math.round(baseAmount * strBonus);
 	const newHp = Math.min(boss.maxHp, boss.hp + healAmount);
 
 	const updatedBoss: Boss = {
@@ -307,7 +311,11 @@ export function advanceDungeonProgress(
 	logEntries: EventLogEntry[];
 } {
 	const logEntries: EventLogEntry[] = [];
-	const updated: Dungeon = JSON.parse(JSON.stringify(dungeon));
+	// Deep clone dungeon with its stages to allow mutations
+	const updated: Dungeon = {
+		...dungeon,
+		stages: dungeon.stages.map(s => ({ ...s }))
+	};
 	let damageDealt = 0;
 
 	if (updated.currentStage >= updated.stages.length) {

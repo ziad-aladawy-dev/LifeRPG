@@ -64,6 +64,14 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 		physical: 0.2,
 		willpower: 0.2,
 	},
+	// Balance tuning defaults
+	wisBonus: 10,
+	burnoutXpPenalty: 0.75,
+	comboWindowMs: 600000,
+	comboMaxBonus: 0.5,
+	streakBonusPerDays: 7,
+	streakMaxBonus: 2.0,
+	// UI State
 	questViewMode: "file",
 	questSortBy: "none",
 	questSortDir: "desc",

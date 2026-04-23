@@ -501,13 +501,23 @@ export interface PluginSettings {
 	lastImageCachePrune: string;
 
 	// Editor
-	enableEditorSuggestions: boolean;
-	dailyEnergyCap: number; // The "Rule of 30"
+enableEditorSuggestions: boolean;
+
+	// Energy System
+	dailyEnergyCap: number;
 	energyWeights: {
 		mental: number;
 		physical: number;
 		willpower: number;
 	};
+
+	// Balance tuning (advanced)
+	wisBonus: number; // WIS adds this much HP per level (default: 10)
+	burnoutXpPenalty: number; // XP multiplier when burnt out (default: 0.75)
+	comboWindowMs: number; // Combo window in ms (default: 600000 = 10 min)
+	comboMaxBonus: number; // Max combo bonus (default: 0.5 = 50%)
+	streakBonusPerDays: number; // Days per streak bonus (default: 7)
+	streakMaxBonus: number; // Max streak bonus (default: 2.0)
 
 	// Quest Panel UI State
 	questViewMode: "file" | "day";

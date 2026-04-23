@@ -7,7 +7,7 @@ import { TaskModifierSuggest } from "./editor/ModifierSuggest";
 import { TaskPropertyModal, buildMetadataString } from "./ui/modals/TaskPropertyModal";
 import { getTodayStr } from "./utils/dateUtils";
 import { evaluateDailyHabits } from "./engine/HabitManager";
-import { EventType, ItemSlot } from "./types";
+import { EventType } from "./types";
 import { LifeRpgSettingsTab } from "./ui/SettingsTab";
 import { ImageCacheManager } from "./utils/ImageCacheManager";
 
@@ -258,8 +258,8 @@ export default class LifeRpgPlugin extends Plugin {
 			// 1. Process Burnout from yesterday's load
 			this.stateManager.processBurnoutRollover(state.lastPlayedDate || today);
 
-
-			// 2. Regenerate HP
+			// 2. Clear yesterday's completed energy effort
+			this.stateManager.clearCompletedToday();
 			const maxHp = this.stateManager.getEffectiveMaxHp();
 			const newHp = Math.min(
 				maxHp,

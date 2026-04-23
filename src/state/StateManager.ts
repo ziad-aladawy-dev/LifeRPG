@@ -5,7 +5,7 @@
 
 import { type Plugin, Notice } from "obsidian";
 import { getTodayStr } from "../utils/dateUtils";
-import { isHabitDue } from "../engine/HabitManager";
+import { isHabitDue, recalculateHabitStreak } from "../engine/HabitManager";
 import {
 	type GameState,
 	type Skill,
@@ -99,12 +99,9 @@ export class StateManager {
 		// Migrate missing character profile info
 		if (!this.state.character.name) this.state.character.name = "Hero";
 		
-		// Day rollover check
+		// Day rollover check (Logic centralized in main.ts to avoid race conditions)
 		const today = getTodayStr();
-		if (this.state.lastPlayedDate && this.state.lastPlayedDate !== today) {
-			this.processBurnoutRollover(this.state.lastPlayedDate);
-			this.updateLastPlayedDate();
-		} else if (!this.state.lastPlayedDate) {
+		if (!this.state.lastPlayedDate) {
 			this.updateLastPlayedDate();
 		}
 		if (!this.state.character.avatarUrl) this.state.character.avatarUrl = "⚔️";
@@ -150,6 +147,7 @@ export class StateManager {
 		// Migrate missing createdAt for habits
 		for (const habit of this.state.habits) {
 			if (!habit.createdAt) {
+				habit.createdAt = new Date().toISOString();
 			}
 		}
 
@@ -620,7 +618,6 @@ export class StateManager {
 			habit.history[dateStr] = "freeze";
 			
 			// Recalculate streak immediately
-			const { recalculateHabitStreak } = require("../engine/HabitManager");
 			habit.streak = recalculateHabitStreak(habit);
 			
 			// Consumes the item
@@ -986,9 +983,16 @@ export class StateManager {
 		if (!oldMeta) {
 			this.state.questRegistry[qId] = metadata;
 		} else {
-			// Reset penalty if the deadline has changed
+			// Warn if critical metadata is being changed unexpectedly
+			if (metadata.difficulty !== undefined && oldMeta.difficulty !== metadata.difficulty) {
+				console.warn(`[Quest Registry] Quest ${qId} difficulty changed from ${oldMeta.difficulty} to ${metadata.difficulty}`);
+			}
 			if (metadata.deadline !== undefined && oldMeta.deadline !== metadata.deadline) {
+				console.warn(`[Quest Registry] Quest ${qId} deadline changed from ${oldMeta.deadline} to ${metadata.deadline}`);
 				metadata.penalizedAt = null;
+			}
+			if (metadata.isHeading !== undefined && oldMeta.isHeading !== metadata.isHeading) {
+				console.warn(`[Quest Registry] Quest ${qId} heading status changed from ${oldMeta.isHeading} to ${metadata.isHeading}`);
 			}
 			
 			// Deep merge
@@ -1128,10 +1132,23 @@ export class StateManager {
 	generateQuestId(): string {
 		let id: string;
 		let attempts = 0;
+		const charset = "abcdefghijkmnopqrstuvwxyz23456789";
+		const charsetLen = charset.length;
+		
 		do {
-			id = Math.random().toString(36).substring(2, 6);
+			// Generate 6-char ID with better distribution
+			id = "";
+			for (let i = 0; i < 6; i++) {
+				id += charset[Math.floor(Math.random() * charsetLen)];
+			}
 			attempts++;
 		} while (this.state.questRegistry[id] && attempts < 100);
+		
+		// Fallback: append timestamp suffix if all attempts exhausted
+		if (this.state.questRegistry[id]) {
+			id = id + Date.now().toString(36).slice(-4);
+		}
+		
 		return id;
 	}
 }
