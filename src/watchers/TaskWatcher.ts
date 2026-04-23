@@ -478,12 +478,12 @@ export class TaskWatcher {
 				let changedCharacter = false;
 
 				for (const task of newlyCompleted) {
-					await this.processCompletedTask(task, settings);
+					await this.processCompletedTask(task, settings, currentTasks);
 					changedCharacter = true;
 				}
 
 				for (const task of newlyUncompleted) {
-					await this.processUncompletedTask(task, settings);
+					await this.processUncompletedTask(task, settings, currentTasks);
 					changedCharacter = true;
 				}
 
@@ -688,7 +688,8 @@ export class TaskWatcher {
 	/** Process a single completed task — award XP/GP, deal boss damage */
 	private async processCompletedTask(
 		task: TrackedTask,
-		settings: PluginSettings
+		settings: PluginSettings,
+		contextTasks?: TrackedTask[]
 	): Promise<void> {
 		// 1. Get Metadata (Registry Priority)
 		let metadata = parseTaskMetadata(task.text);
@@ -727,10 +728,15 @@ export class TaskWatcher {
 		// Determine if parent is a heading
 		let parentIsHeading = false;
 		if (task.isSubtask && task.parentId) {
-			const siblings = this.taskCache.get(task.filePath) || [];
+			const siblings = contextTasks || this.taskCache.get(task.filePath) || [];
 			const parent = siblings.find(t => t.id === task.parentId);
-			if (parent && parent.questId) {
-				parentIsHeading = this.stateManager.getQuestMetadata(parent.questId)?.isHeading || false;
+			if (parent) {
+				if (parent.questId) {
+					parentIsHeading = this.stateManager.getQuestMetadata(parent.questId)?.isHeading || false;
+				}
+				if (!parentIsHeading) {
+					parentIsHeading = parseTaskMetadata(parent.text).isHeading || false;
+				}
 			}
 		}
 
@@ -761,6 +767,20 @@ export class TaskWatcher {
 			this.stateManager.addLogEntry(entry);
 		}
 		this.stateManager.incrementTasksCompleted();
+
+		// --- Energy Persistence Fix ---
+		let finalQuestId = task.questId;
+		const hasEnergy = metadata.energyM || metadata.energyP || metadata.energyW;
+		
+		if (hasEnergy && !finalQuestId) {
+			// Ad-hoc task with energy: register it with a transient ID so it stays in the load
+			finalQuestId = this.stateManager.generateQuestId();
+			this.stateManager.registerQuestMetadata(finalQuestId, metadata);
+		}
+		
+		if (finalQuestId) {
+			this.stateManager.setQuestCompleted(finalQuestId, true);
+		}
 
 		// --- Boss damage ---
 		const activeBoss = this.stateManager.getActiveBoss();
@@ -845,7 +865,8 @@ export class TaskWatcher {
 	/** Process a single UN-completed task — revert XP/GP, heal boss damage */
 	private async processUncompletedTask(
 		task: TrackedTask,
-		settings: PluginSettings
+		settings: PluginSettings,
+		contextTasks?: TrackedTask[]
 	): Promise<void> {
 		let metadata = parseTaskMetadata(task.text);
 
@@ -868,10 +889,15 @@ export class TaskWatcher {
 		// Determine if parent is a heading
 		let parentIsHeading = false;
 		if (task.isSubtask && task.parentId) {
-			const siblings = this.taskCache.get(task.filePath) || [];
+			const siblings = contextTasks || this.taskCache.get(task.filePath) || [];
 			const parent = siblings.find(t => t.id === task.parentId);
-			if (parent && parent.questId) {
-				parentIsHeading = this.stateManager.getQuestMetadata(parent.questId)?.isHeading || false;
+			if (parent) {
+				if (parent.questId) {
+					parentIsHeading = this.stateManager.getQuestMetadata(parent.questId)?.isHeading || false;
+				}
+				if (!parentIsHeading) {
+					parentIsHeading = parseTaskMetadata(parent.text).isHeading || false;
+				}
 			}
 		}
 
@@ -890,11 +916,9 @@ export class TaskWatcher {
 			parentIsHeading,
 			comboCount
 		);
-
-		// Revert SP if lost
-		if (result.result.spEarned < 0) {
-			const points = this.stateManager.getSkillPoints();
-			this.stateManager.updateMetadata({ unspentSkillPoints: Math.max(0, points + result.result.spEarned) } as any);
+		// --- Energy Persistence Fix ---
+		if (task.questId) {
+			this.stateManager.setQuestCompleted(task.questId, false);
 		}
 
 		// Reset combo on uncheck (optional, but prevents abuse)

@@ -148,13 +148,6 @@ export function calculateTaskReward(
 	xp *= comboBonus;
 	gp *= comboBonus;
 
-	// Apply Subtask Penalty (25% yield)
-	// EXCEPTION: If the direct parent is a Heading, children get full rewards.
-	if (isSubtask && !parentIsHeading) {
-		xp *= 0.25;
-		gp *= 0.25;
-	}
-
 	return {
 		xp: Math.round(xp),
 		gp: Math.round(gp),

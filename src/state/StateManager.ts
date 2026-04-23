@@ -1002,6 +1002,38 @@ export class StateManager {
 		this.notify();
 	}
 
+	/** Record/Remove a quest completion for today's energy tracking */
+	setQuestCompleted(questId: string, completed: boolean): void {
+		if (!this.state.completedTodayQuestIds) {
+			this.state.completedTodayQuestIds = [];
+		}
+		
+		if (completed) {
+			if (!this.state.completedTodayQuestIds.includes(questId)) {
+				this.state.completedTodayQuestIds.push(questId);
+				
+				// Also remove from active burdens if present
+				if (this.state.activeQuestIds) {
+					this.state.activeQuestIds = this.state.activeQuestIds.filter(id => id !== questId);
+				}
+				
+				this.save();
+				this.notify();
+			}
+		} else {
+			// Uncompleting
+			if (this.state.completedTodayQuestIds.includes(questId)) {
+				this.state.completedTodayQuestIds = this.state.completedTodayQuestIds.filter(id => id !== questId);
+				
+				// We don't necessarily re-add to activeQuestIds here because the next 
+				// full vault scan will catch if it's still due today.
+				
+				this.save();
+				this.notify();
+			}
+		}
+	}
+
 	/**
 	 * Calculate the total energy load for a specific day.
 	 * Includes good habits and dated tasks (deadline, start, or end date matches target date).
