@@ -715,9 +715,10 @@ export class TaskWatcher {
 		// Only increment combo if this is a NEW completion (not re-completing already done task)
 		const now = new Date();
 		let comboCount = state.comboCount;
+		const comboWindow = settings.comboWindowMs || 600000; // Default: 10 minutes
 		if (state.lastTaskAt) {
 			const lastTime = new Date(state.lastTaskAt).getTime();
-			if (now.getTime() - lastTime < 600000) {
+			if (now.getTime() - lastTime < comboWindow) {
 				// Only increment if we haven't already counted this task today
 				// Using lastTaskAt to track - if same timestamp, don't increment
 				comboCount++;

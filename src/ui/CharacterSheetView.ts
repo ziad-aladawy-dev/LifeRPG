@@ -43,7 +43,6 @@ export class CharacterSheetView extends ItemView {
 	private activeTab: TabId = "stats";
 	private tabContentEl: HTMLElement | null = null;
 
-	// Panel instances (lazy-created)
 	private statsPanel: StatsPanel | null = null;
 	private questsPanel: QuestsPanel | null = null;
 	private habitsPanel: HabitsPanel | null = null;
@@ -54,6 +53,9 @@ export class CharacterSheetView extends ItemView {
 	private energyPanel: EnergyPanel | null = null;
 	private isChroniclePlaying = false;
 	private lastActiveTabId: TabId | null = null;
+
+	private ribbonEl: HTMLElement | null = null;
+	private ribbonValueEls: HTMLElement[] = [];
 
 	constructor(leaf: WorkspaceLeaf, stateManager: StateManager) {
 		super(leaf);
@@ -114,15 +116,32 @@ export class CharacterSheetView extends ItemView {
 	// -------------------------------------------------------------------
 
 	private buildUI(container: HTMLElement): void {
-		// Plugin title bar
 		const titleBar = container.createDiv({ cls: "life-rpg-title-bar" });
 		const titleContainer = titleBar.createDiv({ cls: "life-rpg-epic-container" });
 		titleContainer.createEl("span", { text: "⚔️", cls: "life-rpg-epic-icon" });
 		titleContainer.createEl("h2", { text: "OATHBOUND", cls: "life-rpg-epic-title" });
 
 		// Quick stats ribbon (always visible)
-		const ribbon = container.createDiv({ cls: "life-rpg-ribbon" });
-		ribbon.setAttribute("id", "life-rpg-ribbon");
+		this.ribbonEl = container.createDiv({ cls: "life-rpg-ribbon" });
+		this.ribbonEl.setAttribute("id", "life-rpg-ribbon");
+
+		const ribbonData = [
+			{ icon: "🏅", key: "level", title: "" },
+			{ icon: "❤️", key: "hp", title: "" },
+			{ icon: "⚡", key: "energy", title: "" },
+			{ icon: "✨", key: "xp", title: "" },
+			{ icon: "⭐", key: "sp", title: "Available / Total Skill Points\nTotal is earned from skill levels." },
+			{ icon: "💰", key: "gp", title: "" },
+		];
+
+		for (const item of ribbonData) {
+			const span = this.ribbonEl.createEl("span", { cls: "life-rpg-ribbon-item" });
+			if (item.title) span.title = item.title;
+			span.createEl("span", { text: item.icon, cls: "life-rpg-ribbon-icon" });
+			const valueEl = span.createEl("span", { text: "-", cls: "life-rpg-ribbon-value" });
+			valueEl.setAttribute("data-key", item.key);
+			this.ribbonValueEls.push(valueEl);
+		}
 
 		// Tab navigation
 		const tabNav = container.createDiv({ cls: "life-rpg-tab-nav" });
@@ -143,7 +162,6 @@ export class CharacterSheetView extends ItemView {
 			});
 		}
 
-		// Tab content area
 		this.tabContentEl = container.createDiv({ cls: "life-rpg-tab-content" });
 	}
 
@@ -282,39 +300,29 @@ export class CharacterSheetView extends ItemView {
 	}
 
 	private updateRibbon(): void {
-		const ribbon = this.contentEl.querySelector("#life-rpg-ribbon");
-		if (!ribbon) return;
-		ribbon.empty();
+		if (!this.ribbonEl) return;
 
 		const char = this.stateManager.getCharacter();
 		const modifiers = this.stateManager.getGlobalModifiers();
 		const finalMaxHp = char.maxHp + (modifiers.hpMax || 0);
 
-		const el = ribbon as HTMLElement;
-
 		const energy = this.stateManager.calculateDailyEnergyLoad();
 		const cap = this.stateManager.getSettings().dailyEnergyCap || 30;
 
-		const items = [
-			{ icon: "🏅", text: `Lv.${char.level}` },
-			{ icon: "❤️", text: `${char.hp}/${finalMaxHp}` },
-			{ icon: "⚡", text: `${energy.total}/${cap}` },
-			{ icon: "✨", text: `${char.xp}/${char.xpToNextLevel}` },
-			{ icon: "⭐", text: `${this.stateManager.getSkillPoints()} / ${this.stateManager.getTotalSkillPoints()} SP` },
-			{ icon: "💰", text: `${char.gp}` },
-		];
+		const values: Record<string, string> = {
+			level: `Lv.${char.level}`,
+			hp: `${char.hp}/${finalMaxHp}`,
+			energy: `${energy.total}/${cap}`,
+			xp: `${char.xp}/${char.xpToNextLevel}`,
+			sp: `${this.stateManager.getSkillPoints()} / ${this.stateManager.getTotalSkillPoints()}`,
+			gp: `${char.gp}`,
+		};
 
-		for (const item of items) {
-			const span = el.createEl("span", { cls: "life-rpg-ribbon-item" });
-			if (item.icon === "⭐") {
-				span.title = `Available / Total Skill Points\nTotal is earned from skill levels.`;
+		for (const el of this.ribbonValueEls) {
+			const key = el.getAttribute("data-key");
+			if (key && values[key] !== undefined) {
+				el.setText(values[key]);
 			}
-			const iconEl = span.createEl("span", { cls: "life-rpg-ribbon-icon" });
-			iconEl.setText(item.icon);
-			span.createEl("span", {
-				text: item.text,
-				cls: "life-rpg-ribbon-value",
-			});
 		}
 	}
 

@@ -42,6 +42,7 @@ export function parseTaskMetadata(lineText: string): TaskMetadata {
 /**
  * Extract energy scores from bracketed metadata.
  * Supports: [m: 5], [p: 2], [w: 1] OR [m: 5, p: 2, w: 1]
+ * Values are clamped to 0-5 range.
  */
 function parseEnergyScores(text: string): { energyM?: number, energyP?: number, energyW?: number } {
 	const result: { energyM?: number, energyP?: number, energyW?: number } = {};

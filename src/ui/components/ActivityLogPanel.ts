@@ -12,34 +12,30 @@ export class ActivityLogPanel {
 	public containerEl: HTMLElement;
 	private stateManager: StateManager;
 	private activeFilter: EventType | "all" = "all";
+	private headerEl: HTMLElement;
+	private filtersEl: HTMLElement;
+	private listEl: HTMLElement;
 
 	constructor(parentEl: HTMLElement, stateManager: StateManager) {
 		this.containerEl = parentEl.createDiv({ cls: "life-rpg-log-panel" });
 		this.stateManager = stateManager;
+		this.setupShell();
 	}
 
-	render(entries: EventLogEntry[]): void {
+	private setupShell() {
 		const el = this.containerEl;
-		el.empty();
+		
+		this.headerEl = el.createDiv({ cls: "life-rpg-panel-header" });
+		this.headerEl.createEl("h3", { text: "📜 Activity Log" });
 
-		// Header
-		const header = el.createDiv({ cls: "life-rpg-panel-header" });
-		header.createEl("h3", { text: "📜 Activity Log" });
+		this.filtersEl = el.createDiv({ cls: "life-rpg-log-filters" });
+		this.renderFilters();
 
-		if (entries.length > 0) {
-			const clearBtn = header.createEl("button", {
-				text: "Clear",
-				cls: "life-rpg-btn life-rpg-btn-small life-rpg-btn-danger",
-			});
-			clearBtn.addEventListener("click", () => {
-				if (confirm("Clear all log entries?")) {
-					this.stateManager.clearEventLog();
-				}
-			});
-		}
+		this.listEl = el.createDiv({ cls: "life-rpg-log-list" });
+	}
 
-		// Filters
-		const filters = el.createDiv({ cls: "life-rpg-log-filters" });
+	private renderFilters() {
+		this.filtersEl.empty();
 		const filterOptions: { label: string; icon?: string; value: EventType | "all" }[] = [
 			{ label: "All", value: "all" },
 			{ label: "Tasks", icon: "✅", value: EventType.TaskComplete },
@@ -50,7 +46,7 @@ export class ActivityLogPanel {
 		];
 
 		for (const opt of filterOptions) {
-			const btn = filters.createEl("button", {
+			const btn = this.filtersEl.createEl("button", {
 				cls: `life-rpg-filter-btn ${this.activeFilter === opt.value ? "life-rpg-filter-active" : ""}`,
 			});
 			if (opt.icon) {
@@ -63,30 +59,41 @@ export class ActivityLogPanel {
 				this.render(this.stateManager.getEventLog());
 			});
 		}
+	}
 
-		// Filter entries
+	render(entries: EventLogEntry[]): void {
+		const existingClearBtn = this.headerEl.querySelector(".life-rpg-btn-danger");
+		if (entries.length > 0 && !existingClearBtn) {
+			const clearBtn = this.headerEl.createEl("button", {
+				text: "Clear",
+				cls: "life-rpg-btn life-rpg-btn-small life-rpg-btn-danger",
+			});
+			clearBtn.addEventListener("click", () => {
+				if (confirm("Clear all log entries?")) {
+					this.stateManager.clearEventLog();
+				}
+			});
+		} else if (entries.length === 0 && existingClearBtn) {
+			existingClearBtn.remove();
+		}
+
 		const filtered =
 			this.activeFilter === "all"
 				? entries
 				: entries.filter((e) => {
 						if (this.activeFilter === EventType.HabitGood) {
-							return (
-								e.type === EventType.HabitGood ||
-								e.type === EventType.HabitBad
-							);
+							return (e.type === EventType.HabitGood || e.type === EventType.HabitBad);
 						}
 						if (this.activeFilter === EventType.BossDamageDealt) {
-							return (
-								e.type === EventType.BossDamageDealt ||
-								e.type === EventType.BossDefeated ||
-								e.type === EventType.BossAttack
-							);
+							return (e.type === EventType.BossDamageDealt || e.type === EventType.BossDefeated || e.type === EventType.BossAttack);
 						}
 						return e.type === this.activeFilter;
 					});
 
+		this.listEl.empty();
+
 		if (filtered.length === 0) {
-			el.createDiv({
+			this.listEl.createDiv({
 				cls: "life-rpg-empty-state",
 				text: this.activeFilter === "all"
 					? "No activity yet. Complete tasks, log habits, or fight bosses to start your journey!"
@@ -95,14 +102,12 @@ export class ActivityLogPanel {
 			return;
 		}
 
-		// Log entries list
-		const list = el.createDiv({ cls: "life-rpg-log-list" });
 		for (const entry of filtered.slice(0, 100)) {
-			this.renderLogEntry(list, entry);
+			this.renderLogEntry(this.listEl, entry);
 		}
 
 		if (filtered.length > 100) {
-			list.createEl("div", {
+			this.listEl.createEl("div", {
 				text: `... and ${filtered.length - 100} more entries`,
 				cls: "life-rpg-log-more",
 			});

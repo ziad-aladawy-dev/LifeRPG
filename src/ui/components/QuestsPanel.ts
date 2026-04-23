@@ -14,16 +14,23 @@ import { renderBadge } from "../../utils/uiUtils";
 export class QuestsPanel {
 	private app: any;
 	public containerEl: HTMLElement;
+	private toolbarEl: HTMLElement;
+	private listEl: HTMLElement;
 	private stateManager: StateManager;
+	private searchTimeout: any = null;
 
 	constructor(parentEl: HTMLElement, app: any, stateManager: StateManager) {
 		this.containerEl = parentEl.createDiv({ cls: "life-rpg-quests-panel" });
+		this.containerEl.createDiv({ cls: "life-rpg-panel-header" }).createEl("h3", { text: "📜 Active Quests" });
+		this.toolbarEl = this.containerEl.createDiv({ cls: "life-rpg-quests-toolbar-container" });
+		this.listEl = this.containerEl.createDiv({ cls: "life-rpg-quests-list-container" });
 		this.app = app;
 		this.stateManager = stateManager;
 	}
 
 	private renderToolbar(settings: PluginSettings): void {
-		const toolbar = this.containerEl.createDiv({ cls: "life-rpg-quests-toolbar" });
+		this.toolbarEl.empty();
+		const toolbar = this.toolbarEl.createDiv({ cls: "life-rpg-quests-toolbar" });
 
 		// 1. View Modes
 		const viewModes = toolbar.createDiv({ cls: "life-rpg-toolbar-group" });
@@ -63,7 +70,10 @@ export class QuestsPanel {
 		});
 		searchInput.addEventListener("input", (e) => {
 			const val = (e.target as HTMLInputElement).value;
-			this.stateManager.updateSettings({ questSearch: val });
+			if (this.searchTimeout) clearTimeout(this.searchTimeout);
+			this.searchTimeout = setTimeout(() => {
+				this.stateManager.updateSettings({ questSearch: val });
+			}, 300);
 		});
 
 		// 3. Sorting
@@ -141,7 +151,7 @@ export class QuestsPanel {
 	}
 
 	render(tasks: TrackedTask[], settings: PluginSettings, character: CharacterState, globalModifiers: ReturnType<typeof calculateGlobalModifiers>): void {
-		const el = this.containerEl;
+		const el = this.listEl;
 		
 		// Capture scroll of the nearest scrollable ancestor (usually .life-rpg-container)
 		const scrollContainer = el.closest(".life-rpg-container") || el;
@@ -149,9 +159,6 @@ export class QuestsPanel {
 		
 		el.empty();
 		el.addClass("life-rpg-quests-page");
-
-		const header = el.createDiv({ cls: "life-rpg-panel-header" });
-		header.createEl("h3", { text: "📜 Active Quests" });
 
 		// Render the toolbar
 		this.renderToolbar(settings);

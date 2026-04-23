@@ -9,6 +9,7 @@ export class QuestEditModal extends Modal {
 	private metadata: TaskMetadata;
 	private skills: Skill[];
 	private onSave: () => void;
+	private bodyEl: HTMLDivElement | null = null;
 
 	constructor(app: App, task: TrackedTask, stateManager: StateManager, skills: Skill[], onSave: () => void) {
 		super(app);
@@ -17,7 +18,6 @@ export class QuestEditModal extends Modal {
 		this.skills = skills;
 		this.onSave = onSave;
 
-		// Initialize metadata from registry or legacy tags
 		const existing = task.questId ? stateManager.getQuestMetadata(task.questId) : null;
 		this.metadata = existing ? { ...existing } : {
 			difficulty: Difficulty.Easy,
@@ -40,9 +40,15 @@ export class QuestEditModal extends Modal {
 			cls: "life-rpg-modal-subtitle" 
 		});
 
-		const body = contentEl.createDiv({ cls: "life-rpg-modal-body" });
+		this.bodyEl = contentEl.createDiv({ cls: "life-rpg-modal-body" });
+		this.renderBody();
+	}
 
-		// --- Heading Toggle ---
+	private renderBody() {
+		if (!this.bodyEl) return;
+		this.bodyEl.empty();
+		const body = this.bodyEl;
+
 		new Setting(body)
 			.setName("Is Complex Heading")
 			.setDesc("If enabled, this task acts as a container with no inherent reward. Focus on subtasks instead.")
@@ -50,7 +56,7 @@ export class QuestEditModal extends Modal {
 				.setValue(!!this.metadata.isHeading)
 				.onChange(v => {
 					this.metadata.isHeading = v;
-					this.onOpen(); // Re-render to show/hide other settings
+					this.renderBody();
 				}));
 
 		if (this.metadata.isHeading) {
@@ -59,7 +65,6 @@ export class QuestEditModal extends Modal {
 				cls: "life-rpg-modal-info-message" 
 			});
 		} else {
-			// --- Difficulty ---
 			new Setting(body)
 				.setName("Difficulty")
 				.setDesc("Higher difficulty grants more XP and GP, but deals more damage if missed.")
@@ -72,7 +77,6 @@ export class QuestEditModal extends Modal {
 					.setValue(String(this.metadata.difficulty))
 					.onChange(v => this.metadata.difficulty = Number(v) as Difficulty));
 
-			// --- Bound Skill ---
 			new Setting(body)
 				.setName("Bound Skill")
 				.setDesc("Associate this quest with a skill to earn specialized XP.")
@@ -85,7 +89,6 @@ export class QuestEditModal extends Modal {
 					drop.onChange(v => this.metadata.skillId = v === "none" ? null : v);
 				});
 
-			// --- Energy Load ---
 			body.createEl("h3", { text: "🔋 Energy Load", cls: "life-rpg-section-title" });
 			body.createEl("p", { 
 				text: "Rate the drain on each battery from 1 (Low) to 5 (High). Total load determines rewards.", 
@@ -120,17 +123,16 @@ export class QuestEditModal extends Modal {
 					.onChange(v => this.metadata.energyW = v));
 		}
 
-		// --- Date & Time ---
 		body.createEl("h3", { text: "⏱️ Schedule", cls: "life-rpg-section-title" });
 
-		const timeToggle = new Setting(body)
+		new Setting(body)
 			.setName("Include Time")
 			.setDesc("If enabled, deadlines will trigger at a specific hour/minute.")
 			.addToggle(toggle => toggle
 				.setValue(!!this.metadata.includeTime)
 				.onChange(v => {
 					this.metadata.includeTime = v;
-					this.onOpen(); // Re-render to update input types
+					this.renderBody();
 				}));
 
 		const dateType = this.metadata.includeTime ? "datetime-local" : "date";
@@ -141,7 +143,7 @@ export class QuestEditModal extends Modal {
 			.addText(text => {
 				text.inputEl.type = dateType;
 				text.setValue(this.formatDateForInput(this.metadata.startDate))
-					.onChange(v => this.metadata.startDate = v ? new Date(v).toISOString() : null);
+					.onChange(v => this.metadata.startDate = this.safeIsoDate(v));
 			});
 
 		new Setting(body)
@@ -151,14 +153,13 @@ export class QuestEditModal extends Modal {
 				text.inputEl.type = dateType;
 				text.setValue(this.formatDateForInput(this.metadata.endDate || this.metadata.deadline))
 					.onChange(v => {
-						const iso = v ? new Date(v).toISOString() : null;
+						const iso = this.safeIsoDate(v);
 						this.metadata.endDate = iso;
-						this.metadata.deadline = iso; // Synced for safety
+						this.metadata.deadline = iso;
 					});
 			});
 
-		// Footer
-		const footer = contentEl.createDiv({ cls: "life-rpg-modal-footer" });
+		const footer = body.createDiv({ cls: "life-rpg-modal-footer" });
 		const saveBtn = footer.createEl("button", { text: "Save Changes", cls: "life-rpg-btn life-rpg-btn-primary" });
 		saveBtn.onclick = async () => {
 			let qId = this.task.questId;
@@ -171,15 +172,21 @@ export class QuestEditModal extends Modal {
 				}
 			}
 			
-			this.task.questId = qId; // Update locally for immediate UI response
+			this.task.questId = qId;
 			this.stateManager.registerQuestMetadata(qId, this.metadata);
 			new Notice("✅ Settings applied.");
 			this.onSave();
-			// Stay open for further edits as requested
 		};
 
 		const closeBtn = footer.createEl("button", { text: "Close", cls: "life-rpg-btn" });
 		closeBtn.onclick = () => this.close();
+	}
+
+	private safeIsoDate(v: string | null): string | null {
+		if (!v) return null;
+		const date = new Date(v);
+		if (isNaN(date.getTime())) return null;
+		return date.toISOString();
 	}
 
 	private formatDateForInput(iso: string | null | undefined): string {

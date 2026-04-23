@@ -384,7 +384,11 @@ export function revertDungeonProgress(
 	logEntries: EventLogEntry[];
 } {
 	const logEntries: EventLogEntry[] = [];
-	const updated: Dungeon = JSON.parse(JSON.stringify(dungeon));
+	// Deep clone dungeon with its stages to allow mutations
+	const updated: Dungeon = {
+		...dungeon,
+		stages: dungeon.stages.map(s => ({ ...s }))
+	};
 
 	if (updated.currentStage >= updated.stages.length) {
 		return { dungeon: updated, logEntries };
